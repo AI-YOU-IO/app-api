@@ -42,8 +42,8 @@ class PersonaModel {
     async createPersona({ id_estado, celular, nombre_completo, id_usuario, id_empresa, usuario_registro, id_tipo_persona = 1 }) {
         try {
             const [result] = await this.connection.execute(
-                'INSERT INTO persona (id_estado, celular, id_usuario, id_empresa, id_tipo_persona, usuario_registro, usuario_actualizacion) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
-                [id_estado, celular, id_usuario || null, id_empresa, id_tipo_persona, usuario_registro]
+                'INSERT INTO persona (id_estado, celular, nombre_completo, id_usuario, id_empresa, id_tipo_persona, usuario_registro, usuario_actualizacion) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
+                [id_estado, celular, nombre_completo, id_usuario || null, id_empresa, id_tipo_persona, usuario_registro]
             );
 
             const [rows] = await this.connection.execute(
