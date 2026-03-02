@@ -57,8 +57,8 @@ class LlamadaModel {
         try {
             const [result] = await this.connection.execute(
                 `INSERT INTO llamada
-                (id_empresa, id_campania, id_base_numero, id_base_numero_detalle, provider_call_id, estado_registro)
-                VALUES (?, ?, ?, ?, ?, 1)`,
+                (id_empresa, id_campania, id_base_numero, id_base_numero_detalle, provider_call_id, id_estado_llamada, estado_registro)
+                VALUES (?, ?, ?, ?, ?, 1, 1)`,
                 [
                     id_empresa,
                     id_campania,
@@ -76,11 +76,11 @@ class LlamadaModel {
         }
     }
 
-    async actualizarTipificacion(id, id_tipificacion_llamada) {
+    async actualizarTipificacion(provider_call_id, id_tipificacion_llamada) {
         try {
             const [result] = await this.connection.execute(
-                `UPDATE llamada SET id_tipificacion_llamada = ? WHERE id = ?`,
-                [id_tipificacion_llamada, id]
+                `UPDATE llamada SET id_tipificacion_llamada = ? WHERE provider_call_id = ?`,
+                [id_tipificacion_llamada, provider_call_id]
             );
 
             return true;

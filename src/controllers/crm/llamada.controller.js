@@ -70,10 +70,10 @@ class LlamadaController {
 
     async actualizarTipificacion(req, res) {
         try {
-            const { id, id_tipificacion_llamada } = req.body;
+            const { providerCallId, id_tipificacion_llamada } = req.body;
 
             const llamadaModel = new LlamadaModel();
-            await llamadaModel.actualizarTipificacion(id, id_tipificacion_llamada);
+            await llamadaModel.actualizarTipificacion(providerCallId, id_tipificacion_llamada);
 
             return res.status(201).json({ msg: "Llamada creada exitosamente", data: { id } });
         } catch (error) {
