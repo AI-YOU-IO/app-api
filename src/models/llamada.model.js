@@ -8,9 +8,16 @@ class LlamadaModel {
     async getAll(id_empresa) {
         try {
             const [rows] = await this.connection.execute(
-                `SELECT * FROM llamada
-                WHERE id_empresa = ? AND estado_registro = 1
-                ORDER BY fecha_registro DESC`,
+                `SELECT l.*,
+                        tl.nombre as tipificacion_llamada_nombre, tl.color as tipificacion_llamada_color,
+                        ca.nombre as campania_nombre,
+                        bnd.telefono, bnd.nombre as contacto_nombre, bnd.numero_documento
+                FROM llamada l
+                LEFT JOIN tipificacion_llamada tl ON tl.id = l.id_tipificacion_llamada
+                LEFT JOIN campania ca ON ca.id = l.id_campania
+                LEFT JOIN base_numero_detalle bnd ON bnd.id = l.id_base_numero_detalle
+                WHERE l.id_empresa = ? AND l.estado_registro = 1
+                ORDER BY l.fecha_registro DESC`,
                 [id_empresa]
             );
             return rows;
@@ -46,16 +53,17 @@ class LlamadaModel {
         }
     }
 
-    async create({ id_empresa, id_campania, id_base_numero, provider_call_id }) {
+    async create({ id_empresa, id_campania, id_base_numero, id_base_numero_detalle, provider_call_id }) {
         try {
             const [result] = await this.connection.execute(
                 `INSERT INTO llamada
-                (id_empresa, id_campania, id_base_numero, provider_call_id, estado_registro)
-                VALUES (?, ?, ?, ?, 1)`,
+                (id_empresa, id_campania, id_base_numero, id_base_numero_detalle, provider_call_id, estado_registro)
+                VALUES (?, ?, ?, ?, ?, 1)`,
                 [
                     id_empresa,
                     id_campania,
                     id_base_numero,
+                    id_base_numero_detalle || null,
                     provider_call_id
                 ]
             );

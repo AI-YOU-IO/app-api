@@ -31,23 +31,23 @@ class TipificacionModel {
     return result.insertId;
   }
 
-  async update(id, data) {
+  async update(id, data, id_empresa) {
     const { nombre, descripcion, orden, color } = data;
     const ordenValue = orden !== undefined && orden !== null ? orden : 0;
 
-    let query = `UPDATE tipificacion_llamada SET nombre = ?, descripcion = ?, orden = ?, color = ? WHERE id = ?`;
-    const params = [nombre, descripcion || null, ordenValue, color || null, id];
+    let query = `UPDATE tipificacion_llamada SET nombre = ?, descripcion = ?, orden = ?, color = ? WHERE id = ? AND id_empresa = ?`;
+    const params = [nombre, descripcion || null, ordenValue, color || null, id, id_empresa];
 
-    await this.connection.execute(query, params);
-    return true;
+    const [result] = await this.connection.execute(query, params);
+    return result.affectedRows > 0;
   }
 
-  async delete(id) {
-    let query = `DELETE FROM tipificacion_llamada WHERE id = ?`;
-    const params = [id];
+  async delete(id, id_empresa) {
+    let query = `DELETE FROM tipificacion_llamada WHERE id = ? AND id_empresa = ?`;
+    const params = [id, id_empresa];
 
-    await this.connection.execute(query, params);
-    return true;
+    const [result] = await this.connection.execute(query, params);
+    return result.affectedRows > 0;
   }
 }
 

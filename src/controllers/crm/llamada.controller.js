@@ -46,7 +46,7 @@ class LlamadaController {
     async create(req, res) {
         try {
             const { idEmpresa } = req.user;
-            const { id_campania, id_base_numero, provider_call_id } = req.body;
+            const { id_campania, id_base_numero, id_base_numero_detalle, provider_call_id } = req.body;
 
             if (!id_campania || !id_base_numero || !provider_call_id) {
                 return res.status(400).json({ msg: "Los campos id_campania, id_base_numero y provider_call_id son requeridos" });
@@ -57,6 +57,7 @@ class LlamadaController {
                 id_empresa: idEmpresa,
                 id_campania,
                 id_base_numero,
+                id_base_numero_detalle,
                 provider_call_id
             });
 

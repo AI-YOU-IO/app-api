@@ -7,5 +7,6 @@ router.get("/tipificacion-llamada", TipificacionLlamadaController.getAllTipifica
 router.post("/tipificacion-llamada", TipificacionLlamadaController.createTipificacion);
 router.get("/tipificacion-llamada/:id", TipificacionLlamadaController.getTipificacionById);
 router.put("/tipificacion-llamada/:id", TipificacionLlamadaController.updateTipificacion);
+router.delete("/tipificacion-llamada/:id", TipificacionLlamadaController.deleteTipificacion);
 
 module.exports = router;

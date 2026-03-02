@@ -2,6 +2,18 @@ const PersonaModel = require("../../models/persona.model.js");
 const logger = require('../../config/logger/loggerClient.js');
 
 class PersonaController {
+  async listAll(req, res) {
+    try {
+      const { userId, rolId, idEmpresa } = req.user || {};
+      const personas = await PersonaModel.getAllByTipoUsuario(userId, rolId, idEmpresa);
+
+      return res.status(200).json({ data: personas });
+    } catch (error) {
+      logger.error(`[persona.controller.js] Error al listar personas: ${error.message}`);
+      return res.status(500).json({ msg: "Error al listar personas" });
+    }
+  }
+
   async getById(req, res) {
     try {
       const { id } = req.params;
@@ -21,7 +33,23 @@ class PersonaController {
   async create(req, res) {
     try {
       const { userId, idEmpresa } = req.user || {};
-      const persona = await PersonaModel.createPersona({ ...req.body, usuario_registro: userId, id_empresa: idEmpresa });
+      const body = { ...req.body };
+
+      // Mapear campos del frontend a columnas reales de BD (mismo mapeo que updatePersona)
+      if (body.id_tipificacion_asesor !== undefined) {
+        body.id_tipificacion = body.id_tipificacion_asesor;
+        delete body.id_tipificacion_asesor;
+      }
+      if (body.id_asesor !== undefined) {
+        body.id_usuario = body.id_asesor;
+        delete body.id_asesor;
+      }
+      if (body.id_plan !== undefined) {
+        body.id_catalogo = body.id_plan;
+        delete body.id_plan;
+      }
+
+      const persona = await PersonaModel.createPersona({ ...body, usuario_registro: userId, id_empresa: idEmpresa });
 
       return res.status(201).json({ data: persona });
     } catch (error) {

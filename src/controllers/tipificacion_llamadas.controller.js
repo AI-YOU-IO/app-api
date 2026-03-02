@@ -58,6 +58,7 @@ class TipificacionLlamadaController {
 
   async updateTipificacion(req, res) {
     try {
+      const { idEmpresa } = req.user || {};
       const { id } = req.params;
       const { nombre, descripcion, orden, color } = req.body;
 
@@ -65,8 +66,7 @@ class TipificacionLlamadaController {
         return res.status(400).json({ msg: "El nombre es requerido" });
       }
 
-      
-      await TipificacionLlamadaModel.update(id, { nombre, descripcion, orden, color });
+      await TipificacionLlamadaModel.update(id, { nombre, descripcion, orden, color }, idEmpresa);
 
       return res.status(200).json({ msg: "Tipificación actualizada exitosamente" });
     } catch (error) {

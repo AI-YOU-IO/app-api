@@ -39,11 +39,12 @@ class PersonaModel {
     /**
      * Crea un nuevo registro de persona
      */
-    async createPersona({ id_estado, celular, nombre_completo, id_usuario, id_empresa, usuario_registro, id_tipo_persona = 1 }) {
+    async createPersona({ id_estado, celular, id_usuario, id_empresa, usuario_registro, id_tipo_persona = 1, nombre_completo, dni, direccion, id_tipificacion, id_catalogo }) {
         try {
             const [result] = await this.connection.execute(
-                'INSERT INTO persona (id_estado, celular, nombre_completo, id_usuario, id_empresa, id_tipo_persona, usuario_registro, usuario_actualizacion) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
-                [id_estado, celular, nombre_completo, id_usuario || null, id_empresa, id_tipo_persona, usuario_registro]
+                `INSERT INTO persona (id_estado, celular, id_usuario, id_empresa, id_tipo_persona, usuario_registro, usuario_actualizacion, nombre_completo, dni, direccion, id_tipificacion, id_catalogo)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [id_estado, celular, id_usuario || null, id_empresa, id_tipo_persona, usuario_registro, usuario_registro, nombre_completo || null, dni || null, direccion || null, id_tipificacion || null, id_catalogo || null]
             );
 
             const [rows] = await this.connection.execute(
@@ -59,7 +60,7 @@ class PersonaModel {
 
     static UPDATABLE_FIELDS = [
         'id_estado', 'id_usuario', 'nombre_completo', 'dni', 'direccion',
-        'celular', 'id_tipificacion', 'id_tipificacion_llamada', 'id_empresa', 'id_tipo_persona',
+        'celular', 'id_tipificacion', 'id_empresa', 'id_tipo_persona',
         'id_catalogo', 'fue_prospecto', 'usuario_actualizacion'
     ];
 
@@ -141,13 +142,11 @@ class PersonaModel {
                        e.nombre as estado_nombre, e.color as estado_color,
                        t.nombre as tipificacion_nombre, t.color as tipificacion_color,
                        t.nombre as tipificacion_asesor_nombre, t.color as tipificacion_asesor_color,
-                       tb.nombre as tipificacion_bot_nombre, tb.color as tipificacion_bot_color,
                        c.nombre as plan_nombre,
                        u.username as asesor_nombre
                 FROM persona p
                 LEFT JOIN estado e ON e.id = p.id_estado
                 LEFT JOIN tipificacion t ON t.id = p.id_tipificacion
-                LEFT JOIN tipificacion tb ON tb.id = p.id_tipificacion_llamada
                 LEFT JOIN catalogo c ON c.id = p.id_catalogo
                 LEFT JOIN usuario u ON u.id = p.id_usuario
                 WHERE p.estado_registro = 1`;
@@ -178,13 +177,11 @@ class PersonaModel {
                 SELECT p.*,
                        e.nombre as estado_nombre, e.color as estado_color,
                        t.nombre as tipificacion_nombre, t.color as tipificacion_color,
-                       tb.nombre as tipificacion_bot_nombre, tb.color as tipificacion_bot_color,
                        c.nombre as plan_nombre,
                        u.username as asesor_nombre
                 FROM persona p
                 LEFT JOIN estado e ON e.id = p.id_estado
                 LEFT JOIN tipificacion t ON t.id = p.id_tipificacion
-                LEFT JOIN tipificacion tb ON tb.id = p.id_tipificacion_llamada
                 LEFT JOIN catalogo c ON c.id = p.id_catalogo
                 LEFT JOIN usuario u ON u.id = p.id_usuario
                 WHERE p.estado_registro = 1
