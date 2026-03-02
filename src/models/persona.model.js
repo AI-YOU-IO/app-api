@@ -137,13 +137,13 @@ class PersonaModel {
                        e.nombre as estado_nombre, e.color as estado_color,
                        t.nombre as tipificacion_nombre, t.color as tipificacion_color,
                        t.nombre as tipificacion_asesor_nombre, t.color as tipificacion_asesor_color,
-                       tb.nombre as tipificacion_bot_nombre, tb.color as tipificacion_bot_color,
+                       tl.nombre as tipificacion_llamada_nombre, tl.color as tipificacion_llamada_color,
                        c.nombre as plan_nombre,
                        u.username as asesor_nombre
                 FROM persona p
                 LEFT JOIN estado e ON e.id = p.id_estado
                 LEFT JOIN tipificacion t ON t.id = p.id_tipificacion
-                LEFT JOIN tipificacion tb ON tb.id = p.id_tipificacion_bot
+                LEFT JOIN tipificacion_llamada tl ON tl.id = p.id_tipificacion_llamada
                 LEFT JOIN catalogo c ON c.id = p.id_catalogo
                 LEFT JOIN usuario u ON u.id = p.id_usuario
                 WHERE p.estado_registro = 1`;
@@ -174,13 +174,13 @@ class PersonaModel {
                 SELECT p.*,
                        e.nombre as estado_nombre, e.color as estado_color,
                        t.nombre as tipificacion_nombre, t.color as tipificacion_color,
-                       tb.nombre as tipificacion_bot_nombre, tb.color as tipificacion_bot_color,
+                       tl.nombre as tipificacion_llamada_nombre, tl.color as tipificacion_llamada_color,
                        c.nombre as plan_nombre,
                        u.username as asesor_nombre
                 FROM persona p
                 LEFT JOIN estado e ON e.id = p.id_estado
                 LEFT JOIN tipificacion t ON t.id = p.id_tipificacion
-                LEFT JOIN tipificacion tb ON tb.id = p.id_tipificacion_bot
+                LEFT JOIN tipificacion_llamada tl ON tl.id = p.id_tipificacion_llamada
                 LEFT JOIN catalogo c ON c.id = p.id_catalogo
                 LEFT JOIN usuario u ON u.id = p.id_usuario
                 WHERE p.estado_registro = 1
