@@ -1,5 +1,4 @@
 const { pool } = require("../config/dbConnection.js");
-const bcrypt = require("bcrypt");
 
 class UsuarioModel {
   constructor(dbConnection = null) {
@@ -95,19 +94,11 @@ class UsuarioModel {
          WHERE u.username = ? AND u.estado_registro = 1`,
         [username]
       );
+      if (rows.length === 0) return undefined;
 
-      if (rows.length === 0) {
-        return null;
-      }
-
-      const usuario = rows[0];
-      const passwordMatch = await bcrypt.compare(password, usuario.password);
-
-      if (passwordMatch) {
-        return usuario;
-      }
-
-      return null;
+      const user = rows[0];
+      const match = await bcrypt.compare(password, user.password);
+      return match ? user : undefined;
     } catch (error) {
       throw new Error(`Error al obtener usuario: ${error.message}`);
     }
@@ -115,10 +106,11 @@ class UsuarioModel {
 
   async create({ id_rol, username, password, id_sucursal, id_padre, id_empresa }) {
     try {
+      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
       const [result] = await this.connection.execute(
         `INSERT INTO usuario (id_rol, username, password, id_sucursal, id_padre, id_empresa, estado_registro, fecha_registro, usuario_registro, fecha_actualizacion, usuario_actualizacion)
          VALUES (?, ?, ?, ?, ?, ?, 1, NOW(), 'admin', NOW(), 'admin')`,
-        [id_rol, username, password, id_sucursal || null, id_padre || null, id_empresa || null]
+        [id_rol, username, hashedPassword, id_sucursal || null, id_padre || null, id_empresa || null]
       );
       return result.insertId;
     } catch (error) {
@@ -132,8 +124,9 @@ class UsuarioModel {
       let params = [id_rol, username, id_sucursal || null, id_padre || null, id_empresa || null];
 
       if (password) {
+        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
         query += `, password = ?`;
-        params.push(password);
+        params.push(hashedPassword);
       }
 
       query += ` WHERE id = ?`;
@@ -178,10 +171,11 @@ class UsuarioModel {
   async verifyPassword(id, password) {
     try {
       const [rows] = await this.connection.execute(
-        `SELECT id FROM usuario WHERE id = ? AND password = ?`,
-        [id, password]
+        `SELECT password FROM usuario WHERE id = ?`,
+        [id]
       );
-      return rows.length > 0;
+      if (rows.length === 0) return false;
+      return bcrypt.compare(password, rows[0].password);
     } catch (error) {
       throw new Error(`Error al verificar contraseña: ${error.message}`);
     }
@@ -189,9 +183,10 @@ class UsuarioModel {
 
   async updatePassword(id, newPassword) {
     try {
+      const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
       const [result] = await this.connection.execute(
         `UPDATE usuario SET password = ?, fecha_actualizacion = NOW() WHERE id = ?`,
-        [newPassword, id]
+        [hashedPassword, id]
       );
       return result.affectedRows > 0;
     } catch (error) {

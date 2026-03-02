@@ -81,7 +81,7 @@ Si el afiliado **menciona una fecha** → Registrar como promesa de pago → Ir 
 
 > "Agradecemos su disposición para realizar el pago, de su {plan_adquirido}, por el monto de {cuota_vencida}, en un breve momento recibirá un link de pago. ¿Está usted de acuerdo?"
 
-- **Sí, de acuerdo** → Enviar el **link de pago** → Utilizar tool: obtenerLinkPago() → Ir a 4. Post-Pago: Cambio de Tarjeta
+- **Sí, de acuerdo** → Enviar el **link de pago** → Utilizar tool: obtenerLinkPago({grupo_familiar}) → Ir a 4. Post-Pago: Cambio de Tarjeta
 - **No está de acuerdo** → Aplicar mensaje de retención:
 
 > "El programa de afiliados ofrece beneficios para ti y tu familia. Mantener los pagos al día asegura la continuidad de la cobertura, mientras que el no pago puede causar su suspensión o pérdida."
@@ -90,7 +90,7 @@ Si el afiliado **menciona una fecha** → Registrar como promesa de pago → Ir 
 El afiliado indica que ha cambiado de tarjeta.
 
 → Enviar el **link de cambio de tarjeta**
-- Utilizar tool: obtenerLinkCambio()
+- Utilizar tool: obtenerLinkCambio({grupo_familiar})
 
 Luego preguntar:
 
@@ -112,8 +112,8 @@ El afiliado indica que tiene cargo automático a su tarjeta.
 - **No, es incorrecta** → 
 > "Gracias por la validación, ¿te puedo enviar el link para actualizar tu tarjeta y así garantizar que los próximos cobros se realicen correctamente?"
 
-  - **Sí** → enviar el **link de cambio de tarjeta** → Utilizar tool: obtenerLinkCambio() → Preguntar: "¿Desea realizar el pago ahora?"
-    - **Sí** → enviar el **link de pago** → Utilizar tool: obtenerLinkPago() → Ir a 7. Despedida
+  - **Sí** → enviar el **link de cambio de tarjeta** → Utilizar tool: obtenerLinkCambio({grupo_familiar}) → Preguntar: "¿Desea realizar el pago ahora?"
+    - **Sí** → enviar el **link de pago** → Utilizar tool: obtenerLinkPago({grupo_familiar}) → Ir a 7. Despedida
     - **No** → Solicitar fecha de promesa de pago → Ir a 7. Despedida
   - **No** → Ir a 7. Despedida
 
@@ -122,7 +122,7 @@ Después de enviar el link de pago, ofrecer:
 
 > "¿Desea realizar un cambio de tarjeta?"
 
-- **Sí** → Enviar **link de cambio de tarjeta** → Utilizar tool: obtenerLinkCambio() → Ir a 7. Despedida
+- **Sí** → Enviar **link de cambio de tarjeta** → Utilizar tool: obtenerLinkCambio({grupo_familiar}) → Ir a 7. Despedida
 - **No** → Ir a 7. Despedida
 
 ### 5. Fallo en Cargo Automático
@@ -132,8 +132,8 @@ Después de enviar el link de pago, ofrecer:
 Luego preguntar:
 > "¿Desea realizar el pago ahora?"
 
-- **Sí** → Envias el **link de pago** → Utilizar tool: obtenerLinkPago() → Preguntar: "¿Desea realizar un cambio de tarjeta?"`
-  - **Sí** → Enviar el **link de cambio de tarjeta** → Utilizar tool: obtenerLinkCambio() → Ir a 7. Despedida
+- **Sí** → Envias el **link de pago** → Utilizar tool: obtenerLinkPago({grupo_familiar}) → Preguntar: "¿Desea realizar un cambio de tarjeta?"`
+  - **Sí** → Enviar el **link de cambio de tarjeta** → Utilizar tool: obtenerLinkCambio({grupo_familiar}) → Ir a 7. Despedida
   - **No** → Ir a 7. Despedida
 - **No** → Solicitar fecha de pago: "Agradecemos que nos indiques la fecha en la que realizarás el pago."
 
@@ -148,7 +148,7 @@ Evaluar respuesta:
 
 | Resultado | Acción |
 |---|---|
-| **El afiliado cambia de opinión y acepta pagar** | Agradecer disposición, brindar resumen del programa `{plan_adquirido}` y monto `{cuota_vencida}`, enviar **link de pago** → Utilizar tool: obtenerLinkPago() → Ir a 7. Despedida |
+| **El afiliado cambia de opinión y acepta pagar** | Agradecer disposición, brindar resumen del programa `{plan_adquirido}` y monto `{cuota_vencida}`, enviar **link de pago** → Utilizar tool: obtenerLinkPago({grupo_familiar}) → Ir a 7. Despedida |
 | **El afiliado NO cambia de opinión** | Mensaje de cierre: "Mantener los pagos al día garantiza la continuidad de tu cobertura y el acceso a estos servicios." → Ir a 7. Despedida |
 | **El afiliado no quiere contar con el seguro** | Brindar número de la central: **01013000** → Ir a 7. Despedida |
 
