@@ -2,6 +2,7 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const path = require('path');
+const setupSwagger = require('./config/swagger');
 
 const messageProcessingRoutes = require('./routes/messageProcessing.route.js');
 const { responseHandler } = require('./middlewares/response.middleware.js');
@@ -64,6 +65,9 @@ app.use('/api/assistant', messageProcessingRoutes);
 app.get('/health', (req, res) => {
   res.success(200, 'Health check');
 });
+
+// Swagger UI (DESPUÉS de registrar todas las rutas para auto-discovery)
+setupSwagger(app);
 
 // Manejo de rutas no encontradas
 app.use((req, res) => {
