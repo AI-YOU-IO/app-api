@@ -1,5 +1,6 @@
 const LlamadaModel = require("../../models/llamada.model.js");
 const logger = require('../../config/logger/loggerClient.js');
+const llamadaService = require('../../services/llamada/llamada.service.js');
 
 class LlamadaController {
     async getAll(req, res) {

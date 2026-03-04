@@ -22,6 +22,7 @@ const TipoPersonaModel = require("../../models/tipoPersona.model.js");
 const { pool } = require("../../config/dbConnection.js");
 const logger = require('../../config/logger/loggerClient.js');
 const xlsx = require('xlsx');
+const llamadaService = require('../../services/llamada/llamada.service.js');
 
 class ConfiguracionController {
   // ==================== ROLES ====================
@@ -1900,44 +1901,44 @@ class ConfiguracionController {
 
   async ejecutarCampania(req, res) {
     try {
-      const { id_campania } = req.body;
+      const { id_campania, ids_base_numero } = req.body;
       const id_empresa = req.user?.id_empresa || 1;
       const usuario_registro = req.user?.userId || null;
 
-      if (!id_campania) {
-        return res.status(400).json({ msg: "La campania es requerida" });
+      if (!id_campania || !ids_base_numero?.length) {
+        return res.status(400).json({ msg: "La campania e ids_base_numero son requeridos" });
       }
 
-      // Obtener bases de la campania
-      const campaniaBaseModel = new CampaniaBaseNumeroModel();
-      const bases = await campaniaBaseModel.getByCampania(id_campania);
-
-      if (bases.length === 0) {
-        return res.status(400).json({ msg: "La campania no tiene bases de numeros asignadas" });
-      }
-
-      // Crear ejecuciones para cada base
+      // Crear ejecucion
       const ejecucionModel = new CampaniaEjecucionModel();
-      const ejecuciones = [];
-
-      for (const base of bases) {
-        const id = await ejecucionModel.create({
-          id_empresa,
-          id_campania,
-          id_base_numero: base.id_base_numero,
-          fecha_programada: new Date(),
-          usuario_registro
-        });
-        ejecuciones.push({ id, id_base_numero: base.id_base_numero, base_nombre: base.base_nombre });
-      }
-
-      return res.status(201).json({
-        msg: "Ejecucion de campania iniciada",
-        data: {
-          total_bases: bases.length,
-          ejecuciones
-        }
+      const idEjecucion = await ejecucionModel.create({
+        id_empresa,
+        id_campania,
+        id_base_numero: ids_base_numero[0],
+        fecha_programada: new Date(),
+        usuario_registro
       });
+
+      // Obtener tipificaciones
+      const [tipificaciones] = await pool.execute(
+        `SELECT * FROM tipificacion_llamada WHERE id_empresa = ${id_empresa} estado_registro = 1`
+      );
+
+      // Responder inmediatamente
+      res.status(202).json({
+        msg: "Ejecucion iniciada en segundo plano",
+        data: { id_ejecucion: idEjecucion, ids_base_numero }
+      });
+
+      // Procesar llamadas en background
+      llamadaService.procesarLlamadasAsync({
+        idEjecucion,
+        idCampania: id_campania,
+        idsBaseNumero: ids_base_numero,
+        idEmpresa: id_empresa,
+        tipificaciones
+      });
+
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al ejecutar campania: ${error.message}`);
       return res.status(500).json({ msg: error.message || "Error al ejecutar campania" });
