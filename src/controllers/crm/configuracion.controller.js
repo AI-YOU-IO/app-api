@@ -1391,7 +1391,7 @@ class ConfiguracionController {
       }
 
       // Campos fijos de base_numero_detalle
-      const camposFijos = ['telefono', 'nombre', 'correo', 'tipo_documento', 'numero_documento'];
+      const camposFijos = ['telefono', 'nombre', 'correo', 'tipo_documento', 'numero_documento', 'tipo_persona'];
       const camposFormato = formato.campos || [];
 
       // ========== VALIDAR ESTRUCTURA DEL ARCHIVO ==========
@@ -1472,6 +1472,7 @@ class ConfiguracionController {
           correo: null,
           tipo_documento: null,
           numero_documento: null,
+          id_tipo_persona: null,
           json_adicional: {}
         };
         let tieneError = false;
@@ -1486,7 +1487,20 @@ class ConfiguracionController {
 
           // Verificar si es un campo fijo
           if (camposFijos.includes(headerLower)) {
-            registro[headerLower] = valor !== '' ? String(valor) : null;
+            if (headerLower === 'tipo_persona') {
+              // Mapear tipo_persona del Excel a id_tipo_persona
+              const valorLower = String(valor).toLowerCase().trim();
+              if (valorLower === 'cliente' || valorLower === '2') {
+                registro.id_tipo_persona = 2;
+              } else if (valorLower === 'prospecto' || valorLower === '1') {
+                registro.id_tipo_persona = 1;
+              } else if (valor !== '' && valor !== null && valor !== undefined) {
+                const parsed = parseInt(valor);
+                registro.id_tipo_persona = isNaN(parsed) ? null : parsed;
+              }
+            } else {
+              registro[headerLower] = valor !== '' ? String(valor) : null;
+            }
           } else {
             // Buscar en los campos del formato
             const campoFormato = camposFormato.find(c =>
@@ -1758,7 +1772,7 @@ class ConfiguracionController {
 
   async createCampania(req, res) {
     try {
-      const { nombre, descripcion, id_tipo_campania } = req.body;
+      const { nombre, descripcion, id_tipo_campania, id_formato } = req.body;
       const id_empresa = req.user?.id_empresa || 1;
       const usuario_registro = req.user?.userId || null;
 
@@ -1766,12 +1780,21 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El nombre es requerido" });
       }
 
+      if (!id_tipo_campania) {
+        return res.status(400).json({ msg: "El tipo de campania es requerido" });
+      }
+
+      if (!id_formato) {
+        return res.status(400).json({ msg: "El formato es requerido" });
+      }
+
       const campaniaModel = new CampaniaModel();
       const id = await campaniaModel.create({
         id_empresa,
         nombre,
         descripcion,
-        id_tipo_campania: id_tipo_campania || null,
+        id_tipo_campania,
+        id_formato,
         usuario_registro
       });
 
@@ -1785,18 +1808,27 @@ class ConfiguracionController {
   async updateCampania(req, res) {
     try {
       const { id } = req.params;
-      const { nombre, descripcion, id_tipo_campania } = req.body;
+      const { nombre, descripcion, id_tipo_campania, id_formato } = req.body;
       const usuario_actualizacion = req.user?.userId || null;
 
       if (!nombre) {
         return res.status(400).json({ msg: "El nombre es requerido" });
       }
 
+      if (!id_tipo_campania) {
+        return res.status(400).json({ msg: "El tipo de campania es requerido" });
+      }
+
+      if (!id_formato) {
+        return res.status(400).json({ msg: "El formato es requerido" });
+      }
+
       const campaniaModel = new CampaniaModel();
       const updated = await campaniaModel.update(id, {
         nombre,
         descripcion,
-        id_tipo_campania: id_tipo_campania !== undefined ? id_tipo_campania : null,
+        id_tipo_campania,
+        id_formato,
         usuario_actualizacion
       });
 
@@ -1804,7 +1836,11 @@ class ConfiguracionController {
         return res.status(404).json({ msg: "Campania no encontrada" });
       }
 
-      return res.status(200).json({ msg: "Campania actualizada exitosamente" });
+      // Eliminar bases que no coincidan con el nuevo formato
+      const campaniaBaseModel = new CampaniaBaseNumeroModel();
+      const basesEliminadas = await campaniaBaseModel.removeByFormatoMismatch(id, id_formato);
+
+      return res.status(200).json({ msg: "Campania actualizada exitosamente", data: { bases_eliminadas: basesEliminadas } });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al actualizar campania: ${error.message}`);
       return res.status(500).json({ msg: error.message || "Error al actualizar campania" });
@@ -2484,64 +2520,6 @@ class ConfiguracionController {
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar tipo campaña: ${error.message}`);
       return res.status(500).json({ msg: "Error al eliminar tipo de campaña" });
-    }
-  }
-
-  // ==================== CAMPANIA PERSONAS ====================
-  async getPersonasByEjecucion(req, res) {
-    try {
-      const { id } = req.params;
-      const [rows] = await pool.execute(
-        `SELECT cp.*, p.celular, p.nombre_completo, p.dni
-         FROM campania_persona cp
-         LEFT JOIN persona p ON p.id = cp.id_persona
-         WHERE cp.id_campania_ejecucion = ? AND cp.estado_registro = 1
-         ORDER BY cp.fecha_registro DESC`,
-        [id]
-      );
-      return res.status(200).json({ data: rows });
-    } catch (error) {
-      logger.error(`[configuracion.controller.js] Error al obtener personas de ejecución: ${error.message}`);
-      return res.status(500).json({ msg: "Error al obtener personas de la ejecución" });
-    }
-  }
-
-  async addPersonasToEjecucion(req, res) {
-    try {
-      const { id } = req.params;
-      const { persona_ids } = req.body;
-      const usuario_registro = req.user?.userId || null;
-      if (!persona_ids || !Array.isArray(persona_ids) || persona_ids.length === 0) {
-        return res.status(400).json({ msg: "Debe seleccionar al menos una persona" });
-      }
-      let agregadas = 0;
-      for (const persona_id of persona_ids) {
-        const [existing] = await pool.execute(
-          'SELECT id FROM campania_persona WHERE id_campania_ejecucion = ? AND id_persona = ? AND estado_registro = 1',
-          [id, persona_id]
-        );
-        if (existing.length > 0) continue; // ya existe, saltar
-        await pool.execute(
-          'INSERT INTO campania_persona (id_campania_ejecucion, id_persona, usuario_registro, estado_registro) VALUES (?, ?, ?, 1)',
-          [id, persona_id, usuario_registro]
-        );
-        agregadas++;
-      }
-      return res.status(201).json({ msg: `${agregadas} persona(s) agregada(s) exitosamente` });
-    } catch (error) {
-      logger.error(`[configuracion.controller.js] Error al agregar personas a ejecución: ${error.message}`);
-      return res.status(500).json({ msg: "Error al agregar personas" });
-    }
-  }
-
-  async deleteCampaniaPersona(req, res) {
-    try {
-      const { id } = req.params;
-      await pool.execute('UPDATE campania_persona SET estado_registro = 0 WHERE id = ?', [id]);
-      return res.status(200).json({ msg: "Persona eliminada de la campaña exitosamente" });
-    } catch (error) {
-      logger.error(`[configuracion.controller.js] Error al eliminar persona de campaña: ${error.message}`);
-      return res.status(500).json({ msg: "Error al eliminar persona de la campaña" });
     }
   }
 

@@ -52,12 +52,12 @@ class BaseNumeroDetalleModel {
         }
     }
 
-    async create({ id_base_numero, telefono, nombre, correo, tipo_documento, numero_documento, json_adicional, usuario_registro }) {
+    async create({ id_base_numero, telefono, nombre, correo, tipo_documento, numero_documento, id_tipo_persona, json_adicional, usuario_registro }) {
         try {
             const [result] = await this.connection.execute(
                 `INSERT INTO base_numero_detalle
-                (id_base_numero, telefono, nombre, correo, tipo_documento, numero_documento, json_adicional, estado_registro, usuario_registro)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+                (id_base_numero, telefono, nombre, correo, tipo_documento, numero_documento, id_tipo_persona, json_adicional, estado_registro, usuario_registro)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
                 [
                     id_base_numero,
                     telefono,
@@ -65,6 +65,7 @@ class BaseNumeroDetalleModel {
                     correo || null,
                     tipo_documento || null,
                     numero_documento || null,
+                    id_tipo_persona || null,
                     json_adicional ? JSON.stringify(json_adicional) : null,
                     usuario_registro || null
                 ]
@@ -90,8 +91,8 @@ class BaseNumeroDetalleModel {
                 try {
                     const [result] = await conn.execute(
                         `INSERT INTO base_numero_detalle
-                        (id_base_numero, telefono, nombre, correo, tipo_documento, numero_documento, json_adicional, estado_registro, usuario_registro)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+                        (id_base_numero, telefono, nombre, correo, tipo_documento, numero_documento, id_tipo_persona, json_adicional, estado_registro, usuario_registro)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
                         [
                             id_base_numero,
                             registro.telefono,
@@ -99,6 +100,7 @@ class BaseNumeroDetalleModel {
                             registro.correo || null,
                             registro.tipo_documento || null,
                             registro.numero_documento || null,
+                            registro.id_tipo_persona || null,
                             registro.json_adicional ? JSON.stringify(registro.json_adicional) : null,
                             usuario_registro || null
                         ]
@@ -123,12 +125,12 @@ class BaseNumeroDetalleModel {
         }
     }
 
-    async update(id, { telefono, nombre, correo, tipo_documento, numero_documento, json_adicional, usuario_actualizacion }) {
+    async update(id, { telefono, nombre, correo, tipo_documento, numero_documento, id_tipo_persona, json_adicional, usuario_actualizacion }) {
         try {
             const [result] = await this.connection.execute(
                 `UPDATE base_numero_detalle
                 SET telefono = ?, nombre = ?, correo = ?, tipo_documento = ?, numero_documento = ?,
-                    json_adicional = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                    id_tipo_persona = ?, json_adicional = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
                 WHERE id = ?`,
                 [
                     telefono,
@@ -136,6 +138,7 @@ class BaseNumeroDetalleModel {
                     correo || null,
                     tipo_documento || null,
                     numero_documento || null,
+                    id_tipo_persona || null,
                     json_adicional ? JSON.stringify(json_adicional) : null,
                     usuario_actualizacion || null,
                     id

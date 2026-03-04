@@ -25,7 +25,6 @@ const TAG_OVERRIDES = {
   'campanias': 'Campañas',
   'campania-bases': 'Campañas',
   'campania-ejecuciones': 'Campañas',
-  'campania-personas': 'Campañas',
   'base-numero-detalles': 'Bases Números',
   'formato-campos': 'Formato Campos',
   'prompt-asistente': 'Prompt Asistente',

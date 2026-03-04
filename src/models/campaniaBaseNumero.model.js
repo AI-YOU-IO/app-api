@@ -70,6 +70,21 @@ class CampaniaBaseNumeroModel {
         }
     }
 
+    async removeByFormatoMismatch(id_campania, id_formato) {
+        try {
+            const [result] = await this.connection.execute(
+                `UPDATE campania_base_numero cbn
+                INNER JOIN base_numero bn ON cbn.id_base_numero = bn.id
+                SET cbn.estado_registro = 0, cbn.fecha_actualizacion = NOW()
+                WHERE cbn.id_campania = ? AND cbn.estado_registro = 1 AND bn.id_formato != ?`,
+                [id_campania, id_formato]
+            );
+            return result.affectedRows;
+        } catch (error) {
+            throw new Error(`Error al eliminar bases por formato: ${error.message}`);
+        }
+    }
+
     async exists(id_campania, id_base_numero) {
         try {
             const [rows] = await this.connection.execute(

@@ -244,11 +244,6 @@ router.post("/tipos-campania", ConfiguracionController.createTipoCampania);
 router.put("/tipos-campania/:id", ConfiguracionController.updateTipoCampania);
 router.delete("/tipos-campania/:id", ConfiguracionController.deleteTipoCampania);
 
-// Rutas de Campaña Personas
-router.get("/campania-ejecuciones/:id/personas", ConfiguracionController.getPersonasByEjecucion);
-router.post("/campania-ejecuciones/:id/personas", ConfiguracionController.addPersonasToEjecucion);
-router.delete("/campania-personas/:id", ConfiguracionController.deleteCampaniaPersona);
-
 // Rutas de Personas (listado)
 router.get("/personas", ConfiguracionController.getPersonas);
 

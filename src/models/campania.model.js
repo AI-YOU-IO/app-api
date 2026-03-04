@@ -10,12 +10,14 @@ class CampaniaModel {
             let query = `
                 SELECT c.*,
                     tc.nombre AS tipo_campania_nombre,
+                    f.nombre AS formato_nombre,
                     (SELECT COUNT(*) FROM campania_base_numero cbn
                      WHERE cbn.id_campania = c.id AND cbn.estado_registro = 1) as total_bases,
                     (SELECT COUNT(*) FROM campania_ejecucion ce
                      WHERE ce.id_campania = c.id AND ce.estado_registro = 1) as total_ejecuciones
                 FROM campania c
                 LEFT JOIN tipo_campania tc ON c.id_tipo_campania = tc.id AND tc.estado_registro = 1
+                LEFT JOIN formato f ON c.id_formato = f.id
                 WHERE c.estado_registro = 1
             `;
             const params = [];
@@ -37,11 +39,12 @@ class CampaniaModel {
     async getById(id) {
         try {
             const [rows] = await this.connection.execute(
-                `SELECT c.*, tc.nombre AS tipo_campania_nombre,
+                `SELECT c.*, tc.nombre AS tipo_campania_nombre, f.nombre AS formato_nombre,
                     (SELECT COUNT(*) FROM campania_base_numero cbn
                      WHERE cbn.id_campania = c.id AND cbn.estado_registro = 1) as total_bases
                 FROM campania c
                 LEFT JOIN tipo_campania tc ON c.id_tipo_campania = tc.id AND tc.estado_registro = 1
+                LEFT JOIN formato f ON c.id_formato = f.id
                 WHERE c.id = ? AND c.estado_registro = 1`,
                 [id]
             );
@@ -76,17 +79,18 @@ class CampaniaModel {
         }
     }
 
-    async create({ id_empresa, nombre, descripcion, id_tipo_campania, usuario_registro }) {
+    async create({ id_empresa, nombre, descripcion, id_tipo_campania, id_formato, usuario_registro }) {
         try {
             const [result] = await this.connection.execute(
                 `INSERT INTO campania
-                (id_empresa, nombre, descripcion, id_tipo_campania, estado_registro, usuario_registro)
-                VALUES (?, ?, ?, ?, 1, ?)`,
+                (id_empresa, nombre, descripcion, id_tipo_campania, id_formato, estado_registro, usuario_registro)
+                VALUES (?, ?, ?, ?, ?, 1, ?)`,
                 [
                     id_empresa,
                     nombre,
                     descripcion || null,
-                    id_tipo_campania || null,
+                    id_tipo_campania,
+                    id_formato,
                     usuario_registro || null
                 ]
             );
@@ -99,17 +103,18 @@ class CampaniaModel {
         }
     }
 
-    async update(id, { nombre, descripcion, id_tipo_campania, usuario_actualizacion }) {
+    async update(id, { nombre, descripcion, id_tipo_campania, id_formato, usuario_actualizacion }) {
         try {
             const [result] = await this.connection.execute(
                 `UPDATE campania
-                SET nombre = ?, descripcion = ?, id_tipo_campania = ?,
+                SET nombre = ?, descripcion = ?, id_tipo_campania = ?, id_formato = ?,
                     usuario_actualizacion = ?, fecha_actualizacion = NOW()
                 WHERE id = ?`,
                 [
                     nombre,
                     descripcion || null,
-                    id_tipo_campania || null,
+                    id_tipo_campania,
+                    id_formato,
                     usuario_actualizacion || null,
                     id
                 ]
