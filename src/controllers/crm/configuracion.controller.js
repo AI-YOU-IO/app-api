@@ -1921,7 +1921,7 @@ class ConfiguracionController {
 
       // Obtener tipificaciones
       const [tipificaciones] = await pool.execute(
-        `SELECT * FROM tipificacion_llamada WHERE id_empresa = ${id_empresa} estado_registro = 1`
+        `SELECT * FROM tipificacion_llamada WHERE id_empresa = ${id_empresa} AND estado_registro = 1`
       );
 
       // Responder inmediatamente
