@@ -122,7 +122,7 @@ class LlamadaService {
                             ...(num.json_adicional || {})
                         },
                         extras: {
-                            voice: "bacfa559-a200-4377-9d0e-fcae7c766a1f",
+                            voice: "Andrea-Spanish",
                             tipificaciones,
                             empresa: {
                                 id: num.id_empresa,
