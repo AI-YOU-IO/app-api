@@ -26,6 +26,7 @@ const ConfiguracionController = require("./controllers/crm/configuracion.control
 const whatsappEmbeddedRoutes = require("./routes/whatsappEmbedded.route.js");
 const sandboxRoutes = require("./routes/sandbox.route.js");
 const configuracionWhatsappRoutes = require("./routes/configuracionWhatsapp.route.js");
+const toolRoutes = require("./routes/tool.route.js");
 
 const app = express();
 
@@ -66,6 +67,7 @@ app.use("/api/crm/contactos", authMiddleware, contactosRoutes);
 app.use("/api/crm/contacto", authMiddleware, contactoRoutes);
 app.use("/api/crm/reportes", authMiddleware, reportesCrmRoutes);
 app.use("/api/crm/admin", authMiddleware, adminRoutes);
+app.use("/api/crm/admin/tools", authMiddleware, toolRoutes);
 app.use("/api/crm", authMiddleware, whatsappEmbeddedRoutes);
 app.use('/api/assistant', messageProcessingRoutes);
 
