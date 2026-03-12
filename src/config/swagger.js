@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const logger = require('./logger/loggerClient.js');
 
@@ -78,6 +80,10 @@ const PROBE_PATHS = [
   '/',
 ];
 
+const ROUTE_METHODS = ['get', 'post', 'put', 'patch', 'delete'];
+const SRC_ROOT = path.join(__dirname, '..');
+const APP_FILE = path.join(SRC_ROOT, 'app.js');
+
 // ─── Utilidades ──────────────────────────────────────────────
 
 function toTitleCase(str) {
@@ -89,6 +95,277 @@ function toTitleCase(str) {
 
 function normalizePath(p) {
   return p.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
+}
+
+function readFileSafe(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch (_) {
+    return '';
+  }
+}
+
+function resolveModulePath(fromFile, requiredPath) {
+  if (!requiredPath || !requiredPath.startsWith('.')) return null;
+
+  const resolvedBase = path.resolve(path.dirname(fromFile), requiredPath);
+  const candidates = [
+    resolvedBase,
+    `${resolvedBase}.js`,
+    `${resolvedBase}.cjs`,
+    `${resolvedBase}.mjs`,
+    path.join(resolvedBase, 'index.js'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function parseRequireMap(fileContent, fromFile) {
+  const requireMap = new Map();
+  const requireRegex = /const\s+(\w+)\s*=\s*require\((['"])(.+?)\2\)\s*;/g;
+  let match;
+
+  while ((match = requireRegex.exec(fileContent)) !== null) {
+    const [, variableName, , requiredPath] = match;
+    const resolvedPath = resolveModulePath(fromFile, requiredPath);
+    if (resolvedPath) {
+      requireMap.set(variableName, resolvedPath);
+    }
+  }
+
+  return requireMap;
+}
+
+function extractMountedRouters() {
+  const appSource = readFileSafe(APP_FILE);
+  if (!appSource) return [];
+
+  const requireMap = parseRequireMap(appSource, APP_FILE);
+  const mounts = [];
+  const useRegex = /app\.use\s*\(([^;]+?)\)\s*;/g;
+  let match;
+
+  while ((match = useRegex.exec(appSource)) !== null) {
+    const args = match[1];
+    const basePathMatch = args.match(/['"]([^'"]+)['"]/);
+    if (!basePathMatch) continue;
+
+    const basePath = basePathMatch[1];
+    for (const [variableName, resolvedPath] of requireMap.entries()) {
+      if (!resolvedPath.includes(`${path.sep}routes${path.sep}`)) continue;
+      if (!new RegExp(`\\b${variableName}\\b`).test(args)) continue;
+
+      mounts.push({
+        basePath,
+        routeFile: resolvedPath,
+      });
+    }
+  }
+
+  return mounts;
+}
+
+function cleanFieldToken(token) {
+  return token
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .trim()
+    .replace(/^\.\.\./, '')
+    .split('=')[0]
+    .split(':')[0]
+    .trim();
+}
+
+function inferScalarType(fieldName) {
+  if (/^(is_|has_|allow_|enabled|active|activo)/i.test(fieldName)) return 'boolean';
+  if (/(^|_)(id|page|limit|offset|total|count|numero|cantidad|anio|year|month|day)$/i.test(fieldName)) return 'integer';
+  if (/^(id|page|limit|offset|total|count)$/i.test(fieldName)) return 'integer';
+  return 'string';
+}
+
+function createParameter(name, where, required = false) {
+  return {
+    name,
+    in: where,
+    required: where === 'path' ? true : required,
+    schema: { type: inferScalarType(name) },
+  };
+}
+
+function dedupeParameters(params) {
+  const seen = new Map();
+  for (const param of params) {
+    if (!param || !param.name || !param.in) continue;
+    const key = `${param.in}:${param.name}`;
+    const existing = seen.get(key);
+    if (!existing || param.required) {
+      seen.set(key, param);
+    }
+  }
+  return [...seen.values()];
+}
+
+function extractMethodBlock(controllerSource, methodName) {
+  const methodRegex = new RegExp(`(?:async\\s+)?${methodName}\\s*\\([^)]*\\)\\s*\\{`, 'm');
+  const match = methodRegex.exec(controllerSource);
+  if (!match) return '';
+
+  let index = match.index + match[0].length - 1;
+  let depth = 0;
+
+  for (let cursor = index; cursor < controllerSource.length; cursor += 1) {
+    const character = controllerSource[cursor];
+    if (character === '{') depth += 1;
+    if (character === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return controllerSource.slice(index + 1, cursor);
+      }
+    }
+  }
+
+  return '';
+}
+
+function extractFieldsFromScope(methodBlock, scope) {
+  const fields = new Set();
+  const destructuringRegex = new RegExp(`const\\s*\\{([^}]+)\\}\\s*=\\s*req\\.${scope}`, 'g');
+  const directAccessRegex = new RegExp(`req\\.${scope}\\.(\\w+)`, 'g');
+  let match;
+
+  while ((match = destructuringRegex.exec(methodBlock)) !== null) {
+    const parts = match[1].split(',');
+    for (const part of parts) {
+      const fieldName = cleanFieldToken(part);
+      if (fieldName) fields.add(fieldName);
+    }
+  }
+
+  while ((match = directAccessRegex.exec(methodBlock)) !== null) {
+    fields.add(match[1]);
+  }
+
+  return [...fields];
+}
+
+function extractRequiredFields(methodBlock, availableFields) {
+  const requiredFields = new Set();
+  const availableSet = new Set(availableFields);
+  const negationRegex = /!(\w+)/g;
+  let match;
+
+  while ((match = negationRegex.exec(methodBlock)) !== null) {
+    if (availableSet.has(match[1])) {
+      requiredFields.add(match[1]);
+    }
+  }
+
+  return requiredFields;
+}
+
+function buildBodySchema(bodyFields, requiredFields) {
+  if (!bodyFields.length) return null;
+
+  const properties = {};
+  for (const fieldName of bodyFields) {
+    properties[fieldName] = { type: inferScalarType(fieldName) };
+  }
+
+  const schema = {
+    type: 'object',
+    properties,
+  };
+
+  const required = bodyFields.filter((fieldName) => requiredFields.has(fieldName));
+  if (required.length) {
+    schema.required = required;
+  }
+
+  return schema;
+}
+
+function inferOperationMetadata(controllerFile, handlerName) {
+  if (!controllerFile || !handlerName) return null;
+
+  const controllerSource = readFileSafe(controllerFile);
+  if (!controllerSource) return null;
+
+  const methodBlock = extractMethodBlock(controllerSource, handlerName);
+  if (!methodBlock) return null;
+
+  const pathFields = extractFieldsFromScope(methodBlock, 'params');
+  const queryFields = extractFieldsFromScope(methodBlock, 'query');
+  const bodyFields = extractFieldsFromScope(methodBlock, 'body');
+  const requiredFields = extractRequiredFields(methodBlock, [...pathFields, ...queryFields, ...bodyFields]);
+
+  return {
+    pathParams: pathFields.map((fieldName) => createParameter(fieldName, 'path', true)),
+    queryParams: queryFields.map((fieldName) => createParameter(fieldName, 'query', requiredFields.has(fieldName))),
+    bodySchema: buildBodySchema(bodyFields, requiredFields),
+    summary: handlerName.replace(/([A-Z])/g, ' $1').trim(),
+  };
+}
+
+function extractRouteDefinitions(routeFile, basePath) {
+  const routeSource = readFileSafe(routeFile);
+  if (!routeSource) return [];
+
+  const requireMap = parseRequireMap(routeSource, routeFile);
+  const controllerMap = new Map(
+    [...requireMap.entries()].filter(([, resolvedPath]) => resolvedPath.includes(`${path.sep}controllers${path.sep}`))
+  );
+
+  const routes = [];
+  const routeRegex = /router\.(get|post|put|patch|delete)\s*\(([^;]+?)\)\s*;/g;
+  let match;
+
+  while ((match = routeRegex.exec(routeSource)) !== null) {
+    const method = match[1];
+    const args = match[2];
+    const pathMatch = args.match(/['"]([^'"]+)['"]/);
+    if (!pathMatch) continue;
+
+    let handlerRef = null;
+    const handlerRegex = /(\w+)\.(\w+)/g;
+    let handlerMatch;
+    while ((handlerMatch = handlerRegex.exec(args)) !== null) {
+      const [fullMatch, controllerVar, handlerName] = handlerMatch;
+      if (!controllerMap.has(controllerVar)) continue;
+      handlerRef = { fullMatch, controllerVar, handlerName };
+    }
+
+    const fullPath = normalizePath(basePath + pathMatch[1]);
+    const metadata = handlerRef
+      ? inferOperationMetadata(controllerMap.get(handlerRef.controllerVar), handlerRef.handlerName)
+      : null;
+
+    routes.push({
+      method,
+      path: fullPath,
+      summary: metadata?.summary,
+      pathParams: metadata?.pathParams || [],
+      queryParams: metadata?.queryParams || [],
+      bodySchema: metadata?.bodySchema || null,
+    });
+  }
+
+  return routes;
+}
+
+function extractRoutesFromSource() {
+  const mountedRouters = extractMountedRouters();
+  const routes = [];
+
+  for (const mount of mountedRouters) {
+    routes.push(...extractRouteDefinitions(mount.routeFile, mount.basePath));
+  }
+
+  return routes;
 }
 
 // ─── Express 5 Base Path Discovery ──────────────────────────
@@ -243,13 +520,24 @@ function extractPathParams(routePath) {
 // ─── OpenAPI Spec Generation ─────────────────────────────────
 
 function generateSpec(app) {
-  const rawRoutes = extractRoutes(app);
-  const routes = deduplicateRoutes(rawRoutes);
+  const sourceRoutes = extractRoutesFromSource();
+  const runtimeRoutes = deduplicateRoutes(extractRoutes(app));
+  const sourceRouteMap = new Map(sourceRoutes.map((route) => [`${route.method}:${route.path}`, route]));
+  const routeMap = new Map(runtimeRoutes.map((route) => [`${route.method}:${route.path}`, route]));
+
+  for (const route of sourceRoutes) {
+    const key = `${route.method}:${route.path}`;
+    if (!routeMap.has(key)) routeMap.set(key, route);
+  }
+
+  const routes = [...routeMap.values()];
   const tags = new Map();
   const paths = {};
 
   for (const { method, path } of routes) {
     if (path.startsWith('/api-docs')) continue;
+
+    const sourceDoc = sourceRouteMap.get(`${method}:${path}`);
 
     const tag = deriveTag(path);
     tags.set(tag, { name: tag });
@@ -259,13 +547,18 @@ function generateSpec(app) {
 
     const op = {
       tags: [tag],
-      summary: `${method.toUpperCase()} ${path}`,
+      summary: sourceDoc?.summary || `${method.toUpperCase()} ${path}`,
       responses: { 200: { description: 'Respuesta exitosa' } },
     };
 
     const params = extractPathParams(path);
     const queryParams = QUERY_PARAMS[`${method}:${path}`] || [];
-    const allParams = [...params, ...queryParams];
+    const allParams = dedupeParameters([
+      ...params,
+      ...(sourceDoc?.pathParams || []),
+      ...queryParams,
+      ...(sourceDoc?.queryParams || []),
+    ]);
     if (allParams.length) op.parameters = allParams;
 
     // Rutas públicas: login, forgot-password, /health, /api/assistant, /api/crm/tools
@@ -279,7 +572,11 @@ function generateSpec(app) {
 
     if (['post', 'put', 'patch'].includes(method)) {
       op.requestBody = {
-        content: { 'application/json': { schema: { type: 'object' } } },
+        content: {
+          'application/json': {
+            schema: sourceDoc?.bodySchema || { type: 'object' },
+          },
+        },
       };
     }
 
@@ -329,12 +626,13 @@ function generateSpec(app) {
  * IMPORTANTE: Llamar DESPUÉS de registrar todas las rutas en app.
  */
 const setupSwagger = (app) => {
-  const spec = generateSpec(app);
+  const getSpec = () => generateSpec(app);
 
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(spec, {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(null, {
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: 'Bitel Portabilidad - API Docs',
     swaggerOptions: {
+      url: '/api-docs.json',
       persistAuthorization: true,
       docExpansion: 'none',
       filter: true,
@@ -343,9 +641,10 @@ const setupSwagger = (app) => {
 
   app.get('/api-docs.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
-    res.send(spec);
+    res.send(getSpec());
   });
 
+  const spec = getSpec();
   const routeCount = Object.keys(spec.paths).length;
   const tagCount = spec.tags.length;
   logger.info(`Swagger UI: /api-docs | ${routeCount} endpoints en ${tagCount} grupos`);

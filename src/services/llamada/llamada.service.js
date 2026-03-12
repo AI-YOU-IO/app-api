@@ -136,13 +136,14 @@ class LlamadaService {
                         this.realizarLlamada(body)
                             .then(async (result) => {
                                 completadas++;
-                                if (result?.channelId) {
+                                // console.log(result);
+                                if (result?.success) {
                                     await llamadaModel.create({
                                         id_empresa: idEmpresa,
                                         id_campania: idCampania,
                                         id_base_numero: num._idBase,
                                         id_base_numero_detalle: num.id,
-                                        provider_call_id: result.channelId
+                                        provider_call_id: result.data.channelId
                                     });
                                 }
                             })

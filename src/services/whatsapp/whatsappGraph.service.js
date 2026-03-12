@@ -444,6 +444,51 @@ class WhatsappGraphService {
   }
 
   /**
+   * Envia la plantilla enlace_lili con una URL como parametro {{1}}
+   * Usa el phone_number_id de la empresa y el token de Maravia
+   */
+  async enviarEnlaceLili(idEmpresa, phone, enlaceUrl, language = 'es') {
+    const credenciales = await this.obtenerCredenciales(idEmpresa);
+    const url = `${GRAPH_API_URL}/${credenciales.phoneNumberId}/messages`;
+
+    const formattedPhone = this.formatearNumeroTelefono(phone);
+
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: formattedPhone,
+      type: "template",
+      template: {
+        name: "enlace_lili",
+        language: { code: language },
+        components: [
+          {
+            type: "body",
+            parameters: [
+              { type: "text", text: enlaceUrl }
+            ]
+          }
+        ]
+      }
+    };
+
+    logger.info(`[WhatsappGraph] Enviando plantilla enlace_lili a ${formattedPhone} con URL: ${enlaceUrl}`);
+
+    const response = await axios.post(url, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${MARAVIA_ACCESS_TOKEN}`
+      },
+      timeout: 30000
+    });
+
+    return {
+      success: true,
+      response: response.data
+    };
+  }
+
+  /**
    * Formatea número de teléfono para WhatsApp Cloud API
    */
   formatearNumeroTelefono(phone) {

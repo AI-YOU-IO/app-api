@@ -8,6 +8,18 @@ const logger = require("../config/logger/loggerClient");
 
 class MessageProcessingController {
 
+    /**
+     * Envia la plantilla enlace_lili con la URL como parametro {{1}}
+     * @param {number} empresaId - ID de la empresa
+     * @param {string} phone - Numero de telefono del destinatario
+     * @param {string} enlaceUrl - URL a enviar como parametro
+     * @returns {Promise<{wid: string|null}>}
+     */
+    async enviarPlantillaEnlace(empresaId, phone, enlaceUrl) {
+        const result = await WhatsappGraphService.enviarEnlaceLili(empresaId, phone, enlaceUrl);
+        return { wid: result.response?.messages?.[0]?.id || null };
+    }
+
     async processMessage(req, res) {
         try {
             const { phone, question, wid, id_empresa, messageType, files } = req.body;
@@ -79,19 +91,30 @@ class MessageProcessingController {
             }
 
             // Procesar con el asistente
-            const respuestaTexto = await AssistantService.runProcess({
+            const resultado = await AssistantService.runProcess({
                 chatId: chat.id || chat,
                 message: messageForAssistant,
                 persona: persona,
                 id_empresa: empresaId
             });
 
+            const respuestaTexto = resultado.content;
+            const enlaceUrl = resultado.enlaceUrl;
+
             // Enviar respuesta por WhatsApp
             let widRespuesta = null;
             try {
-                const envio = await WhatsappGraphService.enviarMensajeTexto(empresaId, phoneTrimmed, respuestaTexto);
-                widRespuesta = envio.wid_mensaje;
-                logger.info(`[messageProcessing.controller.js] Mensaje enviado por WhatsApp, wid: ${widRespuesta}`);
+                if (enlaceUrl) {
+                    // Enviar plantilla enlace_lili con la URL generada por tools
+                    logger.info(`[messageProcessing.controller.js] Enviando plantilla enlace_lili con URL: ${enlaceUrl}`);
+                    const envioPlantilla = await this.enviarPlantillaEnlace(empresaId, phoneTrimmed, enlaceUrl);
+                    widRespuesta = envioPlantilla.wid;
+                    logger.info(`[messageProcessing.controller.js] Plantilla enlace_lili enviada, wid: ${widRespuesta}`);
+                } else {
+                    const envio = await WhatsappGraphService.enviarMensajeTexto(empresaId, phoneTrimmed, respuestaTexto);
+                    widRespuesta = envio.wid_mensaje;
+                    logger.info(`[messageProcessing.controller.js] Mensaje enviado por WhatsApp, wid: ${widRespuesta}`);
+                }
             } catch (whatsappError) {
                 logger.error(`[messageProcessing.controller.js] Error enviando WhatsApp: ${whatsappError.message}`);
             }
@@ -99,10 +122,10 @@ class MessageProcessingController {
             // Guardar mensaje saliente
             await Mensaje.create({
                 id_chat: chat.id || chat,
-                contenido: respuestaTexto,
+                contenido: enlaceUrl ? `[Plantilla enlace_lili] ${enlaceUrl}` : respuestaTexto,
                 direccion: "out",
                 wid_mensaje: widRespuesta || widTrimmed,
-                tipo_mensaje: "texto",
+                tipo_mensaje: enlaceUrl ? "plantilla" : "texto",
                 fecha_hora: new Date(),
                 usuario_registro: null
             });

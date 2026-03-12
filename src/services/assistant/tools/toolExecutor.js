@@ -3,6 +3,10 @@ const logger = require("../../../config/logger/loggerClient");
 
 class ToolExecutor {
 
+    constructor() {
+        this.lastEnlaceUrl = null;
+    }
+
     async execute(toolName, args) {
         switch (toolName) {
             case "obtenerLinkPago":
@@ -19,6 +23,7 @@ class ToolExecutor {
         logger.info("[ToolExecutor] obtenerLinkPago");
         const enlace = await PagoService.generarLinkPago(grupo_familiar);
         if (!enlace) return JSON.stringify({ error: "No se pudo generar el enlace de pago" });
+        this.lastEnlaceUrl = enlace;
         return JSON.stringify({ enlace });
     }
 
@@ -26,6 +31,7 @@ class ToolExecutor {
         logger.info("[ToolExecutor] obtenerLinkCambio");
         const enlace = await PagoService.generarLinkCambio(grupo_familiar);
         if (!enlace) return JSON.stringify({ error: "No se pudo generar el enlace de cambio de tarjeta" });
+        this.lastEnlaceUrl = enlace;
         return JSON.stringify({ enlace });
     }
 }
