@@ -8,7 +8,7 @@ class RolModel {
   async getAll() {
     try {
       const [rows] = await this.connection.execute(
-        "SELECT id, nombre, proposito as descripcion, estado_registro FROM rol WHERE estado_registro = '1' ORDER BY nombre"
+        "SELECT id, nombre, proposito as descripcion, estado_registro FROM rol WHERE estado_registro = 1 ORDER BY nombre"
       );
       return rows;
     } catch (error) {
@@ -28,11 +28,11 @@ class RolModel {
     }
   }
 
-  async create({ nombre, descripcion }) {
+  async create({ nombre, descripcion, usuario_registro = null }) {
     try {
       const [result] = await this.connection.execute(
-        "INSERT INTO rol (nombre, proposito, fecha_registro, usuario_registro, fecha_actualizacion, usuario_actualizacion, estado_registro) VALUES (?, ?, NOW(), 'admin', NOW(), 'admin', '1')",
-        [nombre, descripcion]
+        "INSERT INTO rol (nombre, proposito, fecha_registro, usuario_registro, fecha_actualizacion, usuario_actualizacion, estado_registro) VALUES (?, ?, NOW(), ?, NOW(), ?, 1)",
+        [nombre, descripcion, usuario_registro, usuario_registro]
       );
       return result.insertId;
     } catch (error) {
@@ -40,11 +40,11 @@ class RolModel {
     }
   }
 
-  async update(id, { nombre, descripcion }) {
+  async update(id, { nombre, descripcion, usuario_actualizacion = null }) {
     try {
       const [result] = await this.connection.execute(
-        "UPDATE rol SET nombre = ?, proposito = ?, fecha_actualizacion = NOW() WHERE id = ?",
-        [nombre, descripcion, id]
+        "UPDATE rol SET nombre = ?, proposito = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?",
+        [nombre, descripcion, usuario_actualizacion, id]
       );
       return result.affectedRows > 0;
     } catch (error) {
@@ -52,11 +52,11 @@ class RolModel {
     }
   }
 
-  async delete(id) {
+  async delete(id, usuario_actualizacion = null) {
     try {
       const [result] = await this.connection.execute(
-        "UPDATE rol SET estado_registro = '0' WHERE id = ?",
-        [id]
+        "UPDATE rol SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?",
+        [usuario_actualizacion, id]
       );
       return result.affectedRows > 0;
     } catch (error) {
@@ -70,7 +70,7 @@ class RolModel {
         `SELECT m.id, m.nombre, m.ruta
          FROM modulo m
          INNER JOIN rol_modulo rm ON m.id = rm.modulo_id
-         WHERE rm.rol_id = ? AND m.estado_registro = 'activo'
+         WHERE rm.rol_id = ? AND rm.estado_registro = 1 AND m.estado_registro = 1
          ORDER BY m.nombre`,
         [rolId]
       );
@@ -82,9 +82,9 @@ class RolModel {
 
   async syncModulos(rolId, moduloIds) {
     try {
-      // Delete existing relationships
+      // Soft delete existing relationships
       await this.connection.execute(
-        "DELETE FROM rol_modulo WHERE rol_id = ?",
+        "UPDATE rol_modulo SET estado_registro = 0, fecha_actualizacion = NOW() WHERE rol_id = ? AND estado_registro = 1",
         [rolId]
       );
 

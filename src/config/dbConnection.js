@@ -1,12 +1,20 @@
 const mysql = require('mysql2/promise');
 const logger = require('./logger/loggerClient');
 
+// Validar variables de entorno requeridas
+const requiredEnvVars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+const missingVars = requiredEnvVars.filter(v => !process.env[v]);
+if (missingVars.length > 0) {
+    logger.error(`[dbConnection.js] Faltan variables de entorno requeridas: ${missingVars.join(', ')}`);
+    process.exit(1);
+}
+
 // Configuración optimizada para alta carga de escrituras y lecturas
 const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'chatbot_ai_core',
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
     port: process.env.DB_PORT || 3306,
     waitForConnections: true,
     connectionLimit: 20, //  Más conexiones simultáneas

@@ -9,9 +9,9 @@ router.get("/transcripciones/:idLlamada", async (req, res) => {
     const { idLlamada } = req.params;
     const transcripciones = await model.getAll(idLlamada);
 
-    return res.status(200).json({ data: transcripciones });
+    return res.success(200, 'Transcripciones obtenidas', transcripciones);
   } catch (err) {
-    return res.status(500).json({ msg: `Error al obtener transcripciones. ${err}` })
+    return res.serverError(500, 'Error al obtener transcripciones');
   }
 });
 
@@ -20,9 +20,9 @@ router.post("/transcripcion", async (req, res) => {
     const { idLlamada, speaker, texto } = req.body;
     const id = await model.createTranscripcion({ idLlamada, speaker, texto });
 
-    return res.status(200).json({ msg: "Transcripcion guardada exitosamente", data: { id } });
+    return res.success(200, 'Transcripcion guardada exitosamente', { id });
   } catch (err) {
-    return res.status(500).json({ msg: `Error al guardar transcripcion. ${err}` })
+    return res.serverError(500, 'Error al guardar transcripcion');
   }
 });
 

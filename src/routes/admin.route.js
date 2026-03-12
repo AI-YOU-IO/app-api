@@ -3,7 +3,7 @@ const AdminController = require("../controllers/admin.controller.js");
 
 const router = Router();
 
-// Empresas
+// Empresas (auth aplicado en app.js)
 router.get("/empresas", AdminController.getEmpresas);
 router.get("/empresas/:id", AdminController.getEmpresaById);
 router.post("/empresas", AdminController.createEmpresa);

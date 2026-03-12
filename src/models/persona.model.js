@@ -8,12 +8,15 @@ class PersonaModel {
     }
 
     async getById(id) {
-        const [rows] = await this.connection.execute(
-            "SELECT * FROM persona WHERE id = ? AND estado_registro = 1",
-            [id]
-        );
-
-        return rows[0];
+        try {
+            const [rows] = await this.connection.execute(
+                "SELECT * FROM persona WHERE id = ? AND estado_registro = 1",
+                [id]
+            );
+            return rows[0];
+        } catch (error) {
+            throw new Error(`Error al obtener persona: ${error.message}`);
+        }
     }
 
     async selectByCelular(phone, id_empresa = null) {
@@ -77,7 +80,7 @@ class PersonaModel {
     async updatePersona(id, data) {
         try {
             if (!data.usuario_actualizacion) {
-                data.usuario_actualizacion = 1;
+                data.usuario_actualizacion = null;
             }
 
             const fields = [];

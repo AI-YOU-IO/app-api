@@ -24,8 +24,8 @@ class BaseNumeroDetalleModel {
                 INNER JOIN empresa e ON e.id = bn.id_empresa
                 WHERE bnd.id_base_numero = ? AND bnd.estado_registro = 1
                 ORDER BY bnd.id ASC
-                LIMIT ${limitNum} OFFSET ${offset}`,
-                [id_base_numero]
+                LIMIT ? OFFSET ?`,
+                [id_base_numero, limitNum, offset]
             );
 
             return {
@@ -153,11 +153,11 @@ class BaseNumeroDetalleModel {
         }
     }
 
-    async delete(id) {
+    async delete(id, usuario_actualizacion = null) {
         try {
             const [result] = await this.connection.execute(
-                'UPDATE base_numero_detalle SET estado_registro = 0, fecha_actualizacion = NOW() WHERE id = ?',
-                [id]
+                'UPDATE base_numero_detalle SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?',
+                [usuario_actualizacion, id]
             );
             return result.affectedRows > 0;
         } catch (error) {

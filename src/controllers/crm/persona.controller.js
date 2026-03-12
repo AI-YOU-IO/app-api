@@ -97,6 +97,7 @@ class PersonaController {
   async bulkAssign(req, res) {
     try {
       const { persona_ids, id_asesor } = req.body;
+      const { userId } = req.user || {};
 
       if (!persona_ids || !Array.isArray(persona_ids) || persona_ids.length === 0) {
         return res.status(400).json({ msg: "Debe seleccionar al menos una persona" });
@@ -107,7 +108,7 @@ class PersonaController {
       }
 
       for (const personaId of persona_ids) {
-        await PersonaModel.updatePersona(personaId, { id_usuario: id_asesor });
+        await PersonaModel.updatePersona(personaId, { id_usuario: id_asesor, usuario_actualizacion: userId });
       }
 
       logger.info(`[persona.controller.js] Asignación masiva: ${persona_ids.length} personas asignadas al asesor ${id_asesor}`);

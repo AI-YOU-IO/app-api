@@ -84,13 +84,13 @@ class BaseNumeroModel {
         }
     }
 
-    async delete(id, id_empresa = null) {
+    async delete(id, id_empresa = null, usuario_actualizacion = null) {
         try {
-            let query = 'UPDATE base_numero SET estado_registro = 0, fecha_actualizacion = NOW() WHERE id = ?';
-            const params = [id];
+            let query = 'UPDATE base_numero SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?';
+            const params = [usuario_actualizacion, id];
 
             if (id_empresa) {
-                query = 'UPDATE base_numero SET estado_registro = 0, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?';
+                query = 'UPDATE base_numero SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?';
                 params.push(id_empresa);
             }
 

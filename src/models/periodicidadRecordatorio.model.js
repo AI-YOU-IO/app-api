@@ -31,22 +31,23 @@ class PeriodicidadRecordatorioModel {
   }
 
   async create(data) {
-    const { nombre, cada_horas, empresa_id = null } = data;
+    const { nombre, cada_horas, empresa_id = null, id_empresa = null, usuario_registro = null } = data;
     const [result] = await this.connection.execute(
-      `INSERT INTO periodicidad_recordatorio (nombre, cada_horas, empresa_id) VALUES (?, ?, ?)`,
-      [nombre, cada_horas, empresa_id]
+      `INSERT INTO periodicidad_recordatorio (nombre, cada_horas, empresa_id, usuario_registro) VALUES (?, ?, ?, ?)`,
+      [nombre, cada_horas, empresa_id || id_empresa, usuario_registro]
     );
     return result.insertId;
   }
 
   async update(id, data) {
-    const { nombre, cada_horas, empresa_id = null } = data;
+    const { nombre, cada_horas, empresa_id = null, id_empresa = null, usuario_actualizacion = null } = data;
+    const empresaId = empresa_id || id_empresa;
 
-    let query = `UPDATE periodicidad_recordatorio SET nombre = ?, cada_horas = ? WHERE id = ?`;
-    const params = [nombre, cada_horas, id];
+    let query = `UPDATE periodicidad_recordatorio SET nombre = ?, cada_horas = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+    const params = [nombre, cada_horas, usuario_actualizacion, id];
 
-    if (empresa_id) {
-      query = `UPDATE periodicidad_recordatorio SET nombre = ?, cada_horas = ? WHERE id = ? AND empresa_id = ?`;
+    if (empresaId) {
+      query = `UPDATE periodicidad_recordatorio SET nombre = ?, cada_horas = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND empresa_id = ?`;
       params.push(empresa_id);
     }
 
@@ -54,12 +55,12 @@ class PeriodicidadRecordatorioModel {
     return true;
   }
 
-  async delete(id, empresa_id = null) {
-    let query = `UPDATE periodicidad_recordatorio SET estado_registro = 0 WHERE id = ?`;
-    const params = [id];
+  async delete(id, empresa_id = null, usuario_actualizacion = null) {
+    let query = `UPDATE periodicidad_recordatorio SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+    const params = [usuario_actualizacion, id];
 
     if (empresa_id) {
-      query = `UPDATE periodicidad_recordatorio SET estado_registro = 0 WHERE id = ? AND empresa_id = ?`;
+      query = `UPDATE periodicidad_recordatorio SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND empresa_id = ?`;
       params.push(empresa_id);
     }
 

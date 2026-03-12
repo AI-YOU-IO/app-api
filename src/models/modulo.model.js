@@ -10,7 +10,7 @@ class ModuloModel {
       const [rows] = await this.connection.execute(
         `SELECT id, nombre, ruta, estado_registro, fecha_registro
          FROM modulo
-         WHERE estado_registro = 'activo'
+         WHERE estado_registro = 1
          ORDER BY nombre`
       );
       return rows;
@@ -33,12 +33,12 @@ class ModuloModel {
     }
   }
 
-  async create({ nombre, ruta }) {
+  async create({ nombre, ruta, usuario_registro = null }) {
     try {
       const [result] = await this.connection.execute(
         `INSERT INTO modulo (nombre, ruta, fecha_registro, usuario_registro, estado_registro)
-         VALUES (?, ?, NOW(), 'admin', 'activo')`,
-        [nombre, ruta]
+         VALUES (?, ?, NOW(), ?, 1)`,
+        [nombre, ruta, usuario_registro]
       );
       return result.insertId;
     } catch (error) {
@@ -46,12 +46,12 @@ class ModuloModel {
     }
   }
 
-  async update(id, { nombre, ruta }) {
+  async update(id, { nombre, ruta, usuario_actualizacion = null }) {
     try {
       const [result] = await this.connection.execute(
-        `UPDATE modulo SET nombre = ?, ruta = ?, fecha_actualizacion = NOW(), usuario_actualizacion = 'admin'
+        `UPDATE modulo SET nombre = ?, ruta = ?, fecha_actualizacion = NOW(), usuario_actualizacion = ?
          WHERE id = ?`,
-        [nombre, ruta, id]
+        [nombre, ruta, usuario_actualizacion, id]
       );
       return result.affectedRows > 0;
     } catch (error) {
@@ -59,12 +59,12 @@ class ModuloModel {
     }
   }
 
-  async delete(id) {
+  async delete(id, usuario_actualizacion = null) {
     try {
       const [result] = await this.connection.execute(
-        `UPDATE modulo SET estado_registro = 'inactivo', fecha_actualizacion = NOW()
+        `UPDATE modulo SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW()
          WHERE id = ?`,
-        [id]
+        [usuario_actualizacion, id]
       );
       return result.affectedRows > 0;
     } catch (error) {
@@ -78,7 +78,7 @@ class ModuloModel {
         `SELECT m.id, m.nombre, m.ruta
          FROM modulo m
          INNER JOIN rol_modulo rm ON m.id = rm.modulo_id
-         WHERE rm.rol_id = ? AND m.estado_registro = 'activo'
+         WHERE rm.rol_id = ? AND m.estado_registro = 1
          ORDER BY m.nombre`,
         [idRol]
       );

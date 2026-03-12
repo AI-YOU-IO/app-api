@@ -31,22 +31,22 @@ class ArgumentoVentaModel {
   }
 
   async create(data) {
-    const { titulo, argumento, id_empresa = null } = data;
+    const { titulo, argumento, id_empresa = null, usuario_registro = null } = data;
     const [result] = await this.connection.execute(
-      `INSERT INTO argumento_venta (titulo, argumento, id_empresa) VALUES (?, ?, ?)`,
-      [titulo, argumento, id_empresa]
+      `INSERT INTO argumento_venta (titulo, argumento, id_empresa, usuario_registro) VALUES (?, ?, ?, ?)`,
+      [titulo, argumento, id_empresa, usuario_registro]
     );
     return result.insertId;
   }
 
   async update(id, data) {
-    const { titulo, argumento, id_empresa = null } = data;
+    const { titulo, argumento, id_empresa = null, usuario_actualizacion = null } = data;
 
-    let query = `UPDATE argumento_venta SET titulo = ?, argumento = ? WHERE id = ?`;
-    const params = [titulo, argumento, id];
+    let query = `UPDATE argumento_venta SET titulo = ?, argumento = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+    const params = [titulo, argumento, usuario_actualizacion, id];
 
     if (id_empresa) {
-      query = `UPDATE argumento_venta SET titulo = ?, argumento = ? WHERE id = ? AND id_empresa = ?`;
+      query = `UPDATE argumento_venta SET titulo = ?, argumento = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?`;
       params.push(id_empresa);
     }
 
@@ -54,12 +54,12 @@ class ArgumentoVentaModel {
     return true;
   }
 
-  async delete(id, id_empresa = null) {
-    let query = `UPDATE argumento_venta SET estado_registro = 0 WHERE id = ?`;
-    const params = [id];
+  async delete(id, id_empresa = null, usuario_actualizacion = null) {
+    let query = `UPDATE argumento_venta SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+    const params = [usuario_actualizacion, id];
 
     if (id_empresa) {
-      query = `UPDATE argumento_venta SET estado_registro = 0 WHERE id = ? AND id_empresa = ?`;
+      query = `UPDATE argumento_venta SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?`;
       params.push(id_empresa);
     }
 

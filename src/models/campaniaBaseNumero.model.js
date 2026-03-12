@@ -46,11 +46,11 @@ class CampaniaBaseNumeroModel {
         }
     }
 
-    async remove(id) {
+    async remove(id, usuario_actualizacion = null) {
         try {
             const [result] = await this.connection.execute(
-                'UPDATE campania_base_numero SET estado_registro = 0, fecha_actualizacion = NOW() WHERE id = ?',
-                [id]
+                'UPDATE campania_base_numero SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?',
+                [usuario_actualizacion, id]
             );
             return result.affectedRows > 0;
         } catch (error) {

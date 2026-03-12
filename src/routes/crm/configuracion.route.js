@@ -195,6 +195,10 @@ router.get("/campania-ejecuciones/:id", ConfiguracionController.getEjecucionById
 router.patch("/campania-ejecuciones/:id/estado", ConfiguracionController.updateEstadoEjecucion);
 router.patch("/campania-ejecuciones/:id/cancelar", ConfiguracionController.cancelarEjecucion);
 
+// Rutas de Configuracion de Llamadas por Campania
+router.get("/campanias/:id_campania/config-llamadas", ConfiguracionController.getConfiguracionCampaniaLlamada);
+router.post("/campanias/:id_campania/config-llamadas", ConfiguracionController.saveConfiguracionCampaniaLlamada);
+
 // Rutas de Prompt Asistente (Bot WhatsApp)
 router.get("/prompt-asistente", ConfiguracionController.getPromptAsistente);
 router.post("/prompt-asistente", ConfiguracionController.savePromptAsistente);

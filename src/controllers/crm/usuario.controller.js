@@ -30,12 +30,6 @@ class UsuarioController {
       const usuarioModel = new UsuarioModel();
       const usuario = await usuarioModel.getByUserAndPass(username, password);
 
-      console.log('=== BACKEND LOGIN DEBUG ===');
-      console.log('Usuario from DB:', usuario);
-      console.log('id_empresa from DB:', usuario?.id_empresa);
-      console.log('id_rol from DB:', usuario?.id_rol);
-      console.log('===========================');
-
       if (usuario) {
 
         const token = JWTService.generate({
@@ -43,7 +37,7 @@ class UsuarioController {
           username: usuario.username,
           rolId: usuario.id_rol,
           rolNombre: usuario.rol_nombre,
-          idEmpresa: usuario.id_empresa !== undefined ? usuario.id_empresa : 1
+          idEmpresa: usuario.id_empresa
         });
 
         // Obtener módulos del rol del usuario
@@ -52,7 +46,6 @@ class UsuarioController {
 
         usuario.password = "";
 
-        console.log('Returning user with id_empresa:', usuario.id_empresa);
         return res.status(200).json({ user: usuario, token, modulos });
       }
       else {
