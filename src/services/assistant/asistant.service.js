@@ -23,7 +23,7 @@ class AssistantService {
      * @param {string} params.message - Mensaje actual del usuario
      * @param {Object} params.persona - Registro de la persona desde DB
      * @param {number} params.id_empresa - ID de la empresa
-     * @returns {Promise<string>} - Respuesta de texto del LLM
+     * @returns {Promise<{content: string, enlaceUrl: string|null}>} - Respuesta del LLM con metadata
      */
     async runProcess({ chatId, message, persona, id_empresa }) {
         try {
@@ -59,7 +59,7 @@ class AssistantService {
                 if (!response.tool_calls || response.tool_calls.length === 0) {
                     newMessages.push({ role: "assistant", content: response.content });
                     await MemoryService.addMessagesToCache(chatId, newMessages);
-                    return response.content;
+                    return { content: response.content, enlaceUrl: toolExecutor.lastEnlaceUrl };
                 }
 
                 const assistantMsg = {
@@ -97,7 +97,7 @@ class AssistantService {
 
             newMessages.push({ role: "assistant", content: finalResponse.content });
             await MemoryService.addMessagesToCache(chatId, newMessages);
-            return finalResponse.content;
+            return { content: finalResponse.content, enlaceUrl: toolExecutor.lastEnlaceUrl };
 
         } catch (error) {
             logger.error(`[AssistantService.runProcess] ${error.message}`);
