@@ -21,6 +21,7 @@ const clientesRoutes = require("./routes/crm/clientes.route.js");
 const contactosRoutes = require("./routes/crm/contactos.route.js");
 const contactoRoutes = require("./routes/crm/contacto.route.js");
 const adminRoutes = require("./routes/admin.route.js");
+const ConfiguracionController = require("./controllers/crm/configuracion.controller.js");
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use(responseHandler);
 // Rutas publicas (sin auth)
 app.use("/api/crm", usuarioRoutes);
 app.use("/api/crm/tools", pagoRoutes);
+app.post("/api/crm/tipificaciones", ConfiguracionController.createTipificacion);
 // Rutas protegidas del CRM (requieren auth)
 app.use("/api/crm", authMiddleware, auditoriaRoutes, configuracionRoutes, llamadaRoutes, tipificacionLlamadaRoutes, personaRoutes, whatsappRoutes, transcripcionRoutes);
 app.use("/api/crm/clientes", authMiddleware, clientesRoutes);
