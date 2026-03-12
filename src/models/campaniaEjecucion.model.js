@@ -23,8 +23,8 @@ class CampaniaEjecucionModel {
                 INNER JOIN campania c ON ce.id_campania = c.id
                 WHERE ce.id_campania = ? AND ce.estado_registro = 1
                 ORDER BY ce.fecha_registro DESC
-                LIMIT ${limitNum} OFFSET ${offset}`,
-                [id_campania]
+                LIMIT ? OFFSET ?`,
+                [id_campania, limitNum, offset]
             );
 
             return {

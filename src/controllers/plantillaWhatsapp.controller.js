@@ -54,7 +54,7 @@ class PlantillaWhatsappController {
       });
     } catch (error) {
       logger.error(`[plantillaWhatsapp.controller.js] Error al obtener plantillas: ${error.message}`);
-      return res.status(500).json({ msg: "Error al obtener plantillas", error: error.message });
+      return res.status(500).json({ msg: "Error al obtener plantillas" });
     }
   }
 

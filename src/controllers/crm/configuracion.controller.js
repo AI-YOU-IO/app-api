@@ -18,6 +18,7 @@ const CampaniaModel = require("../../models/campania.model.js");
 const CampaniaBaseNumeroModel = require("../../models/campaniaBaseNumero.model.js");
 const CampaniaEjecucionModel = require("../../models/campaniaEjecucion.model.js");
 const PromptAsistenteModel = require("../../models/promptAsistente.model.js");
+const ConfiguracionCampaniaLlamadaModel = require("../../models/configuracionCampaniaLlamada.model.js");
 const TipoPersonaModel = require("../../models/tipoPersona.model.js");
 const { pool } = require("../../config/dbConnection.js");
 const logger = require('../../config/logger/loggerClient.js');
@@ -61,14 +62,14 @@ class ConfiguracionController {
   async createRol(req, res) {
     try {
       const { nombre, descripcion, modulos } = req.body;
+      const { userId } = req.user || {};
 
       if (!nombre) {
         return res.status(400).json({ msg: "El nombre es requerido" });
       }
 
-
       const rolModel = new RolModel();
-      const id = await rolModel.create({ nombre, descripcion });
+      const id = await rolModel.create({ nombre, descripcion, usuario_registro: userId });
 
       // Save modules for this role
       if (modulos && modulos.length > 0) {
@@ -91,8 +92,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El nombre es requerido" });
       }
 
+      const { userId } = req.user || {};
       const rolModel = new RolModel();
-      await rolModel.update(id, { nombre, descripcion });
+      await rolModel.update(id, { nombre, descripcion, usuario_actualizacion: userId });
 
       // Sync modules for this role
       await rolModel.syncModulos(id, modulos || []);
@@ -106,9 +108,10 @@ class ConfiguracionController {
 
   async deleteRol(req, res) {
     try {
+      const { userId } = req.user || {};
       const { id } = req.params;
       const rolModel = new RolModel();
-      await rolModel.delete(id);
+      await rolModel.delete(id, userId);
       return res.status(200).json({ msg: "Rol eliminado exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar rol: ${error.message}`);
@@ -162,13 +165,15 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El username ya existe" });
       }
 
+      const { userId } = req.user || {};
       const id = await usuarioModel.create({
         id_rol,
         username,
         password,
         id_sucursal,
         id_padre,
-        id_empresa: idEmpresa
+        id_empresa: idEmpresa,
+        usuario_registro: userId
       });
 
       return res.status(201).json({ msg: "Usuario creado exitosamente", data: { id } });
@@ -195,13 +200,15 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El username ya existe" });
       }
 
+      const { userId } = req.user || {};
       await usuarioModel.update(id, {
         id_rol,
         username,
         password,
         id_sucursal,
         id_padre,
-        id_empresa: idEmpresa
+        id_empresa: idEmpresa,
+        usuario_actualizacion: userId
       });
 
       return res.status(200).json({ msg: "Usuario actualizado exitosamente" });
@@ -213,9 +220,10 @@ class ConfiguracionController {
 
   async deleteUsuario(req, res) {
     try {
+      const { userId } = req.user || {};
       const { id } = req.params;
       const usuarioModel = new UsuarioModel();
-      await usuarioModel.delete(id);
+      await usuarioModel.delete(id, userId);
       return res.status(200).json({ msg: "Usuario eliminado exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar usuario: ${error.message}`);
@@ -303,8 +311,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El nombre es requerido" });
       }
 
+      const { userId } = req.user || {};
       const moduloModel = new ModuloModel();
-      const id = await moduloModel.create({ nombre, ruta });
+      const id = await moduloModel.create({ nombre, ruta, usuario_registro: userId });
 
       return res.status(201).json({ msg: "Módulo creado exitosamente", data: { id } });
     } catch (error) {
@@ -322,8 +331,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El nombre es requerido" });
       }
 
+      const { userId } = req.user || {};
       const moduloModel = new ModuloModel();
-      await moduloModel.update(id, { nombre, ruta });
+      await moduloModel.update(id, { nombre, ruta, usuario_actualizacion: userId });
 
       return res.status(200).json({ msg: "Módulo actualizado exitosamente" });
     } catch (error) {
@@ -334,9 +344,10 @@ class ConfiguracionController {
 
   async deleteModulo(req, res) {
     try {
+      const { userId } = req.user || {};
       const { id } = req.params;
       const moduloModel = new ModuloModel();
-      await moduloModel.delete(id);
+      await moduloModel.delete(id, userId);
       return res.status(200).json({ msg: "Módulo eliminado exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar módulo: ${error.message}`);
@@ -383,8 +394,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El nombre es requerido" });
       }
 
+      const { userId } = req.user || {};
       const sucursalModel = new SucursalModel();
-      const id = await sucursalModel.create({ nombre, direccion, telefono, email, id_empresa: idEmpresa });
+      const id = await sucursalModel.create({ nombre, direccion, telefono, email, id_empresa: idEmpresa, usuario_registro: userId });
 
       return res.status(201).json({ msg: "Sucursal creada exitosamente", data: { id } });
     } catch (error) {
@@ -403,8 +415,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El nombre es requerido" });
       }
 
+      const { userId } = req.user || {};
       const sucursalModel = new SucursalModel();
-      await sucursalModel.update(id, { nombre, direccion, telefono, email, id_empresa: idEmpresa });
+      await sucursalModel.update(id, { nombre, direccion, telefono, email, id_empresa: idEmpresa, usuario_actualizacion: userId });
 
       return res.status(200).json({ msg: "Sucursal actualizada exitosamente" });
     } catch (error) {
@@ -415,10 +428,10 @@ class ConfiguracionController {
 
   async deleteSucursal(req, res) {
     try {
-      const { idEmpresa } = req.user || {};
+      const { idEmpresa, userId } = req.user || {};
       const { id } = req.params;
       const sucursalModel = new SucursalModel();
-      await sucursalModel.delete(id, idEmpresa);
+      await sucursalModel.delete(id, idEmpresa, userId);
       return res.status(200).json({ msg: "Sucursal eliminada exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar sucursal: ${error.message}`);
@@ -476,6 +489,7 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El nombre y precio regular son requeridos" });
       }
 
+      const { userId } = req.user || {};
       const planModel = new PlanesTarifariosModel();
       const id = await planModel.create({
         nombre,
@@ -485,7 +499,8 @@ class ConfiguracionController {
         principal,
         imagen_url,
         estado_registro: 1,
-        id_empresa: idEmpresa
+        id_empresa: idEmpresa,
+        usuario_registro: userId
       });
 
       return res.status(201).json({ msg: "Item creado exitosamente", data: { id } });
@@ -515,6 +530,7 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El nombre y precio regular son requeridos" });
       }
 
+      const { userId } = req.user || {};
       const planModel = new PlanesTarifariosModel();
       await planModel.update(id, {
         nombre,
@@ -522,7 +538,8 @@ class ConfiguracionController {
         precio_promocional,
         descripcion,
         principal,
-        imagen_url
+        imagen_url,
+        usuario_actualizacion: userId
       });
 
       return res.status(200).json({ msg: "Item actualizado exitosamente" });
@@ -534,9 +551,10 @@ class ConfiguracionController {
 
   async deleteCatalogo(req, res) {
     try {
+      const { userId } = req.user || {};
       const { id } = req.params;
       const planModel = new PlanesTarifariosModel();
-      await planModel.softDelete(id);
+      await planModel.softDelete(id, userId);
       return res.status(200).json({ msg: "Item eliminado exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar item del catálogo: ${error.message}`);
@@ -583,8 +601,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "La pregunta, respuesta y proceso son requeridos" });
       }
 
+      const { userId } = req.user || {};
       const faqModel = new FaqModel();
-      const id = await faqModel.create({ numero, pregunta, proceso, respuesta, activo, id_empresa: idEmpresa });
+      const id = await faqModel.create({ numero, pregunta, proceso, respuesta, activo, id_empresa: idEmpresa, usuario_registro: userId });
 
       return res.status(201).json({ msg: "Pregunta frecuente creada exitosamente", data: { id } });
     } catch (error) {
@@ -603,8 +622,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "La pregunta, respuesta y proceso son requeridos" });
       }
 
+      const { userId } = req.user || {};
       const faqModel = new FaqModel();
-      await faqModel.update(id, { numero, pregunta, proceso, respuesta, activo, id_empresa: idEmpresa });
+      await faqModel.update(id, { numero, pregunta, proceso, respuesta, activo, id_empresa: idEmpresa, usuario_actualizacion: userId });
 
       return res.status(200).json({ msg: "Pregunta frecuente actualizada exitosamente" });
     } catch (error) {
@@ -615,10 +635,10 @@ class ConfiguracionController {
 
   async deleteFaq(req, res) {
     try {
-      const { idEmpresa } = req.user || {};
+      const { idEmpresa, userId } = req.user || {};
       const { id } = req.params;
       const faqModel = new FaqModel();
-      await faqModel.delete(id, idEmpresa);
+      await faqModel.delete(id, idEmpresa, userId);
       return res.status(200).json({ msg: "Pregunta frecuente eliminada exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar FAQ: ${error.message}`);
@@ -665,8 +685,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El nombre es requerido" });
       }
 
+      const { userId } = req.user || {};
       const tipificacionModel = new TipificacionModel();
-      const id = await tipificacionModel.create({ nombre, definicion, orden, color, flag_asesor, flag_bot, id_empresa: idEmpresa, id_padre });
+      const id = await tipificacionModel.create({ nombre, definicion, orden, color, flag_asesor, flag_bot, id_empresa: idEmpresa, id_padre, usuario_registro: userId });
 
       return res.status(201).json({ msg: "Tipificación creada exitosamente", data: { id } });
     } catch (error) {
@@ -685,8 +706,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El nombre es requerido" });
       }
 
+      const { userId } = req.user || {};
       const tipificacionModel = new TipificacionModel();
-      await tipificacionModel.update(id, { nombre, definicion, orden, color, flag_asesor, flag_bot, id_empresa: idEmpresa, id_padre });
+      await tipificacionModel.update(id, { nombre, definicion, orden, color, flag_asesor, flag_bot, id_empresa: idEmpresa, id_padre, usuario_actualizacion: userId });
 
       return res.status(200).json({ msg: "Tipificación actualizada exitosamente" });
     } catch (error) {
@@ -697,10 +719,10 @@ class ConfiguracionController {
 
   async deleteTipificacion(req, res) {
     try {
-      const { idEmpresa } = req.user || {};
+      const { idEmpresa, userId } = req.user || {};
       const { id } = req.params;
       const tipificacionModel = new TipificacionModel();
-      await tipificacionModel.delete(id, idEmpresa);
+      await tipificacionModel.delete(id, idEmpresa, userId);
       return res.status(200).json({ msg: "Tipificación eliminada exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar tipificación: ${error.message}`);
@@ -797,8 +819,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "La pregunta es requerida" });
       }
 
+      const { userId } = req.user || {};
       const preguntaModel = new PreguntaPerfilamientoModel();
-      const id = await preguntaModel.create({ pregunta, orden, id_empresa: idEmpresa });
+      const id = await preguntaModel.create({ pregunta, orden, id_empresa: idEmpresa, usuario_registro: userId });
 
       return res.status(201).json({ msg: "Pregunta de perfilamiento creada exitosamente", data: { id } });
     } catch (error) {
@@ -817,8 +840,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "La pregunta es requerida" });
       }
 
+      const { userId } = req.user || {};
       const preguntaModel = new PreguntaPerfilamientoModel();
-      await preguntaModel.update(id, { pregunta, orden, id_empresa: idEmpresa });
+      await preguntaModel.update(id, { pregunta, orden, id_empresa: idEmpresa, usuario_actualizacion: userId });
 
       return res.status(200).json({ msg: "Pregunta de perfilamiento actualizada exitosamente" });
     } catch (error) {
@@ -829,10 +853,10 @@ class ConfiguracionController {
 
   async deletePreguntaPerfilamiento(req, res) {
     try {
-      const { idEmpresa } = req.user || {};
+      const { idEmpresa, userId } = req.user || {};
       const { id } = req.params;
       const preguntaModel = new PreguntaPerfilamientoModel();
-      await preguntaModel.delete(id, idEmpresa);
+      await preguntaModel.delete(id, idEmpresa, userId);
       return res.status(200).json({ msg: "Pregunta de perfilamiento eliminada exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar pregunta de perfilamiento: ${error.message}`);
@@ -879,8 +903,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El título y argumento son requeridos" });
       }
 
+      const { userId } = req.user || {};
       const argumentoModel = new ArgumentoVentaModel();
-      const id = await argumentoModel.create({ titulo, argumento, id_empresa: idEmpresa });
+      const id = await argumentoModel.create({ titulo, argumento, id_empresa: idEmpresa, usuario_registro: userId });
 
       return res.status(201).json({ msg: "Argumento de venta creado exitosamente", data: { id } });
     } catch (error) {
@@ -899,8 +924,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El título y argumento son requeridos" });
       }
 
+      const { userId } = req.user || {};
       const argumentoModel = new ArgumentoVentaModel();
-      await argumentoModel.update(id, { titulo, argumento, id_empresa: idEmpresa });
+      await argumentoModel.update(id, { titulo, argumento, id_empresa: idEmpresa, usuario_actualizacion: userId });
 
       return res.status(200).json({ msg: "Argumento de venta actualizado exitosamente" });
     } catch (error) {
@@ -911,10 +937,10 @@ class ConfiguracionController {
 
   async deleteArgumentoVenta(req, res) {
     try {
-      const { idEmpresa } = req.user || {};
+      const { idEmpresa, userId } = req.user || {};
       const { id } = req.params;
       const argumentoModel = new ArgumentoVentaModel();
-      await argumentoModel.delete(id, idEmpresa);
+      await argumentoModel.delete(id, idEmpresa, userId);
       return res.status(200).json({ msg: "Argumento de venta eliminado exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar argumento de venta: ${error.message}`);
@@ -961,8 +987,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El nombre y cada_horas son requeridos" });
       }
 
+      const { userId } = req.user || {};
       const periodicidadModel = new PeriodicidadRecordatorioModel();
-      const id = await periodicidadModel.create({ nombre, cada_horas, id_empresa: idEmpresa });
+      const id = await periodicidadModel.create({ nombre, cada_horas, id_empresa: idEmpresa, usuario_registro: userId });
 
       return res.status(201).json({ msg: "Periodicidad de recordatorio creada exitosamente", data: { id } });
     } catch (error) {
@@ -981,8 +1008,9 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "El nombre y cada_horas son requeridos" });
       }
 
+      const { userId } = req.user || {};
       const periodicidadModel = new PeriodicidadRecordatorioModel();
-      await periodicidadModel.update(id, { nombre, cada_horas, id_empresa: idEmpresa });
+      await periodicidadModel.update(id, { nombre, cada_horas, id_empresa: idEmpresa, usuario_actualizacion: userId });
 
       return res.status(200).json({ msg: "Periodicidad de recordatorio actualizada exitosamente" });
     } catch (error) {
@@ -993,10 +1021,10 @@ class ConfiguracionController {
 
   async deletePeriodicidadRecordatorio(req, res) {
     try {
-      const { idEmpresa } = req.user || {};
+      const { idEmpresa, userId } = req.user || {};
       const { id } = req.params;
       const periodicidadModel = new PeriodicidadRecordatorioModel();
-      await periodicidadModel.delete(id, idEmpresa);
+      await periodicidadModel.delete(id, idEmpresa, userId);
       return res.status(200).json({ msg: "Periodicidad de recordatorio eliminada exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar periodicidad de recordatorio: ${error.message}`);
@@ -1038,7 +1066,7 @@ class ConfiguracionController {
     try {
       const { nombre, descripcion } = req.body;
       const usuario_registro = req.user?.userId || null;
-      const id_empresa = req.user?.idEmpresa || 1;
+      const id_empresa = req.user?.idEmpresa;
 
       if (!nombre) {
         return res.status(400).json({ msg: "El nombre es requerido" });
@@ -1079,8 +1107,9 @@ class ConfiguracionController {
     try {
       const { id } = req.params;
       const id_empresa = req.user?.idEmpresa || null;
+      const usuario_actualizacion = req.user?.userId || null;
       const formatoModel = new FormatoModel();
-      await formatoModel.delete(id, id_empresa);
+      await formatoModel.delete(id, id_empresa, usuario_actualizacion);
       return res.status(200).json({ msg: "Formato eliminado exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar formato: ${error.message}`);
@@ -1183,8 +1212,9 @@ class ConfiguracionController {
   async deleteCampo(req, res) {
     try {
       const { id } = req.params;
+      const usuario_actualizacion = req.user?.userId || null;
       const formatoCampoModel = new FormatoCampoModel();
-      await formatoCampoModel.delete(id);
+      await formatoCampoModel.delete(id, usuario_actualizacion);
       return res.status(200).json({ msg: "Campo eliminado exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar campo: ${error.message}`);
@@ -1256,7 +1286,7 @@ class ConfiguracionController {
       return res.status(201).json({ msg: "Base de numeros creada exitosamente", data: { id } });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al crear base de numeros: ${error.message}`);
-      return res.status(500).json({ msg: error.message || "Error al crear base de numeros" });
+      return res.status(500).json({ msg: "Error al crear base de numeros" });
     }
   }
 
@@ -1277,7 +1307,7 @@ class ConfiguracionController {
       return res.status(200).json({ msg: "Base de numeros actualizada exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al actualizar base de numeros: ${error.message}`);
-      return res.status(500).json({ msg: error.message || "Error al actualizar base de numeros" });
+      return res.status(500).json({ msg: "Error al actualizar base de numeros" });
     }
   }
 
@@ -1285,8 +1315,9 @@ class ConfiguracionController {
     try {
       const { id } = req.params;
       const id_empresa = req.user?.idEmpresa || null;
+      const usuario_actualizacion = req.user?.userId || null;
       const baseNumeroModel = new BaseNumeroModel();
-      await baseNumeroModel.delete(id, id_empresa);
+      await baseNumeroModel.delete(id, id_empresa, usuario_actualizacion);
       return res.status(200).json({ msg: "Base de numeros eliminada exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar base de numeros: ${error.message}`);
@@ -1334,15 +1365,16 @@ class ConfiguracionController {
       return res.status(201).json({ msg: "Registro agregado exitosamente", data: { id } });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al crear detalle: ${error.message}`);
-      return res.status(500).json({ msg: error.message || "Error al agregar registro" });
+      return res.status(500).json({ msg: "Error al agregar registro" });
     }
   }
 
   async deleteDetalle(req, res) {
     try {
       const { id } = req.params;
+      const usuario_actualizacion = req.user?.userId || null;
       const detalleModel = new BaseNumeroDetalleModel();
-      await detalleModel.delete(id);
+      await detalleModel.delete(id, usuario_actualizacion);
       return res.status(200).json({ msg: "Registro eliminado exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar detalle: ${error.message}`);
@@ -1659,7 +1691,7 @@ class ConfiguracionController {
   async createPlantilla(req, res) {
     try {
       const { id_formato, nombre, descripcion, prompt_sistema, prompt_inicio, prompt_flujo, prompt_cierre, prompt_resultado } = req.body;
-      const id_empresa = req.user?.idEmpresa || 1;
+      const id_empresa = req.user?.idEmpresa;
       const usuario_registro = req.user?.userId || null;
 
       if (!id_formato || !nombre || !prompt_sistema || !prompt_inicio || !prompt_flujo) {
@@ -1683,7 +1715,7 @@ class ConfiguracionController {
       return res.status(201).json({ msg: "Plantilla creada exitosamente", data: { id } });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al crear plantilla: ${error.message}`);
-      return res.status(500).json({ msg: error.message || "Error al crear plantilla" });
+      return res.status(500).json({ msg: "Error al crear plantilla" });
     }
   }
 
@@ -1719,7 +1751,7 @@ class ConfiguracionController {
       return res.status(200).json({ msg: "Plantilla actualizada exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al actualizar plantilla: ${error.message}`);
-      return res.status(500).json({ msg: error.message || "Error al actualizar plantilla" });
+      return res.status(500).json({ msg: "Error al actualizar plantilla" });
     }
   }
 
@@ -1727,8 +1759,9 @@ class ConfiguracionController {
     try {
       const { id } = req.params;
       const idEmpresa = req.user?.idEmpresa || null;
+      const usuario_actualizacion = req.user?.userId || null;
       const plantillaModel = new PlantillaModel();
-      const deleted = await plantillaModel.delete(id, idEmpresa);
+      const deleted = await plantillaModel.delete(id, idEmpresa, usuario_actualizacion);
 
       if (!deleted) {
         return res.status(404).json({ msg: "Plantilla no encontrada" });
@@ -1744,8 +1777,9 @@ class ConfiguracionController {
   // ==================== CAMPANIAS ====================
   async getCampanias(req, res) {
     try {
+      const id_empresa  = req.user.idEmpresa;
       const campaniaModel = new CampaniaModel();
-      const campanias = await campaniaModel.getAll();
+      const campanias = await campaniaModel.getAll(id_empresa);
       return res.status(200).json({ data: campanias });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al obtener campanias: ${error.message}`);
@@ -1772,9 +1806,12 @@ class ConfiguracionController {
 
   async createCampania(req, res) {
     try {
-      const { nombre, descripcion, id_tipo_campania, id_formato } = req.body;
-      const id_empresa = req.user?.id_empresa || 1;
+      const { nombre, descripcion, id_tipo_campania, id_formato, id_plantilla } = req.body;
+      const id_empresa = req.user?.idEmpresa;
       const usuario_registro = req.user?.userId || null;
+
+      logger.info(`[createCampania] req.body completo: ${JSON.stringify(req.body)}`);
+      logger.info(`[createCampania] Datos recibidos: nombre=${nombre}, id_tipo_campania=${id_tipo_campania}, id_formato=${id_formato}, id_plantilla=${id_plantilla}, tipo de id_plantilla=${typeof id_plantilla}`);
 
       if (!nombre) {
         return res.status(400).json({ msg: "El nombre es requerido" });
@@ -1795,21 +1832,25 @@ class ConfiguracionController {
         descripcion,
         id_tipo_campania,
         id_formato,
+        id_plantilla,
         usuario_registro
       });
 
       return res.status(201).json({ msg: "Campania creada exitosamente", data: { id } });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al crear campania: ${error.message}`);
-      return res.status(500).json({ msg: error.message || "Error al crear campania" });
+      return res.status(500).json({ msg: "Error al crear campania" });
     }
   }
 
   async updateCampania(req, res) {
     try {
       const { id } = req.params;
-      const { nombre, descripcion, id_tipo_campania, id_formato } = req.body;
+      const { nombre, descripcion, id_tipo_campania, id_formato, id_plantilla } = req.body;
       const usuario_actualizacion = req.user?.userId || null;
+
+      logger.info(`[updateCampania] req.body completo: ${JSON.stringify(req.body)}`);
+      logger.info(`[updateCampania] id=${id}, id_plantilla=${id_plantilla}, tipo=${typeof id_plantilla}`);
 
       if (!nombre) {
         return res.status(400).json({ msg: "El nombre es requerido" });
@@ -1829,6 +1870,7 @@ class ConfiguracionController {
         descripcion,
         id_tipo_campania,
         id_formato,
+        id_plantilla,
         usuario_actualizacion
       });
 
@@ -1843,15 +1885,16 @@ class ConfiguracionController {
       return res.status(200).json({ msg: "Campania actualizada exitosamente", data: { bases_eliminadas: basesEliminadas } });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al actualizar campania: ${error.message}`);
-      return res.status(500).json({ msg: error.message || "Error al actualizar campania" });
+      return res.status(500).json({ msg: "Error al actualizar campania" });
     }
   }
 
   async deleteCampania(req, res) {
     try {
       const { id } = req.params;
+      const usuario_actualizacion = req.user?.userId || null;
       const campaniaModel = new CampaniaModel();
-      const deleted = await campaniaModel.delete(id);
+      const deleted = await campaniaModel.delete(id, usuario_actualizacion);
 
       if (!deleted) {
         return res.status(404).json({ msg: "Campania no encontrada" });
@@ -1880,7 +1923,7 @@ class ConfiguracionController {
   async addBaseToCampania(req, res) {
     try {
       const { id_campania, id_base_numero } = req.body;
-      const id_empresa = req.user?.id_empresa || 1;
+      const id_empresa = req.user?.idEmpresa;
       const usuario_registro = req.user?.userId || null;
 
       if (!id_campania || !id_base_numero) {
@@ -1898,15 +1941,16 @@ class ConfiguracionController {
       return res.status(201).json({ msg: "Base agregada a campania exitosamente", data: { id } });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al agregar base a campania: ${error.message}`);
-      return res.status(500).json({ msg: error.message || "Error al agregar base a campania" });
+      return res.status(500).json({ msg: "Error al agregar base a campania" });
     }
   }
 
   async removeBaseFromCampania(req, res) {
     try {
       const { id } = req.params;
+      const usuario_actualizacion = req.user?.userId || null;
       const campaniaBaseModel = new CampaniaBaseNumeroModel();
-      const removed = await campaniaBaseModel.remove(id);
+      const removed = await campaniaBaseModel.remove(id, usuario_actualizacion);
 
       if (!removed) {
         return res.status(404).json({ msg: "Relacion no encontrada" });
@@ -1938,7 +1982,7 @@ class ConfiguracionController {
   async ejecutarCampania(req, res) {
     try {
       const { id_campania, ids_base_numero } = req.body;
-      const id_empresa = req.user?.id_empresa || 1;
+      const id_empresa = req.user?.idEmpresa;
       const usuario_registro = req.user?.userId || null;
 
       if (!id_campania || !ids_base_numero?.length) {
@@ -1957,7 +2001,8 @@ class ConfiguracionController {
 
       // Obtener tipificaciones
       const [tipificaciones] = await pool.execute(
-        `SELECT * FROM tipificacion_llamada WHERE id_empresa = ${id_empresa}`
+        `SELECT * FROM tipificacion_llamada WHERE id_empresa = ?`,
+        [id_empresa]
       );
 
       // Responder inmediatamente
@@ -1977,7 +2022,7 @@ class ConfiguracionController {
 
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al ejecutar campania: ${error.message}`);
-      return res.status(500).json({ msg: error.message || "Error al ejecutar campania" });
+      return res.status(500).json({ msg: "Error al ejecutar campania" });
     }
   }
 
@@ -2468,14 +2513,11 @@ class ConfiguracionController {
   }
 
   // ==================== TIPOS CAMPANIA ====================
+  // Nota: tipo_campania ya no tiene id_empresa, solo existen id 1 (Llamadas) y 2 (WhatsApp)
   async getTiposCampania(req, res) {
     try {
-      const { idEmpresa } = req.user || {};
-      const params = [];
-      let query = 'SELECT * FROM tipo_campania WHERE estado_registro = 1';
-      if (idEmpresa) { query += ' AND id_empresa = ?'; params.push(idEmpresa); }
-      query += ' ORDER BY nombre ASC';
-      const [rows] = await pool.execute(query, params);
+      const query = 'SELECT * FROM tipo_campania WHERE estado_registro = 1 ORDER BY id ASC';
+      const [rows] = await pool.execute(query);
       return res.status(200).json({ data: rows });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al obtener tipos campaña: ${error.message}`);
@@ -2483,43 +2525,77 @@ class ConfiguracionController {
     }
   }
 
+  // CRUD deshabilitado - tipos de campaña son fijos (1=Llamadas, 2=WhatsApp)
   async createTipoCampania(req, res) {
-    try {
-      const { idEmpresa } = req.user || {};
-      const { nombre, descripcion } = req.body;
-      if (!nombre) return res.status(400).json({ msg: "El nombre es requerido" });
-      const [result] = await pool.execute(
-        'INSERT INTO tipo_campania (nombre, descripcion, id_empresa, estado_registro) VALUES (?, ?, ?, 1)',
-        [nombre, descripcion || null, idEmpresa]
-      );
-      return res.status(201).json({ msg: "Tipo de campaña creado exitosamente", data: { id: result.insertId } });
-    } catch (error) {
-      logger.error(`[configuracion.controller.js] Error al crear tipo campaña: ${error.message}`);
-      return res.status(500).json({ msg: "Error al crear tipo de campaña" });
-    }
+    return res.status(400).json({ msg: "Los tipos de campaña son fijos y no se pueden crear nuevos" });
   }
 
   async updateTipoCampania(req, res) {
-    try {
-      const { id } = req.params;
-      const { nombre, descripcion } = req.body;
-      if (!nombre) return res.status(400).json({ msg: "El nombre es requerido" });
-      await pool.execute('UPDATE tipo_campania SET nombre = ?, descripcion = ? WHERE id = ?', [nombre, descripcion || null, id]);
-      return res.status(200).json({ msg: "Tipo de campaña actualizado exitosamente" });
-    } catch (error) {
-      logger.error(`[configuracion.controller.js] Error al actualizar tipo campaña: ${error.message}`);
-      return res.status(500).json({ msg: "Error al actualizar tipo de campaña" });
-    }
+    return res.status(400).json({ msg: "Los tipos de campaña son fijos y no se pueden modificar" });
   }
 
   async deleteTipoCampania(req, res) {
+    return res.status(400).json({ msg: "Los tipos de campaña son fijos y no se pueden eliminar" });
+  }
+
+  // ==================== CONFIGURACION CAMPANIA LLAMADA ====================
+  async getConfiguracionCampaniaLlamada(req, res) {
     try {
-      const { id } = req.params;
-      await pool.execute('UPDATE tipo_campania SET estado_registro = 0 WHERE id = ?', [id]);
-      return res.status(200).json({ msg: "Tipo de campaña eliminado exitosamente" });
+      const { id_campania } = req.params;
+      const model = new ConfiguracionCampaniaLlamadaModel();
+      const config = await model.getByCampaniaId(id_campania);
+
+      if (!config) {
+        // Retornar valores por defecto si no existe configuración
+        return res.status(200).json({
+          data: {
+            id_campania: parseInt(id_campania),
+            dias_llamada: 'lun,mar,mie,jue,vie',
+            hora_inicio: '09:00:00',
+            hora_fin: '18:00:00',
+            max_intentos: 3,
+            intervalo_reintento: 60,
+            is_default: true
+          }
+        });
+      }
+
+      return res.status(200).json({ data: config });
     } catch (error) {
-      logger.error(`[configuracion.controller.js] Error al eliminar tipo campaña: ${error.message}`);
-      return res.status(500).json({ msg: "Error al eliminar tipo de campaña" });
+      logger.error(`[configuracion.controller.js] Error al obtener config campaña llamada: ${error.message}`);
+      return res.status(500).json({ msg: "Error al obtener configuración de llamadas" });
+    }
+  }
+
+  async saveConfiguracionCampaniaLlamada(req, res) {
+    try {
+      const { id_campania } = req.params;
+      const { dias_llamada, hora_inicio, hora_fin, max_intentos, intervalo_reintento, horarios_por_dia } = req.body;
+      const usuario = req.user?.username || null;
+
+      if (!dias_llamada && !horarios_por_dia) {
+        return res.status(400).json({ msg: "Debe seleccionar al menos un día" });
+      }
+
+      const model = new ConfiguracionCampaniaLlamadaModel();
+      const result = await model.upsert({
+        id_campania: parseInt(id_campania),
+        dias_llamada,
+        hora_inicio,
+        hora_fin,
+        max_intentos: max_intentos || 3,
+        intervalo_reintento: intervalo_reintento || 60,
+        horarios_por_dia,
+        usuario
+      });
+
+      return res.status(200).json({
+        msg: result.updated ? "Configuración actualizada exitosamente" : "Configuración creada exitosamente",
+        data: result
+      });
+    } catch (error) {
+      logger.error(`[configuracion.controller.js] Error al guardar config campaña llamada: ${error.message}`);
+      return res.status(500).json({ msg: "Error al guardar configuración de llamadas" });
     }
   }
 
@@ -2527,14 +2603,57 @@ class ConfiguracionController {
   async getPersonas(req, res) {
     try {
       const { idEmpresa } = req.user || {};
+      const { page = 1, limit = 50, search = '', tipo = '' } = req.query;
+      const pageNum = parseInt(page) || 1;
+      const limitNum = parseInt(limit) || 50;
+      const offset = (pageNum - 1) * limitNum;
+
       const params = [];
+      const countParams = [];
+      let baseWhere = 'WHERE p.estado_registro = 1';
+
+      if (idEmpresa) {
+        baseWhere += ' AND p.id_empresa = ?';
+        params.push(idEmpresa);
+        countParams.push(idEmpresa);
+      }
+
+      if (search && search.trim()) {
+        const searchTerm = `%${search.trim()}%`;
+        baseWhere += ' AND (p.nombre_completo LIKE ? OR p.celular LIKE ? OR p.dni LIKE ?)';
+        params.push(searchTerm, searchTerm, searchTerm);
+        countParams.push(searchTerm, searchTerm, searchTerm);
+      }
+
+      if (tipo && (tipo === '1' || tipo === '2')) {
+        baseWhere += ' AND p.id_tipo_persona = ?';
+        params.push(parseInt(tipo));
+        countParams.push(parseInt(tipo));
+      }
+
+      // Query para contar total
+      const countQuery = `SELECT COUNT(*) as total FROM persona p ${baseWhere}`;
+      const [[{ total }]] = await pool.execute(countQuery, countParams);
+
+      // Query para datos paginados
       let query = `SELECT p.id, p.celular, p.nombre_completo, p.dni, p.id_tipo_persona, tp.nombre AS tipo_persona_nombre
                    FROM persona p LEFT JOIN tipo_persona tp ON p.id_tipo_persona = tp.id
-                   WHERE p.estado_registro = 1`;
-      if (idEmpresa) { query += ' AND p.id_empresa = ?'; params.push(idEmpresa); }
-      query += ' ORDER BY p.nombre_completo ASC';
+                   ${baseWhere}
+                   ORDER BY p.nombre_completo ASC
+                   LIMIT ? OFFSET ?`;
+      params.push(limitNum, offset);
+
       const [rows] = await pool.execute(query, params);
-      return res.status(200).json({ data: rows });
+
+      return res.status(200).json({
+        data: rows,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum)
+        }
+      });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al obtener personas: ${error.message}`);
       return res.status(500).json({ msg: "Error al obtener personas" });
@@ -2550,7 +2669,7 @@ class ConfiguracionController {
       let query = `SELECT c.*, p.celular, p.nombre_completo FROM chat c LEFT JOIN persona p ON p.id = c.id_persona WHERE c.estado_registro = 1`;
       if (idEmpresa) { query += ' AND c.id_empresa = ?'; params.push(idEmpresa); }
       query += ' ORDER BY c.fecha_actualizacion DESC';
-      if (limit) { query += ` LIMIT ${parseInt(limit)}`; }
+      if (limit) { query += ' LIMIT ?'; params.push(parseInt(limit)); }
       const [rows] = await pool.execute(query, params);
       return res.status(200).json({ data: rows });
     } catch (error) {

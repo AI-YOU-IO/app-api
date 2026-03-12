@@ -6,110 +6,142 @@ class TipificacionModel {
   }
 
   async getAll(id_empresa = null) {
-    let query = `SELECT * FROM tipificacion WHERE 1=1`;
-    const params = [];
+    try {
+      let query = `SELECT * FROM tipificacion WHERE estado_registro = 1`;
+      const params = [];
 
-    if (id_empresa) {
-      query += ' AND id_empresa = ?';
-      params.push(id_empresa);
+      if (id_empresa) {
+        query += ' AND id_empresa = ?';
+        params.push(id_empresa);
+      }
+
+      query += ' ORDER BY COALESCE(id_padre, 0) ASC, orden ASC, nombre ASC';
+
+      const [rows] = await this.connection.execute(query, params);
+      return rows;
+    } catch (error) {
+      throw new Error(`Error al obtener tipificaciones: ${error.message}`);
     }
-
-    query += ' ORDER BY COALESCE(id_padre, 0) ASC, orden ASC, nombre ASC';
-
-    const [rows] = await this.connection.execute(query, params);
-    return rows;
   }
 
   async getAllForBot(id_empresa = null) {
-    let query = `SELECT * FROM tipificacion WHERE flag_bot = 1`;
-    const params = [];
+    try {
+      let query = `SELECT * FROM tipificacion WHERE estado_registro = 1 AND flag_bot = 1`;
+      const params = [];
 
-    if (id_empresa) {
-      query += ' AND id_empresa = ?';
-      params.push(id_empresa);
+      if (id_empresa) {
+        query += ' AND id_empresa = ?';
+        params.push(id_empresa);
+      }
+
+      query += ' ORDER BY COALESCE(id_padre, 0) ASC, orden ASC, nombre ASC';
+
+      const [rows] = await this.connection.execute(query, params);
+      return rows;
+    } catch (error) {
+      throw new Error(`Error al obtener tipificaciones bot: ${error.message}`);
     }
-
-    query += ' ORDER BY COALESCE(id_padre, 0) ASC, orden ASC, nombre ASC';
-
-    const [rows] = await this.connection.execute(query, params);
-    return rows;
   }
 
   async getByIdPadre(id_padre, id_empresa = null) {
-    let query = `SELECT * FROM tipificacion WHERE id_padre = ?`;
-    const params = [id_padre];
+    try {
+      let query = `SELECT * FROM tipificacion WHERE estado_registro = 1 AND id_padre = ?`;
+      const params = [id_padre];
 
-    if (id_empresa) {
-      query += ' AND id_empresa = ?';
-      params.push(id_empresa);
+      if (id_empresa) {
+        query += ' AND id_empresa = ?';
+        params.push(id_empresa);
+      }
+
+      query += ' ORDER BY orden ASC, nombre ASC';
+
+      const [rows] = await this.connection.execute(query, params);
+      return rows;
+    } catch (error) {
+      throw new Error(`Error al obtener tipificaciones por padre: ${error.message}`);
     }
-
-    query += ' ORDER BY orden ASC, nombre ASC';
-
-    const [rows] = await this.connection.execute(query, params);
-    return rows;
   }
 
   async getPadres(id_empresa = null) {
-    let query = `SELECT * FROM tipificacion WHERE id_padre IS NULL`;
-    const params = [];
+    try {
+      let query = `SELECT * FROM tipificacion WHERE estado_registro = 1 AND id_padre IS NULL`;
+      const params = [];
 
-    if (id_empresa) {
-      query += ' AND id_empresa = ?';
-      params.push(id_empresa);
+      if (id_empresa) {
+        query += ' AND id_empresa = ?';
+        params.push(id_empresa);
+      }
+
+      query += ' ORDER BY orden ASC, nombre ASC';
+
+      const [rows] = await this.connection.execute(query, params);
+      return rows;
+    } catch (error) {
+      throw new Error(`Error al obtener tipificaciones padre: ${error.message}`);
     }
-
-    query += ' ORDER BY orden ASC, nombre ASC';
-
-    const [rows] = await this.connection.execute(query, params);
-    return rows;
   }
 
   async getById(id) {
-    const [rows] = await this.connection.execute(
-      `SELECT id, id_padre, nombre, definicion, orden, color, flag_asesor, flag_bot, fecha_registro, fecha_actualizacion
-       FROM tipificacion WHERE id = ?`,
-      [id]
-    );
-    return rows[0] || null;
+    try {
+      const [rows] = await this.connection.execute(
+        `SELECT id, id_padre, nombre, definicion, orden, color, flag_asesor, flag_bot, fecha_registro, fecha_actualizacion
+         FROM tipificacion WHERE id = ? AND estado_registro = 1`,
+        [id]
+      );
+      return rows[0] || null;
+    } catch (error) {
+      throw new Error(`Error al obtener tipificacion: ${error.message}`);
+    }
   }
 
   async create(data) {
-    const { nombre, definicion, orden, color, flag_asesor, flag_bot, id_empresa = null, id_padre = null } = data;
-    const [result] = await this.connection.execute(
-      `INSERT INTO tipificacion (nombre, definicion, orden, color, flag_asesor, flag_bot, id_empresa, id_padre) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [nombre, definicion || null, orden || 0, color || null, flag_asesor, flag_bot, id_empresa, id_padre]
-    );
-    return result.insertId;
+    try {
+      const { nombre, definicion, orden, color, flag_asesor, flag_bot, id_empresa = null, id_padre = null, usuario_registro = null } = data;
+      const [result] = await this.connection.execute(
+        `INSERT INTO tipificacion (nombre, definicion, orden, color, flag_asesor, flag_bot, id_empresa, id_padre, usuario_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [nombre, definicion || null, orden || 0, color || null, flag_asesor, flag_bot, id_empresa, id_padre, usuario_registro]
+      );
+      return result.insertId;
+    } catch (error) {
+      throw new Error(`Error al crear tipificacion: ${error.message}`);
+    }
   }
 
   async update(id, data) {
-    const { nombre, definicion, orden, color, flag_asesor, flag_bot, id_empresa = null, id_padre = null } = data;
-    const ordenValue = orden !== undefined && orden !== null ? orden : 0;
+    try {
+      const { nombre, definicion, orden, color, flag_asesor, flag_bot, id_empresa = null, id_padre = null, usuario_actualizacion = null } = data;
+      const ordenValue = orden !== undefined && orden !== null ? orden : 0;
 
-    let query = `UPDATE tipificacion SET nombre = ?, definicion = ?, orden = ?, color = ?, flag_asesor = ?, flag_bot = ?, id_padre = ? WHERE id = ?`;
-    const params = [nombre, definicion || null, ordenValue, color || null, flag_asesor, flag_bot, id_padre, id];
+      let query = `UPDATE tipificacion SET nombre = ?, definicion = ?, orden = ?, color = ?, flag_asesor = ?, flag_bot = ?, id_padre = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+      const params = [nombre, definicion || null, ordenValue, color || null, flag_asesor, flag_bot, id_padre, usuario_actualizacion, id];
 
-    if (id_empresa) {
-      query = `UPDATE tipificacion SET nombre = ?, definicion = ?, orden = ?, color = ?, flag_asesor = ?, flag_bot = ?, id_padre = ? WHERE id = ? AND id_empresa = ?`;
-      params.push(id_empresa);
+      if (id_empresa) {
+        query = `UPDATE tipificacion SET nombre = ?, definicion = ?, orden = ?, color = ?, flag_asesor = ?, flag_bot = ?, id_padre = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?`;
+        params.push(id_empresa);
+      }
+
+      await this.connection.execute(query, params);
+      return true;
+    } catch (error) {
+      throw new Error(`Error al actualizar tipificacion: ${error.message}`);
     }
-
-    await this.connection.execute(query, params);
-    return true;
   }
 
-  async delete(id, id_empresa = null) {
-    let query = `DELETE FROM tipificacion WHERE id = ?`;
-    const params = [id];
+  async delete(id, id_empresa = null, usuario_actualizacion = null) {
+    try {
+      let query = `UPDATE tipificacion SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+      const params = [usuario_actualizacion, id];
 
-    if (id_empresa) {
-      query = `DELETE FROM tipificacion WHERE id = ? AND id_empresa = ?`;
-      params.push(id_empresa);
+      if (id_empresa) {
+        query = `UPDATE tipificacion SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?`;
+        params.push(id_empresa);
+      }
+
+      const [result] = await this.connection.execute(query, params);
+      return result.affectedRows > 0;
+    } catch (error) {
+      throw new Error(`Error al eliminar tipificacion: ${error.message}`);
     }
-
-    await this.connection.execute(query, params);
-    return true;
   }
 }
 

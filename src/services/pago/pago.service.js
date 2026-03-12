@@ -1,8 +1,8 @@
 const logger = require("../../config/logger/loggerClient");
 
-const url_token = "https://qascobranzas-auna.oncosalud.pe/api/Autorizacion/CrearToken"
-const url_cambio = "https://qascobranzas-auna.oncosalud.pe/api/CambioTarjeta/CrearEnlace"
-const url_pago = "https://qascobranzas-auna.oncosalud.pe/api/PagoLinea/CrearEnlace"
+const url_token = "https://cobranzas-auna.oncosalud.pe/api/Autorizacion/CrearToken"
+const url_cambio = "https://cobranzas-auna.oncosalud.pe/api/CambioTarjeta/CrearEnlace"
+const url_pago = "https://cobranzas-auna.oncosalud.pe/api/PagoLinea/CrearEnlace"
 
 class PagoService {
   async obtenerToken(alcance) {
@@ -35,7 +35,7 @@ class PagoService {
       body: JSON.stringify({
         grupo_familiar: grupo_familiar,
         ope_origen: 36,
-        ope_call: "23"
+        ope_call: "93"
       })
     });
 
@@ -60,7 +60,7 @@ class PagoService {
       body: JSON.stringify({
         grupo_familiar: grupo_familiar,
         ope_origen: 36,
-        ope_call: "23"
+        ope_call: "93"
       })
     });
 

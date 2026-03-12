@@ -67,7 +67,7 @@ class TblPlanesTarifariosModel {
             const [rows] = await this.connection.execute(query, params);
             return rows;
         } catch (error) {
-            throw new Error(`Error al obtener planes: ${error}`);
+            throw new Error(`Error al obtener planes: ${error.message}`);
         }
     }
 
@@ -148,14 +148,15 @@ class TblPlanesTarifariosModel {
         principal = 1,
         imagen_url = null,
         estado_registro = 1,
-        id_empresa = null
+        id_empresa = null,
+        usuario_registro = null
     }) {
         try {
             const [result] = await this.connection.execute(
                 `INSERT INTO catalogo
-                (nombre, precio_regular, precio_promocional, descripcion, principal, imagen_url, estado_registro, id_empresa)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                [nombre, precio_regular, precio_promocional, descripcion, principal, imagen_url, estado_registro, id_empresa]
+                (nombre, precio_regular, precio_promocional, descripcion, principal, imagen_url, estado_registro, id_empresa, usuario_registro)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [nombre, precio_regular, precio_promocional, descripcion, principal, imagen_url, estado_registro, id_empresa, usuario_registro]
             );
             return result.insertId;
         } catch (error) {
@@ -175,14 +176,15 @@ class TblPlanesTarifariosModel {
         precio_promocional,
         descripcion,
         principal,
-        imagen_url
+        imagen_url,
+        usuario_actualizacion = null
     }) {
         try {
             const [result] = await this.connection.execute(
                 `UPDATE catalogo
-                SET nombre = ?, precio_regular = ?, precio_promocional = ?, descripcion = ?, principal = ?, imagen_url = ?
+                SET nombre = ?, precio_regular = ?, precio_promocional = ?, descripcion = ?, principal = ?, imagen_url = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
                 WHERE id = ?`,
-                [nombre, precio_regular, precio_promocional, descripcion, principal, imagen_url, id]
+                [nombre, precio_regular, precio_promocional, descripcion, principal, imagen_url, usuario_actualizacion, id]
             );
             return result.affectedRows > 0;
         } catch (error) {
@@ -195,11 +197,11 @@ class TblPlanesTarifariosModel {
      * @param {number} id - ID del item
      * @returns {Promise<boolean>} - true si se desactivó correctamente
      */
-    async softDelete(id) {
+    async softDelete(id, usuario_actualizacion = null) {
         try {
             const [result] = await this.connection.execute(
-                'UPDATE catalogo SET estado_registro = 0 WHERE id = ?',
-                [id]
+                'UPDATE catalogo SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?',
+                [usuario_actualizacion, id]
             );
             return result.affectedRows > 0;
         } catch (error) {
@@ -207,22 +209,6 @@ class TblPlanesTarifariosModel {
         }
     }
 
-    /**
-     * Elimina un plan tarifario permanentemente
-     * @param {number} id - ID del plan
-     * @returns {Promise<boolean>} - true si se eliminó correctamente
-     */
-    async delete(id) {
-        try {
-            const [result] = await this.connection.execute(
-                'DELETE FROM catalogo WHERE id = ?',
-                [id]
-            );
-            return result.affectedRows > 0;
-        } catch (error) {
-            throw new Error(`Error al eliminar plan: ${error.message}`);
-        }
-    }
 }
 
 module.exports = TblPlanesTarifariosModel;

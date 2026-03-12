@@ -17,11 +17,11 @@ class EmpresaModel {
     }
   }
 
-  async updateEstado(id, estado) {
+  async updateEstado(id, estado, usuario_actualizacion = null) {
     try {
       const [result] = await this.connection.execute(
-        `UPDATE empresa SET estado_registro = ?, fecha_actualizacion = NOW() WHERE id = ?`,
-        [estado, id]
+        `UPDATE empresa SET estado_registro = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`,
+        [estado, usuario_actualizacion, id]
       );
       return result.affectedRows > 0;
     } catch (error) {
@@ -42,12 +42,12 @@ class EmpresaModel {
     }
   }
 
-  async create({ nombre, ruc, direccion, telefono, email }) {
+  async create({ nombre, ruc, direccion, telefono, email, usuario_registro = null }) {
     try {
       const [result] = await this.connection.execute(
-        `INSERT INTO empresa (razon_social, ruc, direccion, telefono, email, estado_registro, fecha_registro)
-         VALUES (?, ?, ?, ?, ?, 1, NOW())`,
-        [nombre, ruc || null, direccion || null, telefono || null, email || null]
+        `INSERT INTO empresa (razon_social, ruc, direccion, telefono, email, estado_registro, fecha_registro, usuario_registro)
+         VALUES (?, ?, ?, ?, ?, 1, NOW(), ?)`,
+        [nombre, ruc || null, direccion || null, telefono || null, email || null, usuario_registro]
       );
       return result.insertId;
     } catch (error) {
@@ -55,12 +55,12 @@ class EmpresaModel {
     }
   }
 
-  async update(id, { nombre, ruc, direccion, telefono, email }) {
+  async update(id, { nombre, ruc, direccion, telefono, email, usuario_actualizacion = null }) {
     try {
       const [result] = await this.connection.execute(
-        `UPDATE empresa SET razon_social = ?, ruc = ?, direccion = ?, telefono = ?, email = ?, fecha_actualizacion = NOW()
+        `UPDATE empresa SET razon_social = ?, ruc = ?, direccion = ?, telefono = ?, email = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
          WHERE id = ?`,
-        [nombre, ruc || null, direccion || null, telefono || null, email || null, id]
+        [nombre, ruc || null, direccion || null, telefono || null, email || null, usuario_actualizacion, id]
       );
       return result.affectedRows > 0;
     } catch (error) {
@@ -68,11 +68,11 @@ class EmpresaModel {
     }
   }
 
-  async delete(id) {
+  async delete(id, usuario_actualizacion = null) {
     try {
       const [result] = await this.connection.execute(
-        `UPDATE empresa SET estado_registro = 0 WHERE id = ?`,
-        [id]
+        `UPDATE empresa SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`,
+        [usuario_actualizacion, id]
       );
       return result.affectedRows > 0;
     } catch (error) {

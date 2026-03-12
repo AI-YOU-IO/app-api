@@ -60,7 +60,7 @@ class WhatsappEmbeddedController {
       return res.status(200).json(result);
     } catch (error) {
       logger.error(`[WhatsappEmbeddedController] Error procesando token: ${error.message}`);
-      return res.status(500).json({ success: false, msg: 'Error procesando token', error: error.message });
+      return res.status(500).json({ success: false, msg: 'Error procesando token' });
     }
   }
 
@@ -80,7 +80,7 @@ class WhatsappEmbeddedController {
       return res.status(200).json(result);
     } catch (error) {
       logger.error(`[WhatsappEmbeddedController] Error obteniendo configuración: ${error.message}`);
-      return res.status(500).json({ success: false, msg: 'Error obteniendo configuración', error: error.message });
+      return res.status(500).json({ success: false, msg: 'Error obteniendo configuración' });
     }
   }
 
@@ -102,7 +102,7 @@ class WhatsappEmbeddedController {
       return res.status(200).json(result);
     } catch (error) {
       logger.error(`[WhatsappEmbeddedController] Error desconectando: ${error.message}`);
-      return res.status(500).json({ success: false, msg: 'Error desconectando', error: error.message });
+      return res.status(500).json({ success: false, msg: 'Error desconectando' });
     }
   }
 
@@ -122,7 +122,7 @@ class WhatsappEmbeddedController {
       return res.status(200).json(result);
     } catch (error) {
       logger.error(`[WhatsappEmbeddedController] Error verificando estado: ${error.message}`);
-      return res.status(500).json({ success: false, msg: 'Error verificando estado', error: error.message });
+      return res.status(500).json({ success: false, msg: 'Error verificando estado' });
     }
   }
 
@@ -142,7 +142,7 @@ class WhatsappEmbeddedController {
       return res.status(200).json(result);
     } catch (error) {
       logger.error(`[WhatsappEmbeddedController] Error suscribiendo webhook: ${error.message}`);
-      return res.status(500).json({ success: false, msg: 'Error suscribiendo webhook', error: error.message });
+      return res.status(500).json({ success: false, msg: 'Error suscribiendo webhook' });
     }
   }
 
@@ -162,7 +162,7 @@ class WhatsappEmbeddedController {
       return res.status(200).json(result);
     } catch (error) {
       logger.error(`[WhatsappEmbeddedController] Error suscribiendo webhooks coexistence: ${error.message}`);
-      return res.status(500).json({ success: false, msg: 'Error suscribiendo webhooks coexistence', error: error.message });
+      return res.status(500).json({ success: false, msg: 'Error suscribiendo webhooks coexistence' });
     }
   }
 
@@ -183,7 +183,7 @@ class WhatsappEmbeddedController {
       return res.status(200).json(result);
     } catch (error) {
       logger.error(`[WhatsappEmbeddedController] Error sincronizando SMB: ${error.message}`);
-      return res.status(500).json({ success: false, msg: 'Error sincronizando SMB', error: error.message });
+      return res.status(500).json({ success: false, msg: 'Error sincronizando SMB' });
     }
   }
 }

@@ -1,3 +1,5 @@
+/* Segun lo que dice nicolas faq ya no se usara, se usara bd vectorial, ft. Fabrizio Diaz */
+
 const { pool } = require("../config/dbConnection.js");
 
 class FaqModel {
@@ -112,12 +114,12 @@ class FaqModel {
      * @param {Object} faq - Datos de la FAQ
      * @returns {Promise<number>} - ID de la FAQ creada
      */
-    async create({ numero, pregunta, proceso, respuesta, activo = 1, id_empresa = null }) {
+    async create({ numero, pregunta, proceso, respuesta, activo = 1, id_empresa = null, usuario_registro = null }) {
         try {
             const [result] = await this.connection.execute(
-                `INSERT INTO faq (numero, pregunta, proceso, respuesta, activo, id_empresa)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [numero, pregunta, proceso, respuesta, activo, id_empresa]
+                `INSERT INTO faq (numero, pregunta, proceso, respuesta, activo, id_empresa, usuario_registro)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [numero, pregunta, proceso, respuesta, activo, id_empresa, usuario_registro]
             );
             return result.insertId;
         } catch (error) {
@@ -131,16 +133,16 @@ class FaqModel {
      * @param {Object} faq - Datos a actualizar
      * @returns {Promise<boolean>} - true si se actualizó correctamente
      */
-    async update(id, { numero, pregunta, proceso, respuesta, activo, id_empresa = null }) {
+    async update(id, { numero, pregunta, proceso, respuesta, activo, id_empresa = null, usuario_actualizacion = null }) {
         try {
             let query = `UPDATE faq
-                 SET numero = ?, pregunta = ?, proceso = ?, respuesta = ?, activo = ?
+                 SET numero = ?, pregunta = ?, proceso = ?, respuesta = ?, activo = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
                  WHERE id = ?`;
-            const params = [numero, pregunta, proceso, respuesta, activo, id];
+            const params = [numero, pregunta, proceso, respuesta, activo, usuario_actualizacion, id];
 
             if (id_empresa) {
                 query = `UPDATE faq
-                 SET numero = ?, pregunta = ?, proceso = ?, respuesta = ?, activo = ?
+                 SET numero = ?, pregunta = ?, proceso = ?, respuesta = ?, activo = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
                  WHERE id = ? AND id_empresa = ?`;
                 params.push(id_empresa);
             }
@@ -175,13 +177,13 @@ class FaqModel {
      * @param {number|null} id_empresa - ID de la empresa
      * @returns {Promise<boolean>} - true si se eliminó correctamente
      */
-    async delete(id, id_empresa = null) {
+    async delete(id, id_empresa = null, usuario_actualizacion = null) {
         try {
-            let query = 'UPDATE faq SET activo = 0 WHERE id = ?';
-            const params = [id];
+            let query = 'UPDATE faq SET activo = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?';
+            const params = [usuario_actualizacion, id];
 
             if (id_empresa) {
-                query = 'UPDATE faq SET activo = 0 WHERE id = ? AND id_empresa = ?';
+                query = 'UPDATE faq SET activo = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?';
                 params.push(id_empresa);
             }
 

@@ -20,7 +20,7 @@ class UsuarioModel {
          LEFT JOIN sucursal s ON u.id_sucursal = s.id
          LEFT JOIN usuario p ON u.id_padre = p.id
          LEFT JOIN empresa e ON u.id_empresa = e.id
-         WHERE u.estado_registro = '1' OR u.estado_registro = 1
+         WHERE u.estado_registro = 1
          ORDER BY u.username`
       );
       return rows;
@@ -44,7 +44,7 @@ class UsuarioModel {
          LEFT JOIN empresa e ON u.id_empresa = e.id
          WHERE u.id_rol = 1
            AND (u.id_empresa IS NULL OR u.id_empresa != 0)
-           AND (u.estado_registro = '1' OR u.estado_registro = 1)
+           AND (u.estado_registro = 1)
          ORDER BY u.username`
       );
       return rows;
@@ -78,7 +78,7 @@ class UsuarioModel {
         `SELECT u.*, r.nombre as rol_nombre
          FROM usuario u
          LEFT JOIN rol r ON u.id_rol = r.id
-         WHERE u.id = ?`,
+         WHERE u.id = ? AND u.estado_registro = 1`,
         [id]
       );
       return rows[0];
@@ -106,13 +106,13 @@ class UsuarioModel {
     }
   }
 
-  async create({ id_rol, username, password, id_sucursal, id_padre, id_empresa }) {
+  async create({ id_rol, username, password, id_sucursal, id_padre, id_empresa, usuario_registro = null }) {
     try {
       const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
       const [result] = await this.connection.execute(
         `INSERT INTO usuario (id_rol, username, password, id_sucursal, id_padre, id_empresa, estado_registro, fecha_registro, usuario_registro, fecha_actualizacion, usuario_actualizacion)
-         VALUES (?, ?, ?, ?, ?, ?, 1, NOW(), 'admin', NOW(), 'admin')`,
-        [id_rol, username, hashedPassword, id_sucursal || null, id_padre || null, id_empresa || null]
+         VALUES (?, ?, ?, ?, ?, ?, 1, NOW(), ?, NOW(), ?)`,
+        [id_rol, username, hashedPassword, id_sucursal || null, id_padre || null, id_empresa || null, usuario_registro, usuario_registro]
       );
       return result.insertId;
     } catch (error) {
@@ -120,10 +120,10 @@ class UsuarioModel {
     }
   }
 
-  async update(id, { id_rol, username, password, id_sucursal, id_padre, id_empresa }) {
+  async update(id, { id_rol, username, password, id_sucursal, id_padre, id_empresa, usuario_actualizacion = null }) {
     try {
-      let query = `UPDATE usuario SET id_rol = ?, username = ?, id_sucursal = ?, id_padre = ?, id_empresa = ?, fecha_actualizacion = NOW()`;
-      let params = [id_rol, username, id_sucursal || null, id_padre || null, id_empresa || null];
+      let query = `UPDATE usuario SET id_rol = ?, username = ?, id_sucursal = ?, id_padre = ?, id_empresa = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()`;
+      let params = [id_rol, username, id_sucursal || null, id_padre || null, id_empresa || null, usuario_actualizacion];
 
       if (password) {
         const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
@@ -141,11 +141,11 @@ class UsuarioModel {
     }
   }
 
-  async delete(id) {
+  async delete(id, usuario_actualizacion = null) {
     try {
       const [result] = await this.connection.execute(
-        'UPDATE usuario SET estado_registro = 0 WHERE id = ?',
-        [id]
+        'UPDATE usuario SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?',
+        [usuario_actualizacion, id]
       );
       return result.affectedRows > 0;
     } catch (error) {
@@ -173,7 +173,7 @@ class UsuarioModel {
   async verifyPassword(id, password) {
     try {
       const [rows] = await this.connection.execute(
-        `SELECT password FROM usuario WHERE id = ?`,
+        `SELECT password FROM usuario WHERE id = ? AND estado_registro = 1`,
         [id]
       );
       if (rows.length === 0) return false;

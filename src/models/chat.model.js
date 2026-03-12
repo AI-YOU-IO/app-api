@@ -24,42 +24,62 @@ class ChatModel {
     }
 
     async findById(id) {
-        const [rows] = await this.connection.execute(
-            'SELECT * FROM chat WHERE id = ? AND estado_registro = 1',
-            [id]
-        );
-        return rows[0] || null;
+        try {
+            const [rows] = await this.connection.execute(
+                'SELECT * FROM chat WHERE id = ? AND estado_registro = 1',
+                [id]
+            );
+            return rows[0] || null;
+        } catch (error) {
+            logger.error(`[chat.model.js] Error al buscar chat por id: ${error.message}`);
+            throw new Error(`Error al buscar chat: ${error.message}`);
+        }
     }
 
     async findByPersona(id_persona) {
-        const [rows] = await this.connection.execute(
-            'SELECT * FROM chat WHERE id_persona = ? AND estado_registro = 1',
-            [id_persona]
-        );
-        return rows.length > 0 ? rows[0] : null;
+        try {
+            const [rows] = await this.connection.execute(
+                'SELECT * FROM chat WHERE id_persona = ? AND estado_registro = 1',
+                [id_persona]
+            );
+            return rows.length > 0 ? rows[0] : null;
+        } catch (error) {
+            logger.error(`[chat.model.js] Error al buscar chat por persona: ${error.message}`);
+            throw new Error(`Error al buscar chat por persona: ${error.message}`);
+        }
     }
 
     async findByCliente(id_cliente) {
-        const [rows] = await this.connection.execute(
-            'SELECT * FROM chat WHERE id_cliente = ? AND estado_registro = 1',
-            [id_cliente]
-        );
-        return rows.length > 0 ? rows[0] : null;
+        try {
+            const [rows] = await this.connection.execute(
+                'SELECT * FROM chat WHERE id_cliente = ? AND estado_registro = 1',
+                [id_cliente]
+            );
+            return rows.length > 0 ? rows[0] : null;
+        } catch (error) {
+            logger.error(`[chat.model.js] Error al buscar chat por cliente: ${error.message}`);
+            throw new Error(`Error al buscar chat por cliente: ${error.message}`);
+        }
     }
 
     async findAll(id_empresa = null) {
-        let query = 'SELECT * FROM chat WHERE estado_registro = 1';
-        const params = [];
+        try {
+            let query = 'SELECT * FROM chat WHERE estado_registro = 1';
+            const params = [];
 
-        if (id_empresa) {
-            query += ' AND id_empresa = ?';
-            params.push(id_empresa);
+            if (id_empresa) {
+                query += ' AND id_empresa = ?';
+                params.push(id_empresa);
+            }
+
+            query += ' ORDER BY fecha_registro DESC';
+
+            const [rows] = await this.connection.execute(query, params);
+            return rows;
+        } catch (error) {
+            logger.error(`[chat.model.js] Error al listar chats: ${error.message}`);
+            throw new Error(`Error al listar chats: ${error.message}`);
         }
-
-        query += ' ORDER BY fecha_registro DESC';
-
-        const [rows] = await this.connection.execute(query, params);
-        return rows;
     }
 
     static UPDATABLE_FIELDS = [

@@ -1,4 +1,5 @@
 const { pool } = require("../config/dbConnection.js");
+const logger = require('../config/logger/loggerClient.js');
 
 class CampaniaModel {
     constructor(dbConnection = null) {
@@ -11,6 +12,7 @@ class CampaniaModel {
                 SELECT c.*,
                     tc.nombre AS tipo_campania_nombre,
                     f.nombre AS formato_nombre,
+                    p.nombre AS plantilla_nombre,
                     (SELECT COUNT(*) FROM campania_base_numero cbn
                      WHERE cbn.id_campania = c.id AND cbn.estado_registro = 1) as total_bases,
                     (SELECT COUNT(*) FROM campania_ejecucion ce
@@ -18,6 +20,7 @@ class CampaniaModel {
                 FROM campania c
                 LEFT JOIN tipo_campania tc ON c.id_tipo_campania = tc.id AND tc.estado_registro = 1
                 LEFT JOIN formato f ON c.id_formato = f.id
+                LEFT JOIN plantilla p ON c.id_plantilla = p.id
                 WHERE c.estado_registro = 1
             `;
             const params = [];
@@ -39,12 +42,13 @@ class CampaniaModel {
     async getById(id) {
         try {
             const [rows] = await this.connection.execute(
-                `SELECT c.*, tc.nombre AS tipo_campania_nombre, f.nombre AS formato_nombre,
+                `SELECT c.*, tc.nombre AS tipo_campania_nombre, f.nombre AS formato_nombre, p.nombre AS plantilla_nombre,
                     (SELECT COUNT(*) FROM campania_base_numero cbn
                      WHERE cbn.id_campania = c.id AND cbn.estado_registro = 1) as total_bases
                 FROM campania c
                 LEFT JOIN tipo_campania tc ON c.id_tipo_campania = tc.id AND tc.estado_registro = 1
                 LEFT JOIN formato f ON c.id_formato = f.id
+                LEFT JOIN plantilla p ON c.id_plantilla = p.id
                 WHERE c.id = ? AND c.estado_registro = 1`,
                 [id]
             );
@@ -79,18 +83,20 @@ class CampaniaModel {
         }
     }
 
-    async create({ id_empresa, nombre, descripcion, id_tipo_campania, id_formato, usuario_registro }) {
+    async create({ id_empresa, nombre, descripcion, id_tipo_campania, id_formato, id_plantilla, usuario_registro }) {
         try {
+            logger.info(`[CampaniaModel.create] Parámetros: id_plantilla=${id_plantilla}, tipo=${typeof id_plantilla}`);
             const [result] = await this.connection.execute(
                 `INSERT INTO campania
-                (id_empresa, nombre, descripcion, id_tipo_campania, id_formato, estado_registro, usuario_registro)
-                VALUES (?, ?, ?, ?, ?, 1, ?)`,
+                (id_empresa, nombre, descripcion, id_tipo_campania, id_formato, id_plantilla, estado_registro, usuario_registro)
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
                 [
                     id_empresa,
                     nombre,
                     descripcion || null,
                     id_tipo_campania,
                     id_formato,
+                    id_plantilla || null,
                     usuario_registro || null
                 ]
             );
@@ -103,11 +109,12 @@ class CampaniaModel {
         }
     }
 
-    async update(id, { nombre, descripcion, id_tipo_campania, id_formato, usuario_actualizacion }) {
+    async update(id, { nombre, descripcion, id_tipo_campania, id_formato, id_plantilla, usuario_actualizacion }) {
         try {
+            logger.info(`[CampaniaModel.update] id=${id}, id_plantilla=${id_plantilla}, tipo=${typeof id_plantilla}`);
             const [result] = await this.connection.execute(
                 `UPDATE campania
-                SET nombre = ?, descripcion = ?, id_tipo_campania = ?, id_formato = ?,
+                SET nombre = ?, descripcion = ?, id_tipo_campania = ?, id_formato = ?, id_plantilla = ?,
                     usuario_actualizacion = ?, fecha_actualizacion = NOW()
                 WHERE id = ?`,
                 [
@@ -115,6 +122,7 @@ class CampaniaModel {
                     descripcion || null,
                     id_tipo_campania,
                     id_formato,
+                    id_plantilla || null,
                     usuario_actualizacion || null,
                     id
                 ]
@@ -128,11 +136,11 @@ class CampaniaModel {
         }
     }
 
-    async delete(id) {
+    async delete(id, usuario_actualizacion = null) {
         try {
             const [result] = await this.connection.execute(
-                'UPDATE campania SET estado_registro = 0, fecha_actualizacion = NOW() WHERE id = ?',
-                [id]
+                'UPDATE campania SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?',
+                [usuario_actualizacion, id]
             );
             return result.affectedRows > 0;
         } catch (error) {

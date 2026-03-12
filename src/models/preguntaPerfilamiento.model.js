@@ -30,22 +30,22 @@ class PreguntaPerfilamientoModel {
   }
 
   async create(data) {
-    const { pregunta, orden, id_empresa = null } = data;
+    const { pregunta, orden, id_empresa = null, usuario_registro = null } = data;
     const [result] = await this.connection.execute(
-      `INSERT INTO pregunta_perfilamiento (pregunta, orden, id_empresa) VALUES (?, ?, ?)`,
-      [pregunta, orden || 0, id_empresa]
+      `INSERT INTO pregunta_perfilamiento (pregunta, orden, id_empresa, usuario_registro) VALUES (?, ?, ?, ?)`,
+      [pregunta, orden || 0, id_empresa, usuario_registro]
     );
     return result.insertId;
   }
 
   async update(id, data) {
-    const { pregunta, orden, id_empresa = null } = data;
+    const { pregunta, orden, id_empresa = null, usuario_actualizacion = null } = data;
 
-    let query = `UPDATE pregunta_perfilamiento SET pregunta = ?, orden = ? WHERE id = ?`;
-    const params = [pregunta, orden || 0, id];
+    let query = `UPDATE pregunta_perfilamiento SET pregunta = ?, orden = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+    const params = [pregunta, orden || 0, usuario_actualizacion, id];
 
     if (id_empresa) {
-      query = `UPDATE pregunta_perfilamiento SET pregunta = ?, orden = ? WHERE id = ? AND id_empresa = ?`;
+      query = `UPDATE pregunta_perfilamiento SET pregunta = ?, orden = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?`;
       params.push(id_empresa);
     }
 
@@ -53,12 +53,12 @@ class PreguntaPerfilamientoModel {
     return true;
   }
 
-  async delete(id, id_empresa = null) {
-    let query = `UPDATE pregunta_perfilamiento SET estado_registro = 0 WHERE id = ?`;
-    const params = [id];
+  async delete(id, id_empresa = null, usuario_actualizacion = null) {
+    let query = `UPDATE pregunta_perfilamiento SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+    const params = [usuario_actualizacion, id];
 
     if (id_empresa) {
-      query = `UPDATE pregunta_perfilamiento SET estado_registro = 0 WHERE id = ? AND id_empresa = ?`;
+      query = `UPDATE pregunta_perfilamiento SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?`;
       params.push(id_empresa);
     }
 

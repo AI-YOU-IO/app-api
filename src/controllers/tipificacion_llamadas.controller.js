@@ -1,4 +1,4 @@
-const TipificacionLlamadaModel = require("../models/tipificacion_llamada.model ");
+const TipificacionLlamadaModel = require("../models/tipificacion_llamada.model");
 const logger = require('../config/logger/loggerClient.js');
 
 class TipificacionLlamadaController {
@@ -39,15 +39,14 @@ class TipificacionLlamadaController {
 
   async createTipificacion(req, res) {
     try {
-      const { idEmpresa } = req.user || {};
+      const { idEmpresa, userId } = req.user || {};
       const { nombre, descripcion, orden, color } = req.body;
 
       if (!nombre) {
         return res.status(400).json({ msg: "El nombre es requerido" });
       }
 
-      
-      const id = await TipificacionLlamadaModel.create({ nombre, descripcion, orden, color, id_empresa: idEmpresa });
+      const id = await TipificacionLlamadaModel.create({ nombre, descripcion, orden, color, id_empresa: idEmpresa, usuario_registro: userId });
 
       return res.status(201).json({ msg: "Tipificación creada exitosamente", data: { id } });
     } catch (error) {
@@ -58,7 +57,7 @@ class TipificacionLlamadaController {
 
   async updateTipificacion(req, res) {
     try {
-      const { idEmpresa } = req.user || {};
+      const { idEmpresa, userId } = req.user || {};
       const { id } = req.params;
       const { nombre, descripcion, orden, color } = req.body;
 
@@ -66,7 +65,7 @@ class TipificacionLlamadaController {
         return res.status(400).json({ msg: "El nombre es requerido" });
       }
 
-      await TipificacionLlamadaModel.update(id, { nombre, descripcion, orden, color }, idEmpresa);
+      await TipificacionLlamadaModel.update(id, { nombre, descripcion, orden, color, usuario_actualizacion: userId }, idEmpresa);
 
       return res.status(200).json({ msg: "Tipificación actualizada exitosamente" });
     } catch (error) {
@@ -77,10 +76,10 @@ class TipificacionLlamadaController {
 
   async deleteTipificacion(req, res) {
     try {
-      const { idEmpresa } = req.user || {};
+      const { idEmpresa, userId } = req.user || {};
       const { id } = req.params;
-      
-      await TipificacionLlamadaModel.delete(id, idEmpresa);
+
+      await TipificacionLlamadaModel.delete(id, idEmpresa, userId);
       return res.status(200).json({ msg: "Tipificación eliminada exitosamente" });
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar tipificación: ${error.message}`);

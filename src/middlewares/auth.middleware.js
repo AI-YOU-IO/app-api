@@ -31,7 +31,7 @@ const authMiddleware = (req, res, next) => {
         username: decoded.username,
         rolId: decoded.rolId,
         rolNombre: decoded.rolNombre,
-        idEmpresa: decoded.idEmpresa || 1
+        idEmpresa: decoded.idEmpresa
       };
 
       next();

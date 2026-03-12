@@ -1,4 +1,5 @@
 const swaggerUi = require('swagger-ui-express');
+const logger = require('./logger/loggerClient.js');
 
 /**
  * Auto-discovery de endpoints desde las rutas Express 5.
@@ -347,7 +348,7 @@ const setupSwagger = (app) => {
 
   const routeCount = Object.keys(spec.paths).length;
   const tagCount = spec.tags.length;
-  console.log(`📚 Swagger UI: /api-docs | ${routeCount} endpoints en ${tagCount} grupos`);
+  logger.info(`Swagger UI: /api-docs | ${routeCount} endpoints en ${tagCount} grupos`);
 };
 
 module.exports = setupSwagger;

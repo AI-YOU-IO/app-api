@@ -67,7 +67,7 @@ class FormatoModel {
             const [result] = await this.connection.execute(
                 `INSERT INTO formato (id_empresa, nombre, descripcion, estado_registro, usuario_registro)
                 VALUES (?, ?, ?, 1, ?)`,
-                [id_empresa || 1, nombre, descripcion || null, usuario_registro || null]
+                [id_empresa, nombre, descripcion || null, usuario_registro || null]
             );
             return result.insertId;
         } catch (error) {
@@ -96,13 +96,13 @@ class FormatoModel {
         }
     }
 
-    async delete(id, id_empresa = null) {
+    async delete(id, id_empresa = null, usuario_actualizacion = null) {
         try {
-            let query = 'UPDATE formato SET estado_registro = 0, fecha_actualizacion = NOW() WHERE id = ?';
-            const params = [id];
+            let query = 'UPDATE formato SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?';
+            const params = [usuario_actualizacion, id];
 
             if (id_empresa) {
-                query = 'UPDATE formato SET estado_registro = 0, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?';
+                query = 'UPDATE formato SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?';
                 params.push(id_empresa);
             }
 
