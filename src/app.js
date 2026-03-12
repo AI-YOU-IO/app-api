@@ -58,6 +58,7 @@ app.use(responseHandler);
 // Rutas publicas (sin auth)
 app.use("/api/crm", usuarioRoutes);
 app.use("/api/crm/tools", pagoRoutes);
+app.use("/api/sandbox", sandboxRoutes);
 app.post("/api/crm/tipificaciones", ConfiguracionController.createTipificacion);
 // Rutas protegidas del CRM (requieren auth)
 app.use("/api/crm", authMiddleware, auditoriaRoutes, configuracionRoutes, llamadaRoutes, tipificacionLlamadaRoutes, personaRoutes, whatsappRoutes, transcripcionRoutes, configuracionWhatsappRoutes);
