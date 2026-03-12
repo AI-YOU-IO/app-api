@@ -9,7 +9,7 @@ class MessageProcessingController {
 
     async processMessage(req, res) {
         try {
-            const { phone, question, wid, id_empresa } = req.body;
+            const { phone, question, wid, id_empresa, messageType, files } = req.body;
 
             if (!phone || !question || !id_empresa) {
                 return res.serverError(400, "Campos requeridos: phone, question, id_empresa");
@@ -19,6 +19,8 @@ class MessageProcessingController {
             const questionTrimmed = question.trim();
             const widTrimmed = wid ? wid.trim() : null;
             const empresaId = parseInt(id_empresa, 10);
+            const tipoMensaje = messageType || "texto";
+            const archivos = Array.isArray(files) ? files : [];
 
             let persona = await Persona.selectByCelular(phoneTrimmed, empresaId);
 
@@ -63,15 +65,22 @@ class MessageProcessingController {
                 contenido: questionTrimmed,
                 direccion: "in",
                 wid_mensaje: widTrimmed,
-                tipo_mensaje: "texto",
+                tipo_mensaje: tipoMensaje,
                 fecha_hora: new Date(),
                 usuario_registro: null
             });
 
+            // Construir mensaje para el asistente incluyendo archivos si existen
+            let messageForAssistant = questionTrimmed;
+            if (archivos.length > 0) {
+                const fileDescriptions = archivos.map(f => `[Archivo: ${f.type || 'archivo'} - ${f.url || ''}]`).join('\n');
+                messageForAssistant = `${fileDescriptions}\n${questionTrimmed}`;
+            }
+
             // Procesar con el asistente
             const respuestaTexto = await AssistantService.runProcess({
                 chatId: chat.id || chat,
-                message: questionTrimmed,
+                message: messageForAssistant,
                 persona: persona,
                 id_empresa: empresaId
             });
