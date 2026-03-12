@@ -143,20 +143,31 @@ class TblPlanesTarifariosModel {
     async create({
         nombre,
         precio_regular,
-        precio_promocional,
-        descripcion,
+        precio_promocional = null,
+        descripcion = null,
         principal = 1,
         imagen_url = null,
         estado_registro = 1,
-        id_empresa = null,
-        usuario_registro = null
+        id_empresa = null
     }) {
         try {
+            // Asegurar que no haya undefined - convertir a null
+            const params = [
+                nombre,
+                precio_regular,
+                precio_promocional ?? null,
+                descripcion ?? null,
+                principal ?? 1,
+                imagen_url ?? null,
+                estado_registro ?? 1,
+                id_empresa ?? null
+            ];
+
             const [result] = await this.connection.execute(
                 `INSERT INTO catalogo
-                (nombre, precio_regular, precio_promocional, descripcion, principal, imagen_url, estado_registro, id_empresa, usuario_registro)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [nombre, precio_regular, precio_promocional, descripcion, principal, imagen_url, estado_registro, id_empresa, usuario_registro]
+                (nombre, precio_regular, precio_promocional, descripcion, principal, imagen_url, estado_registro, id_empresa)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                params
             );
             return result.insertId;
         } catch (error) {

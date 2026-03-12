@@ -100,7 +100,12 @@ class AdminController {
     try {
       const { userId } = req.user || {};
       const usuarioModel = new UsuarioModel();
-      const id = await usuarioModel.create({ ...req.body, usuario_registro: userId });
+      // Los administradores creados desde este panel tienen rol 1 (admin) por defecto
+      const id = await usuarioModel.create({
+        ...req.body,
+        id_rol: req.body.id_rol || 1,
+        usuario_registro: userId
+      });
       return res.success(201, 'Usuario creado exitosamente', { id });
     } catch (error) {
       logger.error(`[admin.controller.js] Error al crear usuario: ${error.message}`);
@@ -113,7 +118,12 @@ class AdminController {
       const { userId } = req.user || {};
       const { id } = req.params;
       const usuarioModel = new UsuarioModel();
-      await usuarioModel.update(id, { ...req.body, usuario_actualizacion: userId });
+      // Mantener rol 1 (admin) por defecto si no se especifica
+      await usuarioModel.update(id, {
+        ...req.body,
+        id_rol: req.body.id_rol || 1,
+        usuario_actualizacion: userId
+      });
       return res.success(200, 'Usuario actualizado exitosamente');
     } catch (error) {
       logger.error(`[admin.controller.js] Error al actualizar usuario: ${error.message}`);

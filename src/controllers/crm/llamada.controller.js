@@ -1,6 +1,7 @@
 const LlamadaModel = require("../../models/llamada.model.js");
 const logger = require('../../config/logger/loggerClient.js');
 const llamadaService = require('../../services/llamada/llamada.service.js');
+const s3Service = require('../../services/s3.service.js');
 
 class LlamadaController {
     async getAll(req, res) {
@@ -113,6 +114,60 @@ class LlamadaController {
         } catch (error) {
             logger.error(`[llamada.controller.js] Error al actualizar tipificacion: ${error.message}`);
             return res.status(500).json({ msg: "Error al actualizar tipificacion" });
+        }
+    }
+
+    async uploadAudio(req, res) {
+        try {
+            const { idEmpresa } = req.user;
+            const { id_llamada, id_ultravox_call, metadata_ultravox_call, provider_call_id } = req.body;
+
+            if (!req.file) {
+                return res.status(400).json({ msg: "No se proporcionó ningún archivo de audio" });
+            }
+
+            if (!id_llamada) {
+                return res.status(400).json({ msg: "El campo id_llamada es requerido" });
+            }
+
+            // Subir audio a S3 con folder 'llamadas'
+            const archivo_llamada = await s3Service.uploadFile(req.file, 'llamadas', idEmpresa);
+
+            // Parsear metadata si viene como string
+            let metadataParsed = metadata_ultravox_call;
+            if (typeof metadata_ultravox_call === 'string') {
+                try {
+                    metadataParsed = JSON.parse(metadata_ultravox_call);
+                } catch (e) {
+                    metadataParsed = metadata_ultravox_call;
+                }
+            }
+
+            // Actualizar la llamada con los datos del audio por ID
+            const llamadaModel = new LlamadaModel();
+            const updated = await llamadaModel.actualizarAudioLlamada(id_llamada, {
+                archivo_llamada,
+                id_ultravox_call: id_ultravox_call || null,
+                metadata_ultravox_call: metadataParsed || null,
+                provider_call_id: provider_call_id || null
+            });
+
+            if (!updated) {
+                return res.status(404).json({ msg: "No se encontró la llamada con el id proporcionado" });
+            }
+
+            return res.status(200).json({
+                msg: "Audio subido exitosamente",
+                data: {
+                    id_llamada,
+                    archivo_llamada,
+                    id_ultravox_call,
+                    provider_call_id
+                }
+            });
+        } catch (error) {
+            logger.error(`[llamada.controller.js] Error al subir audio: ${error.message}`);
+            return res.status(500).json({ msg: "Error al subir audio de llamada" });
         }
     }
 }

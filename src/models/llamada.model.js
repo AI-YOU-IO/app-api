@@ -154,6 +154,50 @@ class LlamadaModel {
             throw new Error(`Error al actualizar tipificacion de llamada: ${err.message}`);
         }
     }
+
+    async actualizarAudioLlamada(id, { archivo_llamada, id_ultravox_call, metadata_ultravox_call, provider_call_id }) {
+        try {
+            const [result] = await this.connection.execute(
+                `UPDATE llamada
+                SET archivo_llamada = COALESCE(?, archivo_llamada),
+                    id_ultravox_call = COALESCE(?, id_ultravox_call),
+                    metadata_ultravox_call = COALESCE(?, metadata_ultravox_call),
+                    provider_call_id = COALESCE(?, provider_call_id)
+                WHERE id = ?`,
+                [
+                    archivo_llamada || null,
+                    id_ultravox_call || null,
+                    metadata_ultravox_call ? JSON.stringify(metadata_ultravox_call) : null,
+                    provider_call_id || null,
+                    id
+                ]
+            );
+            return result.affectedRows > 0;
+        } catch (err) {
+            throw new Error(`Error al actualizar audio de llamada: ${err.message}`);
+        }
+    }
+
+    async actualizarAudioLlamadaPorProvider(provider_call_id, { archivo_llamada, id_ultravox_call, metadata_ultravox_call }) {
+        try {
+            const [result] = await this.connection.execute(
+                `UPDATE llamada
+                SET archivo_llamada = COALESCE(?, archivo_llamada),
+                    id_ultravox_call = COALESCE(?, id_ultravox_call),
+                    metadata_ultravox_call = COALESCE(?, metadata_ultravox_call)
+                WHERE provider_call_id = ?`,
+                [
+                    archivo_llamada || null,
+                    id_ultravox_call || null,
+                    metadata_ultravox_call ? JSON.stringify(metadata_ultravox_call) : null,
+                    provider_call_id
+                ]
+            );
+            return result.affectedRows > 0;
+        } catch (err) {
+            throw new Error(`Error al actualizar audio de llamada: ${err.message}`);
+        }
+    }
 }
 
 module.exports = LlamadaModel;

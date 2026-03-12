@@ -24,6 +24,7 @@ const { pool } = require("../../config/dbConnection.js");
 const logger = require('../../config/logger/loggerClient.js');
 const xlsx = require('xlsx');
 const llamadaService = require('../../services/llamada/llamada.service.js');
+const s3Service = require('../../services/s3.service.js');
 
 class ConfiguracionController {
   // ==================== ROLES ====================
@@ -471,25 +472,25 @@ class ConfiguracionController {
 
   async createCatalogo(req, res) {
     try {
-      const { idEmpresa } = req.user || {};
-      const { nombre, descripcion } = req.body;
+      const { idEmpresa = null, userId = null } = req.user || {};
+      const { nombre } = req.body;
+      const descripcion = req.body.descripcion || null;
 
       // Convertir tipos de FormData (llegan como strings)
       const precio_regular = req.body.precio_regular ? parseFloat(req.body.precio_regular) : null;
       const precio_promocional = req.body.precio_promocional ? parseFloat(req.body.precio_promocional) : null;
       const principal = req.body.principal === '1' || req.body.principal === 1 ? 1 : 0;
 
-      // Manejar imagen subida
+      // Manejar imagen subida a S3
       let imagen_url = req.body.imagen_url || null;
       if (req.file) {
-        imagen_url = `/uploads/catalogo/${req.file.filename}`;
+        imagen_url = await s3Service.uploadFile(req.file, 'catalogo', idEmpresa || 'general');
       }
 
       if (!nombre || !precio_regular) {
         return res.status(400).json({ msg: "El nombre y precio regular son requeridos" });
       }
 
-      const { userId } = req.user || {};
       const planModel = new PlanesTarifariosModel();
       const id = await planModel.create({
         nombre,
@@ -499,38 +500,39 @@ class ConfiguracionController {
         principal,
         imagen_url,
         estado_registro: 1,
-        id_empresa: idEmpresa,
-        usuario_registro: userId
+        id_empresa: idEmpresa
       });
 
       return res.status(201).json({ msg: "Item creado exitosamente", data: { id } });
     } catch (error) {
-      logger.error(`[configuracion.controller.js] Error al crear item del catálogo: ${error.message}`);
+      console.error('[DEBUG] Error completo:', error);
+      logger.error(`[configuracion.controller.js] Error al crear item del catálogo: ${error.message} | Stack: ${error.stack}`);
       return res.status(500).json({ msg: "Error al crear item del catálogo" });
     }
   }
 
   async updateCatalogo(req, res) {
     try {
+      const { idEmpresa = null, userId = null } = req.user || {};
       const { id } = req.params;
-      const { nombre, descripcion } = req.body;
+      const { nombre } = req.body;
+      const descripcion = req.body.descripcion || null;
 
       // Convertir tipos de FormData (llegan como strings)
       const precio_regular = req.body.precio_regular ? parseFloat(req.body.precio_regular) : null;
       const precio_promocional = req.body.precio_promocional ? parseFloat(req.body.precio_promocional) : null;
       const principal = req.body.principal === '1' || req.body.principal === 1 ? 1 : 0;
 
-      // Manejar imagen subida
+      // Manejar imagen subida a S3
       let imagen_url = req.body.imagen_url || null;
       if (req.file) {
-        imagen_url = `/uploads/catalogo/${req.file.filename}`;
+        imagen_url = await s3Service.uploadFile(req.file, 'catalogo', idEmpresa || 'general');
       }
 
       if (!nombre || !precio_regular) {
         return res.status(400).json({ msg: "El nombre y precio regular son requeridos" });
       }
 
-      const { userId } = req.user || {};
       const planModel = new PlanesTarifariosModel();
       await planModel.update(id, {
         nombre,

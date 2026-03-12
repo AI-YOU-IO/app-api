@@ -1,38 +1,13 @@
 const { Router } = require("express");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
 const ConfiguracionController = require("../../controllers/crm/configuracion.controller.js");
 
 const router = Router();
 
-// Configuración de Multer para subida de imágenes de catálogo
-const uploadDir = path.join(__dirname, "../../../uploads/catalogo");
-
-// Crear directorio si no existe
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storageCatalogo = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-        const now = new Date();
-        const timestamp = now.getFullYear().toString() +
-            (now.getMonth() + 1).toString().padStart(2, '0') +
-            now.getDate().toString().padStart(2, '0') +
-            now.getHours().toString().padStart(2, '0') +
-            now.getMinutes().toString().padStart(2, '0') +
-            now.getSeconds().toString().padStart(2, '0');
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `catalogo_${timestamp}${ext}`);
-    }
-});
-
+// Configuración de Multer para subida de imágenes de catálogo (memory storage para S3)
 const uploadCatalogo = multer({
-    storage: storageCatalogo,
+    storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB máximo
     fileFilter: (req, file, cb) => {
         const allowedTypes = /jpeg|jpg|png|gif|webp/;

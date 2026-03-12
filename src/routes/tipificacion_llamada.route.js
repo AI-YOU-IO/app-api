@@ -4,6 +4,9 @@ const TipificacionLlamadaController = require("../controllers/tipificacion_llama
 const router = Router();
 
 router.get("/tipificacion-llamada", TipificacionLlamadaController.getAllTipificacion);
+router.get("/tipificacion-llamada/tree", TipificacionLlamadaController.getAllAsTree);
+router.get("/tipificacion-llamada/raices", TipificacionLlamadaController.getRaices);
+router.get("/tipificacion-llamada/hijos/:id_padre", TipificacionLlamadaController.getByPadre);
 router.post("/tipificacion-llamada", TipificacionLlamadaController.createTipificacion);
 router.get("/tipificacion-llamada/:id", TipificacionLlamadaController.getTipificacionById);
 router.put("/tipificacion-llamada/:id", TipificacionLlamadaController.updateTipificacion);
