@@ -5,8 +5,22 @@ const SALT_ROUNDS = 10;
 class UsuarioModel {
   constructor(dbConnection = null) {
     this.connection = dbConnection || pool;
+    this.SALT_ROUNDS = 10;
   }
-
+  async updatePhoto(id, foto) {
+    try {
+    
+      const [result] = await this.connection.execute(
+        `UPDATE usuario SET foto = ? WHERE id = ?`,
+        [foto, id]
+      );
+    
+      return result.affectedRows > 0;
+    
+    } catch (error) {
+      throw new Error(`Error al actualizar foto: ${error.message}`);
+    }
+  }
   async getAll() {
     try {
       const [rows] = await this.connection.execute(
@@ -108,7 +122,7 @@ class UsuarioModel {
 
   async create({ id_rol, username, password, id_sucursal, id_padre, id_empresa, usuario_registro = null }) {
     try {
-      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+      const hashedPassword = await bcrypt.hash(password, this.SALT_ROUNDS);
       const [result] = await this.connection.execute(
         `INSERT INTO usuario (id_rol, username, password, id_sucursal, id_padre, id_empresa, estado_registro, fecha_registro, usuario_registro, fecha_actualizacion, usuario_actualizacion)
          VALUES (?, ?, ?, ?, ?, ?, 1, NOW(), ?, NOW(), ?)`,
@@ -126,7 +140,7 @@ class UsuarioModel {
       let params = [id_rol, username, id_sucursal || null, id_padre || null, id_empresa || null, usuario_actualizacion];
 
       if (password) {
-        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+        const hashedPassword = await bcrypt.hash(password, this.SALT_ROUNDS);
         query += `, password = ?`;
         params.push(hashedPassword);
       }
@@ -183,18 +197,34 @@ class UsuarioModel {
     }
   }
 
-  async updatePassword(id, newPassword) {
-    try {
-      const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
-      const [result] = await this.connection.execute(
-        `UPDATE usuario SET password = ?, fecha_actualizacion = NOW() WHERE id = ?`,
-        [hashedPassword, id]
-      );
-      return result.affectedRows > 0;
-    } catch (error) {
-      throw new Error(`Error al actualizar contraseña: ${error.message}`);
-    }
+    if (rows.length === 0) return false;
+
+    const isMatch = await bcrypt.compare(password, rows[0].password);
+
+    return isMatch;
+
+  } catch (error) {
+    throw new Error(`Error al verificar contraseña: ${error.message}`);
   }
+}
+  async updatePassword(id, newPassword) {
+  try {
+    const hashedPassword = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
+
+    const [result] = await this.connection.execute(
+      `UPDATE usuario SET password = ? WHERE id = ?`,
+      [hashedPassword, id]
+    );
+
+    if (result.affectedRows === 0) {
+      throw new Error("Usuario no encontrado");
+    }
+
+    return true;
+  } catch (error) {
+    throw new Error(`Error al actualizar contraseña: ${error.message}`);
+  }
+}
 }
 
 module.exports = UsuarioModel;

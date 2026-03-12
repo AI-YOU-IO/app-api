@@ -243,37 +243,62 @@ class ConfiguracionController {
     }
   }
 
-  async changePassword(req, res) {
-    try {
-      const { id } = req.params;
-      const { currentPassword, newPassword } = req.body;
-
-      if (!currentPassword || !newPassword) {
-        return res.status(400).json({ msg: "La contraseña actual y nueva son requeridas" });
+    async changePassword(req, res) {
+      try {
+      
+        console.log("=== CHANGE PASSWORD DEBUG ===");
+        console.log("PARAM ID:", req.params.id);
+        console.log("BODY:", req.body);
+      
+        const { id } = req.params;
+        const { currentPassword, newPassword } = req.body;
+      
+        // Validar datos
+        if (!id) {
+          return res.status(400).json({
+            message: "ID de usuario no proporcionado"
+          });
+        }
+      
+        if (!currentPassword || !newPassword) {
+          return res.status(400).json({
+            message: "Contraseña actual y nueva son requeridas"
+          });
+        }
+      
+        const usuarioModel = new UsuarioModel();
+      
+        // 1️⃣ Verificar contraseña actual
+        const isValid = await usuarioModel.verifyPassword(id, currentPassword);
+      
+        console.log("PASSWORD VALID:", isValid);
+      
+        if (!isValid) {
+          return res.status(400).json({
+            message: "La contraseña actual es incorrecta"
+          });
+        }
+      
+        // 2️⃣ Actualizar contraseña
+        await usuarioModel.updatePassword(id, newPassword);
+      
+        console.log("PASSWORD UPDATED FOR USER:", id);
+      
+        return res.status(200).json({
+          message: "Contraseña actualizada correctamente"
+        });
+      
+      } catch (error) {
+      
+        console.error("ERROR CHANGE PASSWORD:", error);
+      
+        return res.status(500).json({
+          message: "Error al cambiar la contraseña",
+          error: error.message
+        });
+      
       }
-
-      if (newPassword.length < 6) {
-        return res.status(400).json({ msg: "La nueva contraseña debe tener al menos 6 caracteres" });
-      }
-
-      const usuarioModel = new UsuarioModel();
-
-      // Verificar contraseña actual
-      const isValid = await usuarioModel.verifyPassword(id, currentPassword);
-      if (!isValid) {
-        return res.status(400).json({ msg: "La contraseña actual es incorrecta" });
-      }
-
-      // Actualizar contraseña
-      await usuarioModel.updatePassword(id, newPassword);
-
-      return res.status(200).json({ msg: "Contraseña actualizada exitosamente" });
-    } catch (error) {
-      logger.error(`[configuracion.controller.js] Error al cambiar contraseña: ${error.message}`);
-      return res.status(500).json({ msg: "Error al cambiar la contraseña" });
     }
-  }
-
   // ==================== MÓDULOS ====================
   async getModulos(req, res) {
     try {

@@ -5,6 +5,39 @@ const JWTService = require('../../services/crm/jwt.service');
 
 class UsuarioController {
 
+
+  async uploadPhoto(req, res) {
+    try {
+    
+      const { id } = req.params;
+    
+      if (!req.file) {
+        return res.status(400).json({
+          message: "No se subió ninguna imagen"
+        });
+      }
+    
+      const foto = req.file.filename;
+    
+      const usuarioModel = new UsuarioModel();
+    
+      await usuarioModel.updatePhoto(id, foto);
+    
+      return res.status(200).json({
+        message: "Foto subida correctamente",
+        foto
+      });
+    
+    } catch (error) {
+    
+      logger.error(`[usuario.controller.js] Error al subir foto: ${error.message}`);
+    
+      return res.status(500).json({
+        message: "Error al subir la foto"
+      });
+    }
+  }
+
   async forgotPassword(req, res) {
     try {
       const { username } = req.body;
