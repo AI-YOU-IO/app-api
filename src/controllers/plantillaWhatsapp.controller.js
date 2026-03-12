@@ -289,7 +289,7 @@ class PlantillaWhatsappController {
         return res.status(400).json({ msg: "El teléfono y nombre de plantilla son requeridos" });
       }
 
-      const result = await whatsappGraphService.enviarPlantilla(
+      const result = await whatsappGraphService.enviarEnlaceLili(
         id_empresa,
         phone,
         template_name,
