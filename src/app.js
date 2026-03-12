@@ -14,7 +14,6 @@ const llamadaRoutes = require("./routes/crm/llamada.route.js");
 const personaRoutes = require("./routes/crm/persona.route.js");
 const reportesCrmRoutes = require("./routes/crm/reportes.route.js");
 const transcripcionRoutes = require("./routes/crm/transcripcion.route.js")
-const encuestaRoutes = require("./routes/encuesta.route.js");
 const pagoRoutes = require("./routes/pago.routes.js");
 const whatsappRoutes = require("./routes/plantillaWhatsapp.route.js");
 const tipificacionLlamadaRoutes = require("./routes/tipificacion_llamada.route.js");
@@ -53,7 +52,7 @@ app.use(responseHandler);
 
 // Rutas publicas (sin auth)
 app.use("/api/crm", usuarioRoutes);
-app.use("/api/crm/tools", encuestaRoutes, pagoRoutes);
+app.use("/api/crm/tools", pagoRoutes);
 // Rutas protegidas del CRM (requieren auth)
 app.use("/api/crm", authMiddleware, auditoriaRoutes, configuracionRoutes, llamadaRoutes, tipificacionLlamadaRoutes, personaRoutes, whatsappRoutes, transcripcionRoutes);
 app.use("/api/crm/clientes", authMiddleware, clientesRoutes);
