@@ -21,6 +21,7 @@ const clientesRoutes = require("./routes/crm/clientes.route.js");
 const contactosRoutes = require("./routes/crm/contactos.route.js");
 const contactoRoutes = require("./routes/crm/contacto.route.js");
 const adminRoutes = require("./routes/admin.route.js");
+const sandboxRoutes = require("./routes/sandbox.route.js");
 
 const app = express();
 

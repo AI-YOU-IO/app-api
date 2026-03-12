@@ -14,6 +14,13 @@ const logger = require('./logger/loggerClient.js');
 
 // ─── Configuración ───────────────────────────────────────────
 
+/** Query params conocidos por ruta (method:path → params[]) */
+const QUERY_PARAMS = {
+  'get:/api/sandbox/chats': [
+    { name: 'canal', in: 'query', required: true, schema: { type: 'string' }, description: 'Canal del chat (ej: whatsapp, web)' },
+  ],
+};
+
 /** Mapeo de segmento de URL → nombre de tag personalizado */
 const TAG_OVERRIDES = {
   'login': 'Auth',
@@ -46,6 +53,8 @@ const TAG_OVERRIDES = {
   'encuestas': 'Encuestas',
   'personas': 'Personas',
   'conversaciones': 'Conversaciones',
+  'configuracion': 'Sandbox Configuración',
+  'sandbox': 'Sandbox',
 };
 
 /**
@@ -57,6 +66,7 @@ const TAG_OVERRIDES = {
  *   añade '/api/crm/xxx' aquí (antes de '/api/crm').
  */
 const PROBE_PATHS = [
+  '/api/sandbox',
   '/api/crm/persona',
   '/api/crm/clientes',
   '/api/crm/contactos',
@@ -196,6 +206,7 @@ function deduplicateRoutes(routes) {
 function deriveTag(fullPath) {
   if (fullPath === '/health') return 'Health';
   if (fullPath.startsWith('/api/assistant')) return 'Assistant';
+  if (fullPath.startsWith('/api/sandbox')) return 'Sandbox';
 
   // Quitar prefijos conocidos para extraer el segmento significativo
   const cleaned = fullPath
@@ -253,13 +264,16 @@ function generateSpec(app) {
     };
 
     const params = extractPathParams(path);
-    if (params.length) op.parameters = params;
+    const queryParams = QUERY_PARAMS[`${method}:${path}`] || [];
+    const allParams = [...params, ...queryParams];
+    if (allParams.length) op.parameters = allParams;
 
     // Rutas públicas: login, forgot-password, /health, /api/assistant, /api/crm/tools
     const isPublic =
       /\/(login|forgot-password)$/.test(path) ||
       path === '/health' ||
       path.startsWith('/api/assistant') ||
+      path.startsWith('/api/sandbox') ||
       path.startsWith('/api/crm/tools');
     if (!isPublic) op.security = [{ bearerAuth: [] }];
 
