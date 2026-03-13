@@ -109,20 +109,11 @@ class SandboxService {
                 
             };
 
-            if (typeof data.type !== "undefined") {
-                botPayload.type = data.type;
-            }
-            if (typeof data.url !== "undefined") {
-                botPayload.url = data.url;
-            }
-
-            logger.info(`[sandbox.service] BOT REQUEST URL: ${config.url_bot_service}`);
-            logger.info(`[sandbox.service] BOT REQUEST BODY: ${safeJson(botPayload)}`);
-
             let botResponse;
             try {
                 botResponse = await axios.post(config.url_bot_service, botPayload);
             } catch (error) {
+                console.log("ERROR AL ENVIAR MENSAJE AL BOT:", botPayload);
                 logger.error(`[sandbox.service] BOT ERROR MESSAGE: ${error.message}`);
                 if (error.response) {
                     logger.error(`[sandbox.service] BOT ERROR STATUS: ${error.response.status}`);
@@ -130,27 +121,6 @@ class SandboxService {
                     logger.error(`[sandbox.service] BOT ERROR BODY: ${safeJson(error.response.data)}`);
                 }
                 throw new Error("Error al comunicarse con el bot");
-            }
-            
-            logger.info(`[sandbox.service] BOT RESPONSE STATUS: ${botResponse.status}`);
-            logger.info(`[sandbox.service] BOT RESPONSE HEADERS: ${safeJson(botResponse.headers)}`);
-            logger.info(`[sandbox.service] BOT RESPONSE BODY: ${safeJson(botResponse.data)}`);
-
-            const responseSessionId = Number(botResponse?.data?.session_id);
-            const mappedChatId = Number.isInteger(responseSessionId) ? responseSessionId : idChat;
-            if (mappedChatId !== Number(idChat)) {
-                logger.info(`[sandbox.service] session_id mapeado de respuesta bot: ${mappedChatId} (request idChat=${idChat})`);
-            }
-
-            const reply = botResponse?.data?.reply;
-            if (typeof reply === "string" && reply.trim() !== "") {
-                await messageModel.create({
-                    direction: "incoming",
-                    message: reply,
-                    type: "text",
-                    url: botResponse?.data?.url || null,
-                    id_chat_sandbox: mappedChatId,
-                });
             }
         } catch (error) {
             if (error.message === "Error al comunicarse con el bot") {
