@@ -1,6 +1,14 @@
 const sandboxService = require("../services/sandbox/sandbox.service.js");
 const logger = require("../config/logger/loggerClient.js");
 
+const safeJson = (value) => {
+    try {
+        return JSON.stringify(value);
+    } catch (_) {
+        return "[unserializable]";
+    }
+};
+
 class SandboxController {
 
     // ==================== Configuración ====================
@@ -132,11 +140,21 @@ class SandboxController {
 
     async receiveReply(req, res) {
         try {
-            const { session_id, message, type, url } = req.body;
-            if (!session_id || !message) {
-                return res.clientError(400, "session_id y message son requeridos");
+            logger.info(`[sandbox.controller] /reply headers: ${safeJson({
+                "content-type": req.headers["content-type"],
+                "user-agent": req.headers["user-agent"],
+                "x-forwarded-for": req.headers["x-forwarded-for"],
+            })}`);
+            logger.info(`[sandbox.controller] /reply body raw: ${safeJson(req.body)}`);
+
+            const { session_id, reply, message, type, url } = req.body;
+            const mappedReply = reply ?? message;
+
+            if (!session_id || !mappedReply) {
+                logger.error(`[sandbox.controller] /reply validation failed. session_id=${safeJson(session_id)} reply=${safeJson(reply)} message=${safeJson(message)}`);
+                return res.clientError(400, "session_id y reply son requeridos");
             }
-            const data = await sandboxService.receiveReplySimple(session_id, message, type, url);
+            const data = await sandboxService.receiveReplySimple(session_id, mappedReply, type, url);
             return res.success(201, "Respuesta recibida exitosamente", data);
         } catch (error) {
             if (error.message === "Chat no encontrado") {
@@ -149,8 +167,17 @@ class SandboxController {
 
     async receiveReplyWithSessionId(req, res) {
         try {
+            logger.info(`[sandbox.controller] /chats/:idChat/reply params: ${safeJson(req.params)}`);
+            logger.info(`[sandbox.controller] /chats/:idChat/reply headers: ${safeJson({
+                "content-type": req.headers["content-type"],
+                "user-agent": req.headers["user-agent"],
+                "x-forwarded-for": req.headers["x-forwarded-for"],
+            })}`);
+            logger.info(`[sandbox.controller] /chats/:idChat/reply body raw: ${safeJson(req.body)}`);
+
             const { idChat } = req.params;
             if (!idChat) {
+                logger.error(`[sandbox.controller] /chats/:idChat/reply validation failed. idChat=${safeJson(idChat)}`);
                 return res.clientError(400, "idChat es requerido");
             }
             const data = await sandboxService.receiveReplyWithSessionId(idChat, req.body || {});
