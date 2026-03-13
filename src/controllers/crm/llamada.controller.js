@@ -211,16 +211,21 @@ class LlamadaController {
             if (transcripcion && Array.isArray(transcripcion) && transcripcion.length > 0) {
                 // Insertar cada mensaje de la transcripción
                 for (const mensaje of transcripcion) {
-                    // Mapear role: agent -> ai, user -> humano
+                    // Mapear role: MESSAGE_ROLE_AGENT -> ai, MESSAGE_ROLE_USER -> humano
                     let speaker = 'sistema';
-                    if (mensaje.role === 'agent') speaker = 'ai';
-                    else if (mensaje.role === 'user') speaker = 'humano';
+                    if (mensaje.role === 'MESSAGE_ROLE_AGENT' || mensaje.role === 'agent') speaker = 'ai';
+                    else if (mensaje.role === 'MESSAGE_ROLE_USER' || mensaje.role === 'user') speaker = 'humano';
+
+                    // Usar callStageMessageIndex como ordinal si no viene ordinal
+                    const ordinal = mensaje.ordinal !== undefined
+                        ? mensaje.ordinal
+                        : (mensaje.callStageMessageIndex !== undefined ? mensaje.callStageMessageIndex : null);
 
                     await transcripcionModel.create({
                         id_llamada,
                         speaker,
                         texto: mensaje.text || '',
-                        ordinal: mensaje.ordinal !== undefined ? mensaje.ordinal : null
+                        ordinal
                     });
                 }
             }
