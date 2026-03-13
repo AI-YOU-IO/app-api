@@ -163,8 +163,8 @@ class SandboxService {
         return { id, id_chat_sandbox: idChat, message: data.message };
     }
 
-    // Webhook: el bot responde con {session_id} que es nuestro chatid
-    async receiveReply(chatid, reply, type, url) {
+    // Webhook: el bot responde con formato simple (message, type, url)
+    async receiveReplySimple(chatid, message, type, url) {
         const chatModel = new ChatSandboxModel();
         const chat = await chatModel.getById(chatid);
         if (!chat) {
@@ -174,13 +174,281 @@ class SandboxService {
         const messageModel = new MessageSandboxModel();
         const id = await messageModel.create({
             direction: "incoming",
-            message: reply,
+            message: message,
             type: type || "text",
             url: url || null,
             id_chat_sandbox: chatid,
         });
 
-        return { id, id_chat_sandbox: chatid, reply };
+        return { id_message_sandbox: id, id_chat_sandbox: chatid, message };
+    }
+
+    // Webhook: el bot responde con formato n8n completo y session_id para relacionar con chatid
+    async receiveReplyWithSessionId(idChat, input = {}) {
+        const chatModel = new ChatSandboxModel();
+        const chat = await chatModel.getById(idChat);
+        if (!chat) {
+            throw new Error("Chat no encontrado");
+        }
+
+        const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+
+        const rawMessage = hasOwn(input, "body_text")
+            ? (input.body_text ?? "")
+            : hasOwn(input, "message")
+                ? (input.message ?? "")
+                : hasOwn(input, "reply")
+                    ? (input.reply ?? "")
+                    : "";
+
+        const mappedMessage = typeof rawMessage === "string" ? rawMessage : String(rawMessage);
+        const sessionId = input.session_id || idChat;
+
+        const messageModel = new MessageSandboxModel();
+        const idMessage = await messageModel.create({
+            direction: "incoming",
+            message: mappedMessage,
+            type: "text",
+            url: null,
+            id_chat_sandbox: idChat,
+        });
+
+        return {
+            id_message_sandbox: idMessage,
+            id_chat_sandbox: Number(idChat),
+            session_id: sessionId,
+            message: mappedMessage,
+            received_payload: input,
+        };
+    }
+
+    async sendMockWhatsappPayload(message) {
+        const configModel = new SandboxConfiguracionModel();
+        const config = await configModel.getByCanal("whatsapp");
+
+        if (!config || !config.url_bot_service) {
+            throw new Error("No hay configuración de bot para el canal whatsapp");
+        }
+
+        const payload = {
+            object: "whatsapp_business_account",
+            entry: [
+                {
+                    changes: [
+                        {
+                            field: "messages",
+                            value: {
+                                metadata: {
+                                    phone_number_id: "123456789",
+                                    display_phone_number: "51984292393",
+                                },
+                                contacts: [
+                                    {
+                                        profile: { name: "Juan Perez" },
+                                        wa_id: "51999999999",
+                                    },
+                                ],
+                                messages: [
+                                    {
+                                        id: "wamid.xxxxx",
+                                        from: "51999999999",
+                                        timestamp: "1710000000",
+                                        type: "text|image|video|audio|document|sticker|location|contacts|button|interactive",
+                                        text: { body: message },
+                                        image: { id: "media_id", mime_type: "image/jpeg", caption: "foto" },
+                                        video: { id: "media_id", mime_type: "video/mp4", caption: "" },
+                                        audio: { id: "media_id", mime_type: "audio/ogg" },
+                                        document: {
+                                            id: "media_id",
+                                            mime_type: "application/pdf",
+                                            filename: "doc.pdf",
+                                            caption: "",
+                                        },
+                                        sticker: { id: "media_id", mime_type: "image/webp" },
+                                        location: { latitude: -12.0, longitude: -77.0, name: "Lima" },
+                                        button: { text: "Si" },
+                                        interactive: {
+                                            type: "button_reply|list_reply",
+                                            button_reply: { title: "Opcion 1" },
+                                            list_reply: { title: "Opcion 2" },
+                                        },
+                                        referral: {
+                                            source_type: "ad",
+                                            ctwa_clid: "click_id_123",
+                                        },
+                                    },
+                                ],
+                                statuses: [
+                                    {
+                                        status: "sent|delivered|read|failed",
+                                        id: "wamid.xxxxx",
+                                        recipient_id: "51999999999",
+                                    },
+                                ],
+                            },
+                        },
+                    ],
+                },
+            ],
+        };
+
+        logger.info(`[sandbox.service] MOCK WHATSAPP REQUEST URL: ${config.url_bot_service}`);
+        logger.info(`[sandbox.service] MOCK WHATSAPP REQUEST BODY: ${safeJson(payload)}`);
+
+        let response;
+        try {
+            response = await axios.post(config.url_bot_service, payload);
+        } catch (error) {
+            logger.error(`[sandbox.service] MOCK WHATSAPP ERROR MESSAGE: ${error.message}`);
+            if (error.response) {
+                logger.error(`[sandbox.service] MOCK WHATSAPP ERROR STATUS: ${error.response.status}`);
+                logger.error(`[sandbox.service] MOCK WHATSAPP ERROR BODY: ${safeJson(error.response.data)}`);
+            }
+            throw new Error("Error al comunicarse con el bot");
+        }
+
+        logger.info(`[sandbox.service] MOCK WHATSAPP RESPONSE STATUS: ${response.status}`);
+        logger.info(`[sandbox.service] MOCK WHATSAPP RESPONSE BODY: ${safeJson(response.data)}`);
+
+        return {
+            sent_to: config.url_bot_service,
+            status_code: response.status,
+            payload,
+            response: response.data,
+        };
+    }
+
+    async sendMockN8nInteractiveListPayload(idChat, input = {}) {
+        const configModel = new SandboxConfiguracionModel();
+        const config = await configModel.getByCanal("whatsapp");
+
+        if (!config || !config.url_bot_service) {
+            throw new Error("No hay configuración de bot para el canal whatsapp");
+        }
+
+        const chatModel = new ChatSandboxModel();
+        const chat = await chatModel.getById(idChat);
+        if (!chat) {
+            throw new Error("Chat no encontrado");
+        }
+
+        const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+
+        const rawBody = hasOwn(input, "body_text")
+            ? (input.body_text ?? "")
+            : hasOwn(input, "message")
+                ? (input.message ?? "")
+                : hasOwn(input, "mensaje")
+                    ? (input.mensaje ?? "")
+                    : "Hola";
+
+        const mappedBody = typeof rawBody === "string" ? rawBody : String(rawBody);
+
+        const messageModel = new MessageSandboxModel();
+        const idMessage = await messageModel.create({
+            direction: "outgoing",
+            message: mappedBody,
+            type: "interactive-list",
+            url: null,
+            id_chat_sandbox: idChat,
+        });
+
+        // El bot recibe formato webhook de WhatsApp; solo text.body es dinámico.
+        const payload = {
+            object: "whatsapp_business_account",
+            entry: [
+                {
+                    changes: [
+                        {
+                            field: "messages",
+                            value: {
+                                metadata: {
+                                    phone_number_id: "123456789",
+                                    display_phone_number: "51984292393",
+                                },
+                                contacts: [
+                                    {
+                                        profile: { name: "Juan Perez" },
+                                        wa_id: "51999999999",
+                                    },
+                                ],
+                                messages: [
+                                    {
+                                        id: "wamid.xxxxx",
+                                        from: "51999999999",
+                                        timestamp: "1710000000",
+                                        type: "text|image|video|audio|document|sticker|location|contacts|button|interactive",
+                                        text: { body: mappedBody },
+                                        image: { id: "media_id", mime_type: "image/jpeg", caption: "foto" },
+                                        video: { id: "media_id", mime_type: "video/mp4", caption: "" },
+                                        audio: { id: "media_id", mime_type: "audio/ogg" },
+                                        document: {
+                                            id: "media_id",
+                                            mime_type: "application/pdf",
+                                            filename: "doc.pdf",
+                                            caption: "",
+                                        },
+                                        sticker: { id: "media_id", mime_type: "image/webp" },
+                                        location: { latitude: -12.0, longitude: -77.0, name: "Lima" },
+                                        button: { text: "Si" },
+                                        interactive: {
+                                            type: "button_reply|list_reply",
+                                            button_reply: { title: "Opcion 1" },
+                                            list_reply: { title: "Opcion 2" },
+                                        },
+                                        referral: {
+                                            source_type: "ad",
+                                            ctwa_clid: "click_id_123",
+                                        },
+                                    },
+                                ],
+                                statuses: [
+                                    {
+                                        status: "sent|delivered|read|failed",
+                                        id: "wamid.xxxxx",
+                                        recipient_id: "51999999999",
+                                    },
+                                ],
+                            },
+                        },
+                    ],
+                },
+            ],
+        };
+
+        logger.info(`[sandbox.service] MOCK N8N REQUEST URL: ${config.url_bot_service}`);
+        logger.info(`[sandbox.service] MOCK N8N REQUEST BODY: ${safeJson(payload)}`);
+
+        let response;
+        try {
+            response = await axios.post(config.url_bot_service, payload);
+        } catch (error) {
+            logger.error(`[sandbox.service] MOCK N8N ERROR MESSAGE: ${error.message}`);
+            if (error.response) {
+                logger.error(`[sandbox.service] MOCK N8N ERROR STATUS: ${error.response.status}`);
+                logger.error(`[sandbox.service] MOCK N8N ERROR BODY: ${safeJson(error.response.data)}`);
+            }
+            throw new Error("Error al comunicarse con el bot");
+        }
+
+        logger.info(`[sandbox.service] MOCK N8N RESPONSE STATUS: ${response.status}`);
+        logger.info(`[sandbox.service] MOCK N8N RESPONSE BODY: ${safeJson(response.data)}`);
+
+        return {
+            id_message_sandbox: idMessage,
+            id_chat_sandbox: Number(idChat),
+            sent_to: config.url_bot_service,
+            status_code: response.status,
+            payload,
+            mapped_from_front: {
+                body_text: mappedBody,
+            },
+            response: response.data,
+        };
+    }
+
+    async sendMockWhatsappWebhookFromFront(idChat, input = {}) {
+        return this.sendMockN8nInteractiveListPayload(idChat, input);
     }
 }
 

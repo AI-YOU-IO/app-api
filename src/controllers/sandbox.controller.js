@@ -132,11 +132,11 @@ class SandboxController {
 
     async receiveReply(req, res) {
         try {
-            const { chatid, reply, type, url } = req.body;
-            if (!chatid || !reply) {
-                return res.clientError(400, "chatid y reply son requeridos");
+            const { chatid, message, type, url } = req.body;
+            if (!chatid || !message) {
+                return res.clientError(400, "chatid y message son requeridos");
             }
-            const data = await sandboxService.receiveReply(chatid, reply, type, url);
+            const data = await sandboxService.receiveReplySimple(chatid, message, type, url);
             return res.success(201, "Respuesta recibida exitosamente", data);
         } catch (error) {
             if (error.message === "Chat no encontrado") {
@@ -144,6 +144,64 @@ class SandboxController {
             }
             logger.error(`[sandbox.controller] Error al recibir respuesta del bot: ${error.message}`);
             return res.serverError(500, "Error al recibir respuesta del bot");
+        }
+    }
+
+    async receiveReplyWithSessionId(req, res) {
+        try {
+            const { idChat } = req.params;
+            if (!idChat) {
+                return res.clientError(400, "idChat es requerido");
+            }
+            const data = await sandboxService.receiveReplyWithSessionId(idChat, req.body || {});
+            return res.success(201, "Respuesta recibida exitosamente", data);
+        } catch (error) {
+            if (error.message === "Chat no encontrado") {
+                return res.clientError(404, error.message);
+            }
+            logger.error(`[sandbox.controller] Error al recibir respuesta del bot: ${error.message}`);
+            return res.serverError(500, "Error al recibir respuesta del bot");
+        }
+    }
+
+    async sendMockWhatsappPayload(req, res) {
+        try {
+            const rawMessage = req.body.message ?? req.body.mensaje;
+            if (!rawMessage || typeof rawMessage !== "string" || rawMessage.trim() === "") {
+                return res.clientError(400, "message o mensaje es requerido");
+            }
+
+            const data = await sandboxService.sendMockWhatsappPayload(rawMessage.trim());
+            return res.success(200, "Payload de WhatsApp enviado exitosamente", data);
+        } catch (error) {
+            if (error.message === "No hay configuración de bot para el canal whatsapp") {
+                return res.clientError(400, error.message);
+            }
+
+            logger.error(`[sandbox.controller] Error al enviar payload mock de WhatsApp: ${error.message}`);
+            return res.serverError(500, "Error al enviar payload mock de WhatsApp");
+        }
+    }
+
+    async sendMockWhatsappWebhookFromFront(req, res) {
+        try {
+            const { idChat } = req.params;
+            if (!idChat) {
+                return res.clientError(400, "idChat es requerido");
+            }
+
+            const data = await sandboxService.sendMockWhatsappWebhookFromFront(idChat, req.body || {});
+            return res.success(200, "Payload webhook mock enviado exitosamente", data);
+        } catch (error) {
+            if (error.message === "No hay configuración de bot para el canal whatsapp") {
+                return res.clientError(400, error.message);
+            }
+            if (error.message === "Chat no encontrado") {
+                return res.clientError(404, error.message);
+            }
+
+            logger.error(`[sandbox.controller] Error al enviar payload webhook mock: ${error.message}`);
+            return res.serverError(500, "Error al enviar payload webhook mock");
         }
     }
 }

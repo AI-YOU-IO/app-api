@@ -119,6 +119,7 @@ class LlamadaService {
                         data: {
                             nombre_completo: num.nombre,
                             celular: telefono,
+                            id_empresa: num.id_empresa,
                             ...(num.json_adicional || {})
                         },
                         extras: {

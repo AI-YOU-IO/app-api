@@ -17,7 +17,16 @@ router.delete("/chats/:id", SandboxController.deleteChat);
 router.get("/chats/:idChat/messages", SandboxController.getMessages);
 router.post("/chats/:idChat/messages", SandboxController.sendMessage);
 
-// Webhook - el bot responde aquí
+// Webhook - el bot responde aquí (formato simple: message, type, url)
 router.post("/reply", SandboxController.receiveReply);
+
+// Webhook - el bot responde aquí (formato n8n con session_id)
+router.post("/chats/:idChat/reply", SandboxController.receiveReplyWithSessionId);
+
+// Mock WhatsApp webhook payload (solo message dinámico)
+router.post("/mock-whatsapp", SandboxController.sendMockWhatsappPayload);
+
+// Nuevo endpoint adicional: recibe body de front y lo mapea a webhook mock
+router.post("/chats/:idChat/messages/webhook-mock", SandboxController.sendMockWhatsappWebhookFromFront);
 
 module.exports = router;
