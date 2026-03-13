@@ -211,6 +211,9 @@ class LlamadaController {
 
             // Guardar transcripción si viene
             if (transcripcion && Array.isArray(transcripcion) && transcripcion.length > 0) {
+                // Eliminar transcripciones existentes antes de insertar nuevas
+                await transcripcionModel.deleteByLlamada(id_llamada);
+
                 // Insertar cada mensaje de la transcripción
                 for (const mensaje of transcripcion) {
                     // Mapear role: MESSAGE_ROLE_AGENT -> ai, MESSAGE_ROLE_USER -> humano
