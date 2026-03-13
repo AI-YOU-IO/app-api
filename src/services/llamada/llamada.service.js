@@ -12,7 +12,7 @@ class LlamadaService {
     constructor() {
         this.client = axios.create({
             baseURL: ULTRAVOX_API_URL,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', "X-Origin-Service": "portabilidad-bitel.ai-you.io" },
             timeout: 30000
         });
         // Map de ejecuciones activas: idEjecucion -> { active: bool, ... }
