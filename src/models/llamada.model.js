@@ -2,15 +2,20 @@ const { pool } = require("../config/dbConnection.js");
 
 // Función para obtener fecha en formato MySQL con zona horaria Lima, Perú
 const getFechaLima = () => {
-    const now = new Date();
-    const limaDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Lima' }));
-    const year = limaDate.getFullYear();
-    const month = String(limaDate.getMonth() + 1).padStart(2, '0');
-    const day = String(limaDate.getDate()).padStart(2, '0');
-    const hours = String(limaDate.getHours()).padStart(2, '0');
-    const minutes = String(limaDate.getMinutes()).padStart(2, '0');
-    const seconds = String(limaDate.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    const options = {
+        timeZone: 'America/Lima',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    };
+    const formatter = new Intl.DateTimeFormat('en-CA', options);
+    const parts = formatter.formatToParts(new Date());
+    const get = (type) => parts.find(p => p.type === type)?.value || '00';
+    return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
 };
 
 class LlamadaModel {
