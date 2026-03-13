@@ -132,11 +132,11 @@ class SandboxController {
 
     async receiveReply(req, res) {
         try {
-            const { chatid, message, type, url } = req.body;
-            if (!chatid || !message) {
-                return res.clientError(400, "chatid y message son requeridos");
+            const { session_id, message, type, url } = req.body;
+            if (!session_id || !message) {
+                return res.clientError(400, "session_id y message son requeridos");
             }
-            const data = await sandboxService.receiveReplySimple(chatid, message, type, url);
+            const data = await sandboxService.receiveReplySimple(session_id, message, type, url);
             return res.success(201, "Respuesta recibida exitosamente", data);
         } catch (error) {
             if (error.message === "Chat no encontrado") {
