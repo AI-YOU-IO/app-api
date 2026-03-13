@@ -105,9 +105,7 @@ class SandboxService {
             const botPayload = {
                 message: data.message,
                 session_id: idChat,
-                    config: {
-                    id_empresa: 1
-                }
+                id_empresa:50
                 
             };
 
