@@ -20,11 +20,11 @@ class LlamadaService {
     }
 
     /**
-     * Obtiene las sesiones activas en Ultravox
+     * Obtiene las sesiones activas en Ultravox para una empresa
      */
-    async getSesionesActivas() {
+    async getSesionesActivas(idEmpresa) {
         try {
-            const response = await this.client.get('/sessions');
+            const response = await this.client.get(`/sessions/${idEmpresa}`);
             return response.data?.data || [];
         } catch (error) {
             logger.error(`[LlamadaService] Error al obtener sesiones activas: ${error.message}`);
@@ -95,12 +95,13 @@ class LlamadaService {
             let indicePendiente = 0;
             let completadas = 0;
             let fallidas = 0;
+            const llamadasEnVuelo = new Set(); // provider_call_id de llamadas despachadas
 
             logger.info(`[LlamadaService] Ejecución ${idEjecucion}: ${totalNumeros} números a procesar`);
 
             // 2. Despachar lote inicial (hasta MAX_CONCURRENT)
             const despacharLote = async () => {
-                const sesiones = await this.getSesionesActivas();
+                const sesiones = await this.getSesionesActivas(idEmpresa);
                 const slotsDisponibles = MAX_CONCURRENT - sesiones.length;
 
                 if (slotsDisponibles <= 0) return;
@@ -147,6 +148,7 @@ class LlamadaService {
                                         id_campania_ejecucion: idEjecucion,
                                         provider_call_id: result.data.channelId
                                     });
+                                    llamadasEnVuelo.add(result.data.channelId);
                                 }
                             })
                             .catch(() => {
@@ -173,10 +175,19 @@ class LlamadaService {
                         return;
                     }
 
+                    // Marcar como finalizadas las llamadas que ya no están en sesiones activas
+                    const sesionesActuales = await this.getSesionesActivas(idEmpresa);
+                    const channelIdsActivos = new Set(sesionesActuales.map(s => s.channelId));
+                    for (const channelId of llamadasEnVuelo) {
+                        if (!channelIdsActivos.has(channelId)) {
+                            llamadasEnVuelo.delete(channelId);
+                            await llamadaModel.actualizarEstadoLlamada(channelId, 4).catch(() => {});
+                        }
+                    }
+
                     // Si ya se despacharon todos, esperar a que terminen las activas
                     if (indicePendiente >= totalNumeros) {
-                        const sesiones = await this.getSesionesActivas();
-                        if (sesiones.length === 0) {
+                        if (sesionesActuales.length === 0 && llamadasEnVuelo.size === 0) {
                             clearInterval(interval);
                             resolve();
                         }
