@@ -164,9 +164,9 @@ class SandboxService {
     }
 
     // Webhook: el bot responde con formato simple (message, type, url)
-    async receiveReplySimple(chatid, message, type, url) {
+    async receiveReplySimple(session_id, message, type, url) {
         const chatModel = new ChatSandboxModel();
-        const chat = await chatModel.getById(chatid);
+        const chat = await chatModel.getById(session_id);
         if (!chat) {
             throw new Error("Chat no encontrado");
         }
@@ -177,14 +177,14 @@ class SandboxService {
             message: message,
             type: type || "text",
             url: url || null,
-            id_chat_sandbox: chatid,
+            id_chat_sandbox: session_id,
         });
 
-        return { id_message_sandbox: id, id_chat_sandbox: chatid, message };
+        return { id_message_sandbox: id, id_chat_sandbox: session_id, message };
     }
 
     // Webhook: el bot responde con formato n8n completo y session_id para relacionar con chatid
-    async receiveReplyWithSessionId(idChat, input = {}) {
+    async receiveReplyWithSessionId(session_id, input = {}) {
         const chatModel = new ChatSandboxModel();
         const chat = await chatModel.getById(idChat);
         if (!chat) {
