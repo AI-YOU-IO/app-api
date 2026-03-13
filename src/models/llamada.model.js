@@ -202,7 +202,7 @@ class LlamadaModel {
                 WHERE id = ?`,
                 [
                     id_ultravox_call || null,
-                    metadata_ultravox_call ? JSON.stringify(metadata_ultravox_call) : null,
+                    metadata_ultravox_call || null,
                     id
                 ]
             );

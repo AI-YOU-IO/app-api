@@ -119,32 +119,42 @@ class LlamadaController {
 
     async uploadAudio(req, res) {
         try {
-            const { idEmpresa } = req.user;
-            const { id_llamada } = req.body;
+            const { provider_call_id } = req.body;
 
             if (!req.file) {
                 return res.status(400).json({ msg: "No se proporcionó ningún archivo de audio" });
             }
 
-            if (!id_llamada) {
-                return res.status(400).json({ msg: "El campo id_llamada es requerido" });
+            if (!provider_call_id) {
+                return res.status(400).json({ msg: "El campo provider_call_id es requerido" });
             }
 
-            // Subir audio a S3 con folder 'llamadas'
-            const archivo_llamada = await s3Service.uploadFile(req.file, 'llamadas', idEmpresa);
-
-            // Actualizar la llamada con el archivo de audio
             const llamadaModel = new LlamadaModel();
-            const updated = await llamadaModel.actualizarArchivoLlamada(id_llamada, archivo_llamada);
+
+            // Buscar la llamada por provider_call_id
+            const llamada = await llamadaModel.getByProviderCallId(provider_call_id);
+
+            if (!llamada) {
+                return res.status(404).json({ msg: "No se encontró llamada con ese provider_call_id" });
+            }
+
+            // Subir audio a S3 con folder 'llamadas' usando id_empresa de la llamada
+            const archivo_llamada = await s3Service.uploadFile(req.file, 'llamadas', llamada.id_empresa);
+
+            // Actualizar la llamada con el archivo de audio usando provider_call_id
+            const updated = await llamadaModel.actualizarAudioLlamadaPorProvider(provider_call_id, {
+                archivo_llamada
+            });
 
             if (!updated) {
-                return res.status(404).json({ msg: "No se encontró la llamada con el id proporcionado" });
+                return res.status(404).json({ msg: "No se pudo actualizar la llamada" });
             }
 
             return res.status(200).json({
                 msg: "Audio subido exitosamente",
                 data: {
-                    id_llamada,
+                    provider_call_id,
+                    id_llamada: llamada.id,
                     archivo_llamada
                 }
             });
@@ -158,6 +168,8 @@ class LlamadaController {
         try {
             const { provider_call_id, id_ultravox_call, metadata_ultravox_call, transcripcion } = req.body;
 
+            logger.info(`[llamada.controller.js] Guardando transcripción para provider_call_id: ${provider_call_id}`);
+
             if (!provider_call_id) {
                 return res.status(400).json({ msg: "El campo provider_call_id es requerido" });
             }
@@ -170,25 +182,28 @@ class LlamadaController {
             const llamada = await llamadaModel.getByProviderCallId(provider_call_id);
 
             if (!llamada) {
+                logger.warn(`[llamada.controller.js] No se encontró llamada con provider_call_id: ${provider_call_id}`);
                 return res.status(404).json({ msg: "No se encontró llamada con ese provider_call_id" });
             }
 
             const id_llamada = llamada.id;
+            logger.info(`[llamada.controller.js] Encontrada llamada con id: ${id_llamada}`);
 
             // Actualizar la llamada con id_ultravox_call y metadata
             if (id_ultravox_call || metadata_ultravox_call) {
-                let metadataParsed = metadata_ultravox_call;
-                if (typeof metadata_ultravox_call === 'string') {
-                    try {
-                        metadataParsed = JSON.parse(metadata_ultravox_call);
-                    } catch (e) {
-                        metadataParsed = metadata_ultravox_call;
+                // Convertir metadata a string JSON si viene como objeto
+                let metadataString = null;
+                if (metadata_ultravox_call) {
+                    if (typeof metadata_ultravox_call === 'string') {
+                        metadataString = metadata_ultravox_call;
+                    } else {
+                        metadataString = JSON.stringify(metadata_ultravox_call);
                     }
                 }
 
                 await llamadaModel.actualizarMetadataUltravox(id_llamada, {
                     id_ultravox_call: id_ultravox_call || null,
-                    metadata_ultravox_call: metadataParsed || null
+                    metadata_ultravox_call: metadataString
                 });
             }
 
