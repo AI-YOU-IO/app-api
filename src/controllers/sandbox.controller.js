@@ -65,11 +65,11 @@ class SandboxController {
 
     async createChat(req, res) {
         try {
-            const { channel } = req.body;
-            if (!channel) {
-                return res.clientError(400, "El campo channel es requerido");
+            const { canal } = req.body;
+            if (!canal) {
+                return res.clientError(400, "El campo canal es requerido");
             }
-            const data = await sandboxService.createChat({ channel });
+            const data = await sandboxService.createChat({ canal });
             return res.success(201, "Chat creado exitosamente", data);
         } catch (error) {
             logger.error(`[sandbox.controller] Error al crear chat: ${error.message}`);

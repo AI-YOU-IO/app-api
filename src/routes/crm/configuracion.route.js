@@ -223,6 +223,9 @@ router.post("/tipos-campania", ConfiguracionController.createTipoCampania);
 router.put("/tipos-campania/:id", ConfiguracionController.updateTipoCampania);
 router.delete("/tipos-campania/:id", ConfiguracionController.deleteTipoCampania);
 
+// Rutas de Voces
+router.get("/voces", ConfiguracionController.getVoces);
+
 // Rutas de Personas (listado)
 router.get("/personas", ConfiguracionController.getPersonas);
 

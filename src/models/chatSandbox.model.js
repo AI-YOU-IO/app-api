@@ -5,10 +5,10 @@ class ChatSandboxModel {
         this.connection = dbConnection || pool;
     }
 
-    async getByChannel(canal) {
+    async getByCanal(canal) {
         try {
             const [rows] = await this.connection.execute(
-                `SELECT * FROM chat_sandbox WHERE channel = ? ORDER BY fecha_hora DESC`,
+                `SELECT * FROM chat_sandbox WHERE canal = ? ORDER BY fecha_hora DESC`,
                 [canal]
             );
             return rows;
@@ -29,11 +29,11 @@ class ChatSandboxModel {
         }
     }
 
-    async create({ channel }) {
+    async create({ canal }) {
         try {
             const [result] = await this.connection.execute(
-                `INSERT INTO chat_sandbox (channel, fecha_hora) VALUES (?, NOW())`,
-                [channel]
+                `INSERT INTO chat_sandbox (canal, fecha_hora) VALUES (?, NOW())`,
+                [canal]
             );
             return result.insertId;
         } catch (error) {

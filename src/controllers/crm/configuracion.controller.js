@@ -20,6 +20,7 @@ const CampaniaEjecucionModel = require("../../models/campaniaEjecucion.model.js"
 const PromptAsistenteModel = require("../../models/promptAsistente.model.js");
 const ConfiguracionCampaniaLlamadaModel = require("../../models/configuracionCampaniaLlamada.model.js");
 const TipoPersonaModel = require("../../models/tipoPersona.model.js");
+const VozModel = require("../../models/voz.model.js");
 const { pool } = require("../../config/dbConnection.js");
 const logger = require('../../config/logger/loggerClient.js');
 const xlsx = require('xlsx');
@@ -1411,19 +1412,37 @@ class ConfiguracionController {
 
   // ==================== CARGA MASIVA ====================
   async uploadBaseNumero(req, res) {
-    // Configurar SSE
+    // Configurar SSE - desactivar buffering
     res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
-    const sendEvent = (data) => {
+    // Helper para pausar y permitir flush
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Helper para normalizar nombres de campos (ignora mayúsculas, tildes, espacios y guiones bajos)
+    const normalizeFieldName = (str) => {
+      if (!str) return '';
+      return str
+        .toLowerCase()
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')  // Eliminar tildes/acentos
+        .replace(/_/g, ' ');               // Guion bajo = espacio
+    };
+
+    const sendEvent = async (data) => {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
+      if (res.flush) res.flush();
+      // Dar tiempo al event loop para enviar los datos
+      await sleep(10);
     };
 
     try {
       if (!req.file) {
-        sendEvent({ tipo: 'error', mensaje: 'No se ha proporcionado un archivo' });
+        await sendEvent({ tipo: 'error', mensaje: 'No se ha proporcionado un archivo' });
         return res.end();
       }
 
@@ -1431,18 +1450,18 @@ class ConfiguracionController {
       const usuario_registro = req.user?.userId || null;
 
       if (!id_base_numero) {
-        sendEvent({ tipo: 'error', mensaje: 'El ID de la base es requerido' });
+        await sendEvent({ tipo: 'error', mensaje: 'El ID de la base es requerido' });
         return res.end();
       }
 
-      sendEvent({ tipo: 'inicio', mensaje: 'Leyendo archivo...' });
+      await sendEvent({ tipo: 'inicio', mensaje: 'Leyendo archivo...' });
 
       // Obtener la base y su formato
       const baseNumeroModel = new BaseNumeroModel();
       const base = await baseNumeroModel.getById(id_base_numero);
 
       if (!base) {
-        sendEvent({ tipo: 'error', mensaje: 'Base de numeros no encontrada' });
+        await sendEvent({ tipo: 'error', mensaje: 'Base de numeros no encontrada' });
         return res.end();
       }
 
@@ -1451,7 +1470,7 @@ class ConfiguracionController {
       const formato = await formatoModel.getByIdWithCampos(base.id_formato);
 
       if (!formato) {
-        sendEvent({ tipo: 'error', mensaje: 'Formato no encontrado' });
+        await sendEvent({ tipo: 'error', mensaje: 'Formato no encontrado' });
         return res.end();
       }
 
@@ -1462,19 +1481,19 @@ class ConfiguracionController {
       const jsonData = xlsx.utils.sheet_to_json(worksheet, { defval: '' });
 
       if (jsonData.length === 0) {
-        sendEvent({ tipo: 'error', mensaje: 'El archivo esta vacio' });
+        await sendEvent({ tipo: 'error', mensaje: 'El archivo esta vacio' });
         return res.end();
       }
 
-      sendEvent({ tipo: 'inicio', mensaje: `Validando estructura... (${jsonData.length} filas)` });
+      await sendEvent({ tipo: 'inicio', mensaje: `Validando estructura... (${jsonData.length} filas)` });
 
       // Campos fijos de base_numero_detalle
       const camposFijos = ['telefono', 'nombre', 'correo', 'tipo_documento', 'numero_documento', 'tipo_persona'];
       const camposFormato = formato.campos || [];
 
       // ========== VALIDAR ESTRUCTURA DEL ARCHIVO ==========
-      // Obtener las columnas del archivo
-      const columnasArchivo = Object.keys(jsonData[0]).map(col => col.toLowerCase().trim());
+      // Obtener las columnas del archivo (normalizadas)
+      const columnasArchivo = Object.keys(jsonData[0]).map(col => normalizeFieldName(col));
 
       // Construir lista de columnas esperadas segun el formato
       const columnasEsperadas = [];
@@ -1487,11 +1506,11 @@ class ConfiguracionController {
         columnasEsperadas.push({ nombre: campo, requerido: false, tipo: 'fijo' });
       });
 
-      // Agregar campos del formato
+      // Agregar campos del formato (normalizados)
       camposFormato.forEach(campo => {
         columnasEsperadas.push({
-          nombre: campo.nombre_campo.toLowerCase(),
-          etiqueta: campo.etiqueta ? campo.etiqueta.toLowerCase() : null,
+          nombre: normalizeFieldName(campo.nombre_campo),
+          etiqueta: campo.etiqueta ? normalizeFieldName(campo.etiqueta) : null,
           requerido: campo.requerido === 1,
           tipo: 'formato'
         });
@@ -1502,17 +1521,24 @@ class ConfiguracionController {
       const columnasFaltantes = [];
 
       for (const colReq of columnasRequeridas) {
+        // Usar normalización para comparar columnas (ignora espacios vs guiones bajos, mayúsculas, tildes)
         const existe = columnasArchivo.some(colArch =>
-          colArch === colReq.nombre || colArch === colReq.etiqueta
+          normalizeFieldName(colArch) === normalizeFieldName(colReq.nombre) ||
+          normalizeFieldName(colArch) === normalizeFieldName(colReq.etiqueta)
         );
         if (!existe) {
           columnasFaltantes.push(colReq.etiqueta || colReq.nombre);
         }
       }
 
-      // Identificar columnas del archivo que no estan en el formato
-      const columnasValidas = columnasEsperadas.map(c => [c.nombre, c.etiqueta]).flat().filter(Boolean);
-      const columnasSobrantes = columnasArchivo.filter(col => !columnasValidas.includes(col));
+      // Identificar columnas del archivo que no estan en el formato (usando normalización)
+      const columnasValidasNormalizadas = columnasEsperadas
+        .map(c => [normalizeFieldName(c.nombre), normalizeFieldName(c.etiqueta)])
+        .flat()
+        .filter(Boolean);
+      const columnasSobrantes = columnasArchivo.filter(col =>
+        !columnasValidasNormalizadas.includes(normalizeFieldName(col))
+      );
 
       // Validar estructura: columnas faltantes o sobrantes
       if (columnasFaltantes.length > 0 || columnasSobrantes.length > 0) {
@@ -1525,7 +1551,7 @@ class ConfiguracionController {
           mensaje = "El archivo tiene columnas que no estan definidas en el formato";
         }
 
-        sendEvent({
+        await sendEvent({
           tipo: 'error_estructura',
           mensaje: mensaje,
           columnasFaltantes: columnasFaltantes.length > 0 ? columnasFaltantes : undefined,
@@ -1545,7 +1571,7 @@ class ConfiguracionController {
       const totalFilas = jsonData.length;
       const BATCH_SIZE = 100; // Procesar en lotes para mejor rendimiento
 
-      sendEvent({
+      await sendEvent({
         tipo: 'progreso',
         mensaje: 'Validando datos...',
         total: totalFilas,
@@ -1573,12 +1599,13 @@ class ConfiguracionController {
         const headerKeys = Object.keys(row);
 
         for (const headerKey of headerKeys) {
-          const headerLower = headerKey.toLowerCase().trim();
+          const headerNormalized = normalizeFieldName(headerKey);
           const valor = row[headerKey];
 
-          // Verificar si es un campo fijo
-          if (camposFijos.includes(headerLower)) {
-            if (headerLower === 'tipo_persona') {
+          // Verificar si es un campo fijo (comparamos con nombres normalizados)
+          const campoFijoMatch = camposFijos.find(cf => normalizeFieldName(cf) === headerNormalized);
+          if (campoFijoMatch) {
+            if (campoFijoMatch === 'tipo_persona') {
               // Mapear tipo_persona del Excel a id_tipo_persona
               const valorLower = String(valor).toLowerCase().trim();
               if (valorLower === 'cliente' || valorLower === '2') {
@@ -1590,13 +1617,13 @@ class ConfiguracionController {
                 registro.id_tipo_persona = isNaN(parsed) ? null : parsed;
               }
             } else {
-              registro[headerLower] = valor !== '' ? String(valor) : null;
+              registro[campoFijoMatch] = valor !== '' ? String(valor) : null;
             }
           } else {
-            // Buscar en los campos del formato
+            // Buscar en los campos del formato (usando normalización)
             const campoFormato = camposFormato.find(c =>
-              c.nombre_campo.toLowerCase() === headerLower ||
-              (c.etiqueta && c.etiqueta.toLowerCase() === headerLower)
+              normalizeFieldName(c.nombre_campo) === headerNormalized ||
+              (c.etiqueta && normalizeFieldName(c.etiqueta) === headerNormalized)
             );
 
             if (campoFormato) {
@@ -1685,7 +1712,7 @@ class ConfiguracionController {
         // Enviar progreso cada BATCH_SIZE registros
         if ((i + 1) % BATCH_SIZE === 0 || i === jsonData.length - 1) {
           const porcentaje = Math.round(((i + 1) / totalFilas) * 50); // 50% para validacion
-          sendEvent({
+          await sendEvent({
             tipo: 'progreso',
             mensaje: `Validando datos... (${i + 1}/${totalFilas})`,
             total: totalFilas,
@@ -1704,7 +1731,7 @@ class ConfiguracionController {
       const INSERT_BATCH_SIZE = 500;
       const totalLotes = Math.ceil(registros.length / INSERT_BATCH_SIZE);
 
-      sendEvent({
+      await sendEvent({
         tipo: 'progreso',
         mensaje: 'Insertando registros en base de datos...',
         total: totalFilas,
@@ -1730,7 +1757,7 @@ class ConfiguracionController {
         }
 
         const porcentajeInsercion = 50 + Math.round(((lote + 1) / totalLotes) * 50);
-        sendEvent({
+        await sendEvent({
           tipo: 'progreso',
           mensaje: `Insertando lote ${lote + 1} de ${totalLotes}...`,
           total: totalFilas,
@@ -1743,8 +1770,29 @@ class ConfiguracionController {
         });
       }
 
+      // Sincronizar personas nuevas a la tabla persona
+      await sendEvent({
+        tipo: 'progreso',
+        mensaje: 'Sincronizando personas nuevas...',
+        total: totalFilas,
+        procesados: totalFilas,
+        nuevos: totalInsertados,
+        omitidos: erroresValidacion.length + erroresDuplicados.length,
+        porcentaje: 95
+      });
+
+      let personasInsertadas = 0;
+      let personasActualizadas = 0;
+      try {
+        const syncResult = await detalleModel.syncToPersona(id_base_numero, base.id_empresa, usuario_registro);
+        personasInsertadas = syncResult.insertados;
+        personasActualizadas = syncResult.actualizados || 0;
+      } catch (syncError) {
+        logger.error(`[configuracion.controller.js] Error al sincronizar personas: ${syncError.message}`);
+      }
+
       // Enviar resultado final
-      sendEvent({
+      await sendEvent({
         tipo: 'completado',
         exito: true,
         data: {
@@ -1753,7 +1801,9 @@ class ConfiguracionController {
           erroresValidacion: erroresValidacion.length,
           erroresDuplicados: erroresDuplicados.length,
           detalleErroresValidacion: erroresValidacion.slice(0, 10),
-          detalleErroresDuplicados: erroresDuplicados.slice(0, 10)
+          detalleErroresDuplicados: erroresDuplicados.slice(0, 10),
+          personasNuevas: personasInsertadas,
+          personasActualizadas: personasActualizadas
         }
       });
 
@@ -1761,7 +1811,7 @@ class ConfiguracionController {
 
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error en carga masiva: ${error.message}`);
-      sendEvent({ tipo: 'error', mensaje: 'Error al procesar el archivo' });
+      await sendEvent({ tipo: 'error', mensaje: 'Error al procesar el archivo' });
       return res.end();
     }
   }
@@ -1810,12 +1860,12 @@ class ConfiguracionController {
 
   async createPlantilla(req, res) {
     try {
-      const { id_formato, nombre, descripcion, prompt_sistema, prompt_inicio, prompt_flujo, prompt_cierre, prompt_resultado } = req.body;
+      const { id_formato, nombre, descripcion, prompt } = req.body;
       const id_empresa = req.user?.idEmpresa;
       const usuario_registro = req.user?.userId || null;
 
-      if (!id_formato || !nombre || !prompt_sistema || !prompt_inicio || !prompt_flujo) {
-        return res.status(400).json({ msg: "El formato, nombre, prompt sistema, prompt inicio y prompt flujo son requeridos" });
+      if (!id_formato || !nombre || !prompt) {
+        return res.status(400).json({ msg: "El formato, nombre y prompt son requeridos" });
       }
 
       const plantillaModel = new PlantillaModel();
@@ -1824,11 +1874,7 @@ class ConfiguracionController {
         id_formato,
         nombre,
         descripcion,
-        prompt_sistema,
-        prompt_inicio,
-        prompt_flujo,
-        prompt_cierre,
-        prompt_resultado,
+        prompt,
         usuario_registro
       });
 
@@ -1842,12 +1888,12 @@ class ConfiguracionController {
   async updatePlantilla(req, res) {
     try {
       const { id } = req.params;
-      const { id_formato, nombre, descripcion, prompt_sistema, prompt_inicio, prompt_flujo, prompt_cierre, prompt_resultado } = req.body;
+      const { id_formato, nombre, descripcion, prompt } = req.body;
       const idEmpresa = req.user?.idEmpresa || null;
       const usuario_actualizacion = req.user?.userId || null;
 
-      if (!id_formato || !nombre || !prompt_sistema || !prompt_inicio || !prompt_flujo) {
-        return res.status(400).json({ msg: "El formato, nombre, prompt sistema, prompt inicio y prompt flujo son requeridos" });
+      if (!id_formato || !nombre || !prompt) {
+        return res.status(400).json({ msg: "El formato, nombre y prompt son requeridos" });
       }
 
       const plantillaModel = new PlantillaModel();
@@ -1855,11 +1901,7 @@ class ConfiguracionController {
         id_formato,
         nombre,
         descripcion,
-        prompt_sistema,
-        prompt_inicio,
-        prompt_flujo,
-        prompt_cierre,
-        prompt_resultado,
+        prompt,
         usuario_actualizacion,
         id_empresa: idEmpresa
       });
@@ -1926,12 +1968,12 @@ class ConfiguracionController {
 
   async createCampania(req, res) {
     try {
-      const { nombre, descripcion, id_tipo_campania, id_formato, id_plantilla } = req.body;
+      const { nombre, descripcion, id_tipo_campania, id_formato, id_plantilla, id_voz } = req.body;
       const id_empresa = req.user?.idEmpresa;
       const usuario_registro = req.user?.userId || null;
 
       logger.info(`[createCampania] req.body completo: ${JSON.stringify(req.body)}`);
-      logger.info(`[createCampania] Datos recibidos: nombre=${nombre}, id_tipo_campania=${id_tipo_campania}, id_formato=${id_formato}, id_plantilla=${id_plantilla}, tipo de id_plantilla=${typeof id_plantilla}`);
+      logger.info(`[createCampania] Datos recibidos: nombre=${nombre}, id_tipo_campania=${id_tipo_campania}, id_formato=${id_formato}, id_plantilla=${id_plantilla}, id_voz=${id_voz}`);
 
       if (!nombre) {
         return res.status(400).json({ msg: "El nombre es requerido" });
@@ -1953,6 +1995,7 @@ class ConfiguracionController {
         id_tipo_campania,
         id_formato,
         id_plantilla,
+        id_voz,
         usuario_registro
       });
 
@@ -1966,11 +2009,11 @@ class ConfiguracionController {
   async updateCampania(req, res) {
     try {
       const { id } = req.params;
-      const { nombre, descripcion, id_tipo_campania, id_formato, id_plantilla } = req.body;
+      const { nombre, descripcion, id_tipo_campania, id_formato, id_plantilla, id_voz } = req.body;
       const usuario_actualizacion = req.user?.userId || null;
 
       logger.info(`[updateCampania] req.body completo: ${JSON.stringify(req.body)}`);
-      logger.info(`[updateCampania] id=${id}, id_plantilla=${id_plantilla}, tipo=${typeof id_plantilla}`);
+      logger.info(`[updateCampania] id=${id}, id_plantilla=${id_plantilla}, id_voz=${id_voz}`);
 
       if (!nombre) {
         return res.status(400).json({ msg: "El nombre es requerido" });
@@ -1991,6 +2034,7 @@ class ConfiguracionController {
         id_tipo_campania,
         id_formato,
         id_plantilla,
+        id_voz,
         usuario_actualizacion
       });
 
@@ -2125,6 +2169,18 @@ class ConfiguracionController {
         [id_empresa]
       );
 
+      // Obtener prompt y voice_code de la campaña
+      const [campaniaRows] = await pool.execute(
+        `SELECT p.prompt, v.voice_code
+         FROM campania c
+         INNER JOIN plantilla p ON c.id_plantilla = p.id
+         LEFT JOIN voz v ON c.id_voz = v.id
+         WHERE c.id_empresa = ? AND c.id = ?`,
+        [id_empresa, id_campania]
+      );
+      const prompt = campaniaRows[0]?.prompt || '';
+      const voiceCode = campaniaRows[0]?.voice_code || null;
+
       // Responder inmediatamente
       res.status(202).json({
         msg: "Ejecucion iniciada en segundo plano",
@@ -2137,7 +2193,9 @@ class ConfiguracionController {
         idCampania: id_campania,
         idsBaseNumero: ids_base_numero,
         idEmpresa: id_empresa,
-        tipificaciones
+        tipificaciones,
+        prompt: prompt,
+        voiceCode: voiceCode,
       });
 
     } catch (error) {
@@ -2691,7 +2749,7 @@ class ConfiguracionController {
     try {
       const { id_campania } = req.params;
       const { dias_llamada, hora_inicio, hora_fin, max_intentos, intervalo_reintento, horarios_por_dia } = req.body;
-      const usuario = req.user?.username || null;
+      const usuario = req.user?.id || null;
 
       if (!dias_llamada && !horarios_por_dia) {
         return res.status(400).json({ msg: "Debe seleccionar al menos un día" });
@@ -2861,6 +2919,18 @@ class ConfiguracionController {
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al obtener tipos de persona: ${error.message}`);
       return res.status(500).json({ msg: "Error al obtener tipos de persona" });
+    }
+  }
+
+  // ==================== VOCES ====================
+  async getVoces(req, res) {
+    try {
+      const vozModel = new VozModel();
+      const voces = await vozModel.getAll();
+      return res.status(200).json({ data: voces });
+    } catch (error) {
+      logger.error(`[ConfiguracionController] Error al obtener voces: ${error.message}`);
+      return res.status(500).json({ msg: "Error al obtener voces" });
     }
   }
 }

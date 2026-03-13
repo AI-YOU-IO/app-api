@@ -4,6 +4,15 @@ const MessageSandboxModel = require("../../models/messageSandbox.model.js");
 const axios = require("axios");
 const logger = require("../../config/logger/loggerClient.js");
 
+const safeJson = (value) => {
+    try {
+        return JSON.stringify(value);
+    } catch (_) {
+        return "[unserializable]";
+    }
+};
+
+
 class SandboxService {
 
     // ==================== Configuración ====================
@@ -37,7 +46,7 @@ class SandboxService {
 
     async getChats(canal) {
         const model = new ChatSandboxModel();
-        return await model.getByChannel(canal);
+        return await model.getByCanal(canal);
     }
 
     async createChat(data) {
@@ -86,26 +95,77 @@ class SandboxService {
 
         // Obtener configuración del bot por el canal del chat
         const configModel = new SandboxConfiguracionModel();
-        const config = await configModel.getByCanal(chat.channel);
+        const config = await configModel.getByCanal(chat.canal);
         if (!config || !config.url_bot_service) {
             throw new Error("No hay configuración de bot para este canal");
         }
 
         // Reenviar mensaje al bot
         try {
-            await axios.post(config.url_bot_service, {
-                chatid: idChat,
+            const botPayload = {
                 message: data.message,
-            });
+                session_id: idChat,
+                    config: {
+                    id_empresa: 1
+                }
+                
+            };
+
+            if (typeof data.type !== "undefined") {
+                botPayload.type = data.type;
+            }
+            if (typeof data.url !== "undefined") {
+                botPayload.url = data.url;
+            }
+
+            logger.info(`[sandbox.service] BOT REQUEST URL: ${config.url_bot_service}`);
+            logger.info(`[sandbox.service] BOT REQUEST BODY: ${safeJson(botPayload)}`);
+
+            let botResponse;
+            try {
+                botResponse = await axios.post(config.url_bot_service, botPayload);
+            } catch (error) {
+                logger.error(`[sandbox.service] BOT ERROR MESSAGE: ${error.message}`);
+                if (error.response) {
+                    logger.error(`[sandbox.service] BOT ERROR STATUS: ${error.response.status}`);
+                    logger.error(`[sandbox.service] BOT ERROR HEADERS: ${safeJson(error.response.headers)}`);
+                    logger.error(`[sandbox.service] BOT ERROR BODY: ${safeJson(error.response.data)}`);
+                }
+                throw new Error("Error al comunicarse con el bot");
+            }
+            
+            logger.info(`[sandbox.service] BOT RESPONSE STATUS: ${botResponse.status}`);
+            logger.info(`[sandbox.service] BOT RESPONSE HEADERS: ${safeJson(botResponse.headers)}`);
+            logger.info(`[sandbox.service] BOT RESPONSE BODY: ${safeJson(botResponse.data)}`);
+
+            const responseSessionId = Number(botResponse?.data?.session_id);
+            const mappedChatId = Number.isInteger(responseSessionId) ? responseSessionId : idChat;
+            if (mappedChatId !== Number(idChat)) {
+                logger.info(`[sandbox.service] session_id mapeado de respuesta bot: ${mappedChatId} (request idChat=${idChat})`);
+            }
+
+            const reply = botResponse?.data?.reply;
+            if (typeof reply === "string" && reply.trim() !== "") {
+                await messageModel.create({
+                    direction: "incoming",
+                    message: reply,
+                    type: "text",
+                    url: botResponse?.data?.url || null,
+                    id_chat_sandbox: mappedChatId,
+                });
+            }
         } catch (error) {
-            logger.error(`[sandbox.service] Error al enviar mensaje al bot: ${error.message}`);
+            if (error.message === "Error al comunicarse con el bot") {
+                throw error;
+            }
+            logger.error(`[sandbox.service] Error inesperado al preparar envío al bot: ${error.message}`);
             throw new Error("Error al comunicarse con el bot");
         }
 
         return { id, id_chat_sandbox: idChat, message: data.message };
     }
 
-    // Webhook: el bot responde con {chatid, reply}
+    // Webhook: el bot responde con {session_id} que es nuestro chatid
     async receiveReply(chatid, reply, type, url) {
         const chatModel = new ChatSandboxModel();
         const chat = await chatModel.getById(chatid);

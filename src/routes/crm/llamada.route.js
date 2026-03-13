@@ -5,6 +5,26 @@ const LlamadaController = require("../../controllers/crm/llamada.controller.js")
 
 const router = Router();
 
+// Middleware de autenticación por token para Asterisk
+const authAsteriskToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Token no proporcionado. Use: Authorization: Bearer <token>' });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const validToken = process.env.AIYOU_API_TOKEN_ASTERISK;
+
+    if (token !== validToken) {
+        return res.status(401).json({ message: 'Token inválido' });
+    }
+
+    // Simular user para compatibilidad con el controlador
+    req.user = { idEmpresa: req.body.id_empresa || 1, userId: 'asterisk' };
+    next();
+};
+
 // Configuración de Multer para subida de audios de llamadas
 const uploadAudio = multer({
     storage: multer.memoryStorage(),
@@ -29,7 +49,10 @@ router.get("/llamadas/:id", LlamadaController.getById);
 router.post("/llamadas", LlamadaController.create);
 router.put("/llamadas/nuevaTipificacion", LlamadaController.actualizarTipificacion);
 
-// Ruta de upload de audio
-router.post("/llamadas/upload-audio", uploadAudio.single('audio'), LlamadaController.uploadAudio);
+// Ruta de upload de audio (autenticada con token Asterisk)
+router.post("/llamadas/upload-audio", authAsteriskToken, uploadAudio.single('audio'), LlamadaController.uploadAudio);
+
+// Ruta de transcripcion (autenticada con token Asterisk)
+router.post("/llamadas/transcripcion", authAsteriskToken, LlamadaController.guardarTranscripcion);
 
 module.exports = router;

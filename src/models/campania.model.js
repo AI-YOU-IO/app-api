@@ -13,6 +13,9 @@ class CampaniaModel {
                     tc.nombre AS tipo_campania_nombre,
                     f.nombre AS formato_nombre,
                     p.nombre AS plantilla_nombre,
+                    v.nacionalidad AS voz_nacionalidad,
+                    v.genero AS voz_genero,
+                    v.voice_code AS voz_voice_code,
                     (SELECT COUNT(*) FROM campania_base_numero cbn
                      WHERE cbn.id_campania = c.id AND cbn.estado_registro = 1) as total_bases,
                     (SELECT COUNT(*) FROM campania_ejecucion ce
@@ -21,6 +24,7 @@ class CampaniaModel {
                 LEFT JOIN tipo_campania tc ON c.id_tipo_campania = tc.id AND tc.estado_registro = 1
                 LEFT JOIN formato f ON c.id_formato = f.id
                 LEFT JOIN plantilla p ON c.id_plantilla = p.id
+                LEFT JOIN voz v ON c.id_voz = v.id AND v.estado_registro = 1
                 WHERE c.estado_registro = 1
             `;
             const params = [];
@@ -43,12 +47,14 @@ class CampaniaModel {
         try {
             const [rows] = await this.connection.execute(
                 `SELECT c.*, tc.nombre AS tipo_campania_nombre, f.nombre AS formato_nombre, p.nombre AS plantilla_nombre,
+                    v.nacionalidad AS voz_nacionalidad, v.genero AS voz_genero, v.voice_code AS voz_voice_code,
                     (SELECT COUNT(*) FROM campania_base_numero cbn
                      WHERE cbn.id_campania = c.id AND cbn.estado_registro = 1) as total_bases
                 FROM campania c
                 LEFT JOIN tipo_campania tc ON c.id_tipo_campania = tc.id AND tc.estado_registro = 1
                 LEFT JOIN formato f ON c.id_formato = f.id
                 LEFT JOIN plantilla p ON c.id_plantilla = p.id
+                LEFT JOIN voz v ON c.id_voz = v.id AND v.estado_registro = 1
                 WHERE c.id = ? AND c.estado_registro = 1`,
                 [id]
             );
@@ -83,13 +89,13 @@ class CampaniaModel {
         }
     }
 
-    async create({ id_empresa, nombre, descripcion, id_tipo_campania, id_formato, id_plantilla, usuario_registro }) {
+    async create({ id_empresa, nombre, descripcion, id_tipo_campania, id_formato, id_plantilla, id_voz, usuario_registro }) {
         try {
-            logger.info(`[CampaniaModel.create] Parámetros: id_plantilla=${id_plantilla}, tipo=${typeof id_plantilla}`);
+            logger.info(`[CampaniaModel.create] Parámetros: id_plantilla=${id_plantilla}, id_voz=${id_voz}`);
             const [result] = await this.connection.execute(
                 `INSERT INTO campania
-                (id_empresa, nombre, descripcion, id_tipo_campania, id_formato, id_plantilla, estado_registro, usuario_registro)
-                VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
+                (id_empresa, nombre, descripcion, id_tipo_campania, id_formato, id_plantilla, id_voz, estado_registro, usuario_registro)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
                 [
                     id_empresa,
                     nombre,
@@ -97,6 +103,7 @@ class CampaniaModel {
                     id_tipo_campania,
                     id_formato,
                     id_plantilla || null,
+                    id_voz || null,
                     usuario_registro || null
                 ]
             );
@@ -109,12 +116,12 @@ class CampaniaModel {
         }
     }
 
-    async update(id, { nombre, descripcion, id_tipo_campania, id_formato, id_plantilla, usuario_actualizacion }) {
+    async update(id, { nombre, descripcion, id_tipo_campania, id_formato, id_plantilla, id_voz, usuario_actualizacion }) {
         try {
-            logger.info(`[CampaniaModel.update] id=${id}, id_plantilla=${id_plantilla}, tipo=${typeof id_plantilla}`);
+            logger.info(`[CampaniaModel.update] id=${id}, id_plantilla=${id_plantilla}, id_voz=${id_voz}`);
             const [result] = await this.connection.execute(
                 `UPDATE campania
-                SET nombre = ?, descripcion = ?, id_tipo_campania = ?, id_formato = ?, id_plantilla = ?,
+                SET nombre = ?, descripcion = ?, id_tipo_campania = ?, id_formato = ?, id_plantilla = ?, id_voz = ?,
                     usuario_actualizacion = ?, fecha_actualizacion = NOW()
                 WHERE id = ?`,
                 [
@@ -123,6 +130,7 @@ class CampaniaModel {
                     id_tipo_campania,
                     id_formato,
                     id_plantilla || null,
+                    id_voz || null,
                     usuario_actualizacion || null,
                     id
                 ]

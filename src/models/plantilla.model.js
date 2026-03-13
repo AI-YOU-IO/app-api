@@ -44,6 +44,27 @@ class PlantillaModel {
         }
     }
 
+    async getByIdWithTools(id) {
+        try {
+            const plantilla = await this.getById(id);
+            if (!plantilla) return null;
+
+            const [tools] = await this.connection.execute(
+                `SELECT t.*, pt.orden
+                FROM plantilla_tool pt
+                INNER JOIN tool t ON t.id = pt.id_tool
+                WHERE pt.id_plantilla = ? AND pt.estado_registro = 1 AND t.estado_registro = 1
+                ORDER BY pt.orden`,
+                [id]
+            );
+
+            plantilla.tools = tools;
+            return plantilla;
+        } catch (error) {
+            throw new Error(`Error al obtener plantilla con tools: ${error.message}`);
+        }
+    }
+
     async getByFormato(id_formato) {
         try {
             const [rows] = await this.connection.execute(
@@ -56,22 +77,25 @@ class PlantillaModel {
         }
     }
 
-    async create({ id_empresa, id_formato, nombre, descripcion, prompt_sistema, prompt_inicio, prompt_flujo, prompt_cierre, prompt_resultado, usuario_registro }) {
+    async create({
+        id_empresa,
+        id_formato,
+        nombre,
+        descripcion,
+        prompt,
+        usuario_registro
+    }) {
         try {
             const [result] = await this.connection.execute(
                 `INSERT INTO plantilla
-                (id_empresa, id_formato, nombre, descripcion, prompt_sistema, prompt_inicio, prompt_flujo, prompt_cierre, prompt_resultado, estado_registro, usuario_registro)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+                (id_empresa, id_formato, nombre, descripcion, prompt, estado_registro, usuario_registro)
+                VALUES (?, ?, ?, ?, ?, 1, ?)`,
                 [
                     id_empresa,
-                    id_formato,
+                    id_formato || null,
                     nombre,
                     descripcion || null,
-                    prompt_sistema,
-                    prompt_inicio,
-                    prompt_flujo,
-                    prompt_cierre || null,
-                    prompt_resultado || null,
+                    prompt || null,
                     usuario_registro || null
                 ]
             );
@@ -84,30 +108,31 @@ class PlantillaModel {
         }
     }
 
-    async update(id, { id_formato, nombre, descripcion, prompt_sistema, prompt_inicio, prompt_flujo, prompt_cierre, prompt_resultado, usuario_actualizacion, id_empresa = null }) {
+    async update(id, {
+        id_formato,
+        nombre,
+        descripcion,
+        prompt,
+        usuario_actualizacion,
+        id_empresa = null
+    }) {
         try {
             let query = `UPDATE plantilla
-                SET id_formato = ?, nombre = ?, descripcion = ?,
-                    prompt_sistema = ?, prompt_inicio = ?, prompt_flujo = ?, prompt_cierre = ?, prompt_resultado = ?,
+                SET id_formato = ?, nombre = ?, descripcion = ?, prompt = ?,
                     usuario_actualizacion = ?, fecha_actualizacion = NOW()
                 WHERE id = ?`;
             const params = [
-                id_formato,
+                id_formato || null,
                 nombre,
                 descripcion || null,
-                prompt_sistema,
-                prompt_inicio,
-                prompt_flujo,
-                prompt_cierre || null,
-                prompt_resultado || null,
+                prompt || null,
                 usuario_actualizacion || null,
                 id
             ];
 
             if (id_empresa) {
                 query = `UPDATE plantilla
-                SET id_formato = ?, nombre = ?, descripcion = ?,
-                    prompt_sistema = ?, prompt_inicio = ?, prompt_flujo = ?, prompt_cierre = ?, prompt_resultado = ?,
+                SET id_formato = ?, nombre = ?, descripcion = ?, prompt = ?,
                     usuario_actualizacion = ?, fecha_actualizacion = NOW()
                 WHERE id = ? AND id_empresa = ?`;
                 params.push(id_empresa);
@@ -137,6 +162,85 @@ class PlantillaModel {
             return result.affectedRows > 0;
         } catch (error) {
             throw new Error(`Error al eliminar plantilla: ${error.message}`);
+        }
+    }
+
+    // ========================================
+    // Métodos para gestionar tools asociados
+    // ========================================
+
+    async getTools(id_plantilla) {
+        try {
+            const [rows] = await this.connection.execute(
+                `SELECT t.*, pt.orden
+                FROM plantilla_tool pt
+                INNER JOIN tool t ON t.id = pt.id_tool
+                WHERE pt.id_plantilla = ? AND pt.estado_registro = 1 AND t.estado_registro = 1
+                ORDER BY pt.orden`,
+                [id_plantilla]
+            );
+            return rows;
+        } catch (error) {
+            throw new Error(`Error al obtener tools de plantilla: ${error.message}`);
+        }
+    }
+
+    async updateTools(id_plantilla, tools_ids) {
+        const conn = await this.connection.getConnection();
+        try {
+            await conn.beginTransaction();
+
+            // Desactivar tools existentes
+            await conn.execute(
+                `UPDATE plantilla_tool SET estado_registro = 0 WHERE id_plantilla = ?`,
+                [id_plantilla]
+            );
+
+            // Insertar nuevos tools
+            if (tools_ids && tools_ids.length > 0) {
+                for (let i = 0; i < tools_ids.length; i++) {
+                    await conn.execute(
+                        `INSERT INTO plantilla_tool (id_plantilla, id_tool, orden, estado_registro)
+                         VALUES (?, ?, ?, 1)
+                         ON DUPLICATE KEY UPDATE estado_registro = 1, orden = ?`,
+                        [id_plantilla, tools_ids[i], i + 1, i + 1]
+                    );
+                }
+            }
+
+            await conn.commit();
+            return true;
+        } catch (error) {
+            await conn.rollback();
+            throw new Error(`Error al actualizar tools: ${error.message}`);
+        } finally {
+            conn.release();
+        }
+    }
+
+    async addTool(id_plantilla, id_tool, orden = 0) {
+        try {
+            const [result] = await this.connection.execute(
+                `INSERT INTO plantilla_tool (id_plantilla, id_tool, orden, estado_registro)
+                 VALUES (?, ?, ?, 1)
+                 ON DUPLICATE KEY UPDATE estado_registro = 1, orden = ?`,
+                [id_plantilla, id_tool, orden, orden]
+            );
+            return result.affectedRows > 0;
+        } catch (error) {
+            throw new Error(`Error al agregar tool: ${error.message}`);
+        }
+    }
+
+    async removeTool(id_plantilla, id_tool) {
+        try {
+            const [result] = await this.connection.execute(
+                `UPDATE plantilla_tool SET estado_registro = 0 WHERE id_plantilla = ? AND id_tool = ?`,
+                [id_plantilla, id_tool]
+            );
+            return result.affectedRows > 0;
+        } catch (error) {
+            throw new Error(`Error al remover tool: ${error.message}`);
         }
     }
 }
