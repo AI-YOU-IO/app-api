@@ -3,6 +3,19 @@ const logger = require('../../config/logger/loggerClient.js');
 const llamadaService = require('../../services/llamada/llamada.service.js');
 const s3Service = require('../../services/s3.service.js');
 
+// Función para obtener fecha en formato MySQL con zona horaria Lima, Perú
+const getFechaLima = () => {
+    const now = new Date();
+    const limaDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Lima' }));
+    const year = limaDate.getFullYear();
+    const month = String(limaDate.getMonth() + 1).padStart(2, '0');
+    const day = String(limaDate.getDate()).padStart(2, '0');
+    const hours = String(limaDate.getHours()).padStart(2, '0');
+    const minutes = String(limaDate.getMinutes()).padStart(2, '0');
+    const seconds = String(limaDate.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
 class LlamadaController {
     async getAll(req, res) {
         try {
@@ -203,13 +216,14 @@ class LlamadaController {
             }
 
             // Fecha fin es NOW() al momento de guardar la transcripción (zona horaria Lima, Perú UTC-5)
-            const fecha_fin = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+            const fecha_fin = getFechaLima();
 
             // Calcular duracion_seg a partir de fecha_inicio y fecha_fin
             let duracion_seg = null;
             if (llamada.fecha_inicio) {
                 const fecha_inicio = new Date(llamada.fecha_inicio);
-                duracion_seg = Math.round((fecha_fin - fecha_inicio) / 1000);
+                const fecha_fin_date = new Date(fecha_fin);
+                duracion_seg = Math.round((fecha_fin_date - fecha_inicio) / 1000);
                 if (duracion_seg < 0) duracion_seg = 0;
             }
 

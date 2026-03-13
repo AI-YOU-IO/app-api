@@ -1,5 +1,18 @@
 const { pool } = require("../config/dbConnection.js");
 
+// Función para obtener fecha en formato MySQL con zona horaria Lima, Perú
+const getFechaLima = () => {
+    const now = new Date();
+    const limaDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Lima' }));
+    const year = limaDate.getFullYear();
+    const month = String(limaDate.getMonth() + 1).padStart(2, '0');
+    const day = String(limaDate.getDate()).padStart(2, '0');
+    const hours = String(limaDate.getHours()).padStart(2, '0');
+    const minutes = String(limaDate.getMinutes()).padStart(2, '0');
+    const seconds = String(limaDate.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
 class LlamadaModel {
     constructor(dbConnection = null) {
         this.connection = dbConnection || pool;
@@ -125,8 +138,8 @@ class LlamadaModel {
         try {
             const codigo_llamada = await this.getNextCodigoLlamada(id_empresa);
 
-            // Fecha inicio con zona horaria Lima, Perú (UTC-5)
-            const fecha_inicio = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+            // Fecha inicio con zona horaria Lima, Perú (UTC-5) en formato MySQL
+            const fecha_inicio = getFechaLima();
 
             const [result] = await this.connection.execute(
                 `INSERT INTO llamada
@@ -204,14 +217,14 @@ class LlamadaModel {
                 SET id_ultravox_call = COALESCE(?, id_ultravox_call),
                     metadata_ultravox_call = COALESCE(?, metadata_ultravox_call),
                     fecha_fin = COALESCE(?, fecha_fin),
-                    duracion_seg = COALESCE(?, duracion_seg),
+                    duracion_seg = ?,
                     id_estado_llamada = 4
                 WHERE id = ?`,
                 [
                     id_ultravox_call || null,
                     metadata_ultravox_call || null,
                     fecha_fin || null,
-                    duracion_seg || null,
+                    duracion_seg !== null && duracion_seg !== undefined ? duracion_seg : null,
                     id
                 ]
             );
