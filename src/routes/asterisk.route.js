@@ -21,7 +21,8 @@ const authAsteriskToken = (req, res, next) => {
     }
 
     // Simular user para compatibilidad con el controlador
-    req.user = { idEmpresa: req.body.id_empresa || null, userId: 'asterisk' };
+    // req.body puede estar undefined con multer, se parsea después
+    req.user = { idEmpresa: req.body?.id_empresa || null, userId: 'asterisk' };
     next();
 };
 

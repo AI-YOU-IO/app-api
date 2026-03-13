@@ -166,7 +166,9 @@ class LlamadaController {
 
     async guardarTranscripcion(req, res) {
         try {
-            const { provider_call_id, id_ultravox_call, metadata_ultravox_call, transcripcion } = req.body;
+            // Acepta tanto "metadata" como "metadata_ultravox_call"
+            const { provider_call_id, id_ultravox_call, metadata_ultravox_call, metadata, transcripcion } = req.body;
+            const metadataInput = metadata_ultravox_call || metadata;
 
             logger.info(`[llamada.controller.js] Guardando transcripción para provider_call_id: ${provider_call_id}`);
 
@@ -190,14 +192,14 @@ class LlamadaController {
             logger.info(`[llamada.controller.js] Encontrada llamada con id: ${id_llamada}`);
 
             // Actualizar la llamada con id_ultravox_call y metadata
-            if (id_ultravox_call || metadata_ultravox_call) {
+            if (id_ultravox_call || metadataInput) {
                 // Convertir metadata a string JSON si viene como objeto
                 let metadataString = null;
-                if (metadata_ultravox_call) {
-                    if (typeof metadata_ultravox_call === 'string') {
-                        metadataString = metadata_ultravox_call;
+                if (metadataInput) {
+                    if (typeof metadataInput === 'string') {
+                        metadataString = metadataInput;
                     } else {
-                        metadataString = JSON.stringify(metadata_ultravox_call);
+                        metadataString = JSON.stringify(metadataInput);
                     }
                 }
 
@@ -241,7 +243,8 @@ class LlamadaController {
             });
         } catch (error) {
             logger.error(`[llamada.controller.js] Error al guardar transcripción: ${error.message}`);
-            return res.status(500).json({ msg: "Error al guardar transcripción" });
+            logger.error(`[llamada.controller.js] Stack: ${error.stack}`);
+            return res.status(500).json({ msg: "Error al guardar transcripción", error: error.message });
         }
     }
 }
