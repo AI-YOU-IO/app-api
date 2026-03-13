@@ -27,6 +27,7 @@ const whatsappEmbeddedRoutes = require("./routes/whatsappEmbedded.route.js");
 const sandboxRoutes = require("./routes/sandbox.route.js");
 const configuracionWhatsappRoutes = require("./routes/configuracionWhatsapp.route.js");
 const toolRoutes = require("./routes/tool.route.js");
+const asteriskRoutes = require("./routes/asterisk.route.js");
 
 const app = express();
 
@@ -60,6 +61,7 @@ app.use(responseHandler);
 app.use("/api/crm", usuarioRoutes);
 app.use("/api/crm/tools", pagoRoutes, llamadaRoutes, whatsappRoutes);
 app.use("/api/sandbox", sandboxRoutes);
+app.use("/api/asterisk", asteriskRoutes);
 app.post("/api/crm/tipificaciones", ConfiguracionController.createTipificacion);
 // Rutas protegidas del CRM (requieren auth)
 app.use("/api/crm", authMiddleware, auditoriaRoutes, configuracionRoutes, llamadaRoutes, tipificacionLlamadaRoutes, personaRoutes, whatsappRoutes, transcripcionRoutes, configuracionWhatsappRoutes);
