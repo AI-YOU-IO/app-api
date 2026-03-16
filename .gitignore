@@ -145,3 +145,4 @@ vite.config.ts.timestamp-*
 
 # Assets no necesarios para el repo
 src/assets/
+package-lock.json
