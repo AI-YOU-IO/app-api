@@ -1,4 +1,4 @@
-// const plantillaWhatsappRepository = require("../repositories/plantillaWhatsapp.repository.js");
+const plantillaWhatsappRepository = require("../repositories/plantillaWhatsapp.repository.js");
 const whatsappGraphService = require("../services/whatsapp/whatsappGraph.service.js");
 const logger = require('../config/logger/loggerClient.js');
 

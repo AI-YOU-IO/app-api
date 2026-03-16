@@ -28,6 +28,8 @@ const sandboxRoutes = require("./routes/sandbox.route.js");
 const configuracionWhatsappRoutes = require("./routes/configuracionWhatsapp.route.js");
 const toolRoutes = require("./routes/tool.route.js");
 const asteriskRoutes = require("./routes/asterisk.route.js");
+const envioMasivoWhatsappRoutes = require("./routes/crm/envioMasivoWhatsapp.route.js");
+const envioPersonaRoutes = require("./routes/crm/envioPersona.route.js");
 
 const app = express();
 
@@ -72,6 +74,7 @@ app.use("/api/crm/reportes", authMiddleware, reportesCrmRoutes);
 app.use("/api/crm/admin", authMiddleware, adminRoutes);
 app.use("/api/crm/admin/tools", authMiddleware, toolRoutes);
 app.use("/api/crm", authMiddleware, whatsappEmbeddedRoutes);
+app.use("/api/crm", authMiddleware, envioMasivoWhatsappRoutes, envioPersonaRoutes);
 app.use('/api/assistant', messageProcessingRoutes);
 
 

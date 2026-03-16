@@ -235,10 +235,5 @@ router.get("/tipos-persona", ConfiguracionController.getTiposPersona);
 // Rutas de Conversaciones
 router.get("/conversaciones", ConfiguracionController.getConversaciones);
 
-// Rutas de Plantillas WhatsApp (via /crm/ path)
-router.get("/plantillas-whatsapp", ConfiguracionController.getPlantillasWhatsapp);
-router.post("/plantillas-whatsapp", ConfiguracionController.createPlantillaWhatsapp);
-router.put("/plantillas-whatsapp/:id", ConfiguracionController.updatePlantillaWhatsapp);
-router.delete("/plantillas-whatsapp/:id", ConfiguracionController.deletePlantillaWhatsapp);
 
 module.exports = router;
