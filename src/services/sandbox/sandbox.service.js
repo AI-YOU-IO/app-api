@@ -12,6 +12,41 @@ const safeJson = (value) => {
     }
 };
 
+// Códigos de error de red que son transitorios y se pueden reintentar
+const RETRYABLE_ERROR_CODES = new Set([
+    'EAI_AGAIN',     // DNS temporal no disponible  ← causa real del 500
+    'ENOTFOUND',     // DNS no resuelve (puede ser transitorio)
+    'ECONNRESET',    // Conexión resetada por el servidor
+    'ETIMEDOUT',     // Timeout de red
+    'ECONNABORTED',  // Conexión abortada
+]);
+
+/**
+ * Realiza un POST con reintentos automáticos para errores de red transitorios.
+ * @param {string} url  URL destino
+ * @param {object} payload  Body del request
+ * @param {number} retries  Número máximo de intentos (default 3)
+ * @param {number} baseDelayMs  Delay base en ms; se multiplica por el intento (default 500)
+ */
+const axiosPostWithRetry = async (url, payload, retries = 3, baseDelayMs = 500) => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            return await axios.post(url, payload, { timeout: 15000 });
+        } catch (error) {
+            const isRetryable = RETRYABLE_ERROR_CODES.has(error.code);
+            const isLastAttempt = attempt === retries;
+
+            if (!isRetryable || isLastAttempt) {
+                throw error;
+            }
+
+            const delay = baseDelayMs * attempt;
+            logger.warn(`[sandbox.service] Intento ${attempt}/${retries} fallido (${error.code}) — reintentando en ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+};
+
 
 class SandboxService {
 
@@ -111,10 +146,9 @@ class SandboxService {
 
             let botResponse;
             try {
-                botResponse = await axios.post(config.url_bot_service, botPayload);
+                botResponse = await axiosPostWithRetry(config.url_bot_service, botPayload);
             } catch (error) {
-                console.log("ERROR AL ENVIAR MENSAJE AL BOT:", botPayload);
-                logger.error(`[sandbox.service] BOT ERROR MESSAGE: ${error.message}`);
+                logger.error(`[sandbox.service] BOT ERROR message=${safeJson(botPayload.message)} session=${botPayload.session_id} code=${error.code || 'N/A'} msg=${error.message}`);
                 if (error.response) {
                     logger.error(`[sandbox.service] BOT ERROR STATUS: ${error.response.status}`);
                     logger.error(`[sandbox.service] BOT ERROR HEADERS: ${safeJson(error.response.headers)}`);
@@ -156,7 +190,8 @@ class SandboxService {
     // Webhook: el bot responde con formato n8n completo y session_id para relacionar con chatid
     async receiveReplyWithSessionId(session_id, input = {}) {
         const chatModel = new ChatSandboxModel();
-        const chat = await chatModel.getById(idChat);
+        const chatId = Number(session_id);
+        const chat = await chatModel.getById(chatId);
         if (!chat) {
             throw new Error("Chat no encontrado");
         }
@@ -172,7 +207,7 @@ class SandboxService {
                     : "";
 
         const mappedMessage = typeof rawMessage === "string" ? rawMessage : String(rawMessage);
-        const sessionId = input.session_id || idChat;
+        const sessionId = input.session_id || chatId;
 
         const messageModel = new MessageSandboxModel();
         const idMessage = await messageModel.create({
@@ -180,12 +215,12 @@ class SandboxService {
             message: mappedMessage,
             type: "text",
             url: null,
-            id_chat_sandbox: idChat,
+            id_chat_sandbox: chatId,
         });
 
         return {
             id_message_sandbox: idMessage,
-            id_chat_sandbox: Number(idChat),
+            id_chat_sandbox: chatId,
             session_id: sessionId,
             message: mappedMessage,
             received_payload: input,
@@ -391,9 +426,9 @@ class SandboxService {
 
         let response;
         try {
-            response = await axios.post(config.url_bot_service, payload);
+            response = await axiosPostWithRetry(config.url_bot_service, payload);
         } catch (error) {
-            logger.error(`[sandbox.service] MOCK N8N ERROR MESSAGE: ${error.message}`);
+            logger.error(`[sandbox.service] MOCK N8N ERROR MESSAGE: ${error.message} (code=${error.code || 'N/A'})`);
             if (error.response) {
                 logger.error(`[sandbox.service] MOCK N8N ERROR STATUS: ${error.response.status}`);
                 logger.error(`[sandbox.service] MOCK N8N ERROR BODY: ${safeJson(error.response.data)}`);
