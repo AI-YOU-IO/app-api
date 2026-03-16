@@ -191,7 +191,7 @@ class LlamadaModel {
                 `UPDATE llamada
                 SET id_estado_llamada = ?,
                     fecha_fin = COALESCE(?, fecha_fin)
-                WHERE provider_call_id = ?`,
+                WHERE provider_call_id = ? AND id_estado_llamada <> 3`,
                 [id_estado_llamada, fecha_fin, provider_call_id]
             );
             return result.affectedRows > 0;
