@@ -5,7 +5,7 @@ class PlantillaWhatsappRepository {
     async findAll(id_empresa = null) {
         try {
             let query = `
-                SELECT pw.*, e.nombre as empresa_nombre
+                SELECT pw.*, e.nombre_comercial as empresa_nombre
                 FROM plantilla_whatsapp pw
                 LEFT JOIN empresa e ON pw.id_empresa = e.id
                 WHERE pw.estado_registro = 1
