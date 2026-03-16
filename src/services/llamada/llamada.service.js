@@ -5,7 +5,7 @@ const LlamadaModel = require('../../models/llamada.model.js');
 const CampaniaEjecucionModel = require('../../models/campaniaEjecucion.model.js');
 
 const ULTRAVOX_API_URL = process.env.ULTRAVOX_API_URL || 'https://bot.ai-you.io/api/calls/ultravox';
-const MAX_CONCURRENT = 200;
+const MAX_CONCURRENT = process.env.MAX_NUM_CONCURRENT;
 const POLL_INTERVAL = 10000; // 10 segundos
 
 class LlamadaService {
