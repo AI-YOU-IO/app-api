@@ -185,13 +185,25 @@ class N8nEnvioMasivoController {
             }
 
           } catch (error) {
+            const errorDetalle = error.metaError
+              ? {
+                  mensaje: error.message,
+                  codigo: error.metaError.code,
+                  subcodigo: error.metaError.error_subcode,
+                  tipo: error.metaError.type,
+                  titulo: error.metaError.error_user_title || null,
+                  detalle_usuario: error.metaError.error_user_msg || null
+                }
+              : { mensaje: error.message };
+
             resultados.fallidos++;
             resultados.detalles.push({
               envio_persona_id: persona.envio_persona_id,
               telefono: persona.telefono,
               nombre: persona.nombre,
               status: 'cancelado',
-              error: error.message
+              error: error.message,
+              error_detalle: errorDetalle
             });
 
             if (persona.envio_persona_id) {

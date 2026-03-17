@@ -429,18 +429,34 @@ class WhatsappGraphService {
 
     logger.info(`[WhatsappGraph] Enviando plantilla ${templateName} a ${formattedPhone}`);
 
-    const response = await axios.post(url, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${credenciales.accessToken}`
-      },
-      timeout: 30000
-    });
+    try {
+      const response = await axios.post(url, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${credenciales.accessToken}`
+        },
+        timeout: 30000
+      });
 
-    return {
-      success: true,
-      response: response.data
-    };
+      return {
+        success: true,
+        response: response.data
+      };
+    } catch (error) {
+      const metaError = error.response?.data?.error;
+      if (metaError) {
+        const detalle = `Meta API [${error.response.status}]: ${metaError.message || 'Sin mensaje'}` +
+          (metaError.error_subcode ? ` (subcode: ${metaError.error_subcode})` : '') +
+          (metaError.error_user_title ? ` - ${metaError.error_user_title}` : '') +
+          (metaError.error_user_msg ? `: ${metaError.error_user_msg}` : '');
+        logger.error(`[WhatsappGraph] Error enviando plantilla ${templateName} a ${formattedPhone}: ${detalle}`);
+        const enrichedError = new Error(detalle);
+        enrichedError.statusCode = error.response.status;
+        enrichedError.metaError = metaError;
+        throw enrichedError;
+      }
+      throw error;
+    }
   }
 
   /**
