@@ -119,6 +119,11 @@ class N8nEnvioMasivoController {
         return res.status(400).json({ error: 'Faltan parámetros requeridos (personas, plantilla, id_empresa)' });
       }
 
+      // Obtener la plantilla para detectar parámetros en el body
+      const plantillaDb = await PlantillaWhatsappModel.getByName(plantilla, id_empresa);
+      const bodyParams = plantillaDb?.body ? (plantillaDb.body.match(/\{\{\d+\}\}/g) || []) : [];
+      const numBodyParams = new Set(bodyParams).size;
+
       // Verificar configuración de WhatsApp
       const configWhatsapp = await configuracionWhatsappRepository.findByEmpresaId(id_empresa);
       if (!configWhatsapp || !configWhatsapp.numero_telefono_id) {
@@ -162,11 +167,25 @@ class N8nEnvioMasivoController {
           }
 
           try {
+            // Construir components si la plantilla tiene parámetros
+            const components = [];
+            if (numBodyParams > 0) {
+              const parametros = persona.parametros || [];
+              const bodyParameters = [];
+              for (let p = 0; p < numBodyParams; p++) {
+                // Usar parámetros enviados por n8n, o el nombre como fallback para {{1}}
+                const valor = parametros[p] || (p === 0 ? persona.nombre : '');
+                bodyParameters.push({ type: 'text', text: valor });
+              }
+              components.push({ type: 'body', parameters: bodyParameters });
+            }
+
             await whatsappGraphService.enviarPlantilla(
               id_empresa,
               persona.telefono,
               plantilla,
-              language
+              language,
+              components
             );
 
             resultados.enviados++;
