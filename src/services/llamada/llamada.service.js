@@ -46,23 +46,14 @@ class LlamadaService {
     }
 
     /**
-     * Carga TODOS los números de una lista de bases (recorre todas las páginas)
+     * Carga TODOS los números pendientes de llamar para una campaña.
+     * Obtiene las bases desde campania_base_numero y filtra los ya llamados.
+     * @param {number} idCampania - ID de la campaña
+     * @returns {Array} Array de números pendientes
      */
-    async cargarTodosLosNumeros(idsBaseNumero) {
+    async cargarUniversoPendiente(idCampania) {
         const detalleModel = new BaseNumeroDetalleModel();
-        const todosLosNumeros = [];
-
-        for (const idBase of idsBaseNumero) {
-            const firstPage = await detalleModel.getByBaseNumero(idBase, 1, 50);
-            todosLosNumeros.push(...firstPage.data.map(n => ({ ...n, _idBase: idBase })));
-
-            for (let page = 2; page <= firstPage.totalPages; page++) {
-                const { data } = await detalleModel.getByBaseNumero(idBase, page, 50);
-                todosLosNumeros.push(...data.map(n => ({ ...n, _idBase: idBase })));
-            }
-        }
-
-        return todosLosNumeros;
+        return await detalleModel.getAllUniversoPendientePorCampania(idCampania);
     }
 
     formatearTelefono(telefono) {
@@ -74,7 +65,7 @@ class LlamadaService {
      * Inicia el procesamiento async de llamadas.
      * Mantiene hasta 200 llamadas concurrentes, polleando cada 10s.
      */
-    async procesarLlamadasAsync({ idEjecucion, idCampania, idsBaseNumero, idEmpresa, tipificaciones, prompt, voiceCode }) {
+    async procesarLlamadasAsync({ idEjecucion, idCampania, idEmpresa, tipificaciones, prompt, voiceCode, toolRuta, canal, configLlamadas }) {
         const ejecucionModel = new CampaniaEjecucionModel();
         const llamadaModel = new LlamadaModel();
 
@@ -89,8 +80,8 @@ class LlamadaService {
         try {
             await ejecucionModel.iniciarEjecucion(idEjecucion);
 
-            // 1. Cargar todos los números de todas las bases
-            const numeros = await this.cargarTodosLosNumeros(idsBaseNumero);
+            // 1. Cargar universo de números pendientes (excluye ya llamados)
+            const numeros = await this.cargarUniversoPendiente(idCampania);
             const totalNumeros = numeros.length;
             let indicePendiente = 0;
             let completadas = 0;
@@ -127,10 +118,13 @@ class LlamadaService {
                             voice: voiceCode,
                             tipificaciones,
                             prompt: prompt,
+                            tool_ruta: toolRuta,
+                            canal: canal,
                             empresa: {
                                 id: num.id_empresa,
                                 nombre: num.nombre_comercial,
-                            }
+                            },
+                            config_llamadas: configLlamadas || null
                         }
                     };
 

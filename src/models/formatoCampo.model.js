@@ -82,7 +82,7 @@ class FormatoCampoModel {
         try {
             const [result] = await this.connection.execute(
                 `UPDATE formato_campo
-                SET nombre_campo = ?, etiqueta = ?, tipo_dato = ?, longitud = ?, requerido = ?, unico = ?, orden = ?, placeholder = ?, reglas_json = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                SET nombre_campo = ?, etiqueta = ?, tipo_dato = ?, longitud = ?, requerido = ?, unico = ?, orden = ?, placeholder = ?, reglas_json = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ?`,
                 [
                     nombre_campo,
@@ -107,7 +107,7 @@ class FormatoCampoModel {
     async delete(id, usuario_actualizacion = null) {
         try {
             const [result] = await this.connection.execute(
-                'UPDATE formato_campo SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?',
+                'UPDATE formato_campo SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?',
                 [usuario_actualizacion, id]
             );
             return result.affectedRows > 0;

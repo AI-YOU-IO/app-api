@@ -107,7 +107,8 @@ class LlamadaModel {
                         ca.nombre as campania_nombre,
                         bnd.telefono, bnd.nombre as contacto_nombre, bnd.numero_documento,
                         ce.id as id_campania_ejecucion_rel,
-                        el.nombre as estado_llamada_nombre, el.color as estado_llamada_color
+                        el.nombre as estado_llamada_nombre, el.color as estado_llamada_color,
+                        (SELECT COUNT(*) FROM transcripcion t WHERE t.id_llamada = l.id AND t.estado_registro = 1) as tiene_transcripcion
                 FROM llamada l
                 LEFT JOIN tipificacion_llamada tl ON tl.id = l.id_tipificacion_llamada
                 LEFT JOIN campania ca ON ca.id = l.id_campania
@@ -206,7 +207,7 @@ class LlamadaModel {
                 `UPDATE llamada
                 SET archivo_llamada = ?,
                     id_estado_llamada = 3,
-                    fecha_fin = NOW()
+                    fecha_fin = CURRENT_TIMESTAMP
                 WHERE id = ?`,
                 [archivo_llamada, id]
             );

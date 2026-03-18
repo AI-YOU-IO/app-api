@@ -160,6 +160,7 @@ router.delete("/campanias/:id", ConfiguracionController.deleteCampania);
 // Rutas de Bases de Campania
 router.get("/campanias/:idCampania/bases", ConfiguracionController.getBasesByCampania);
 router.post("/campania-bases", ConfiguracionController.addBaseToCampania);
+router.patch("/campania-bases/:id/toggle-activo", ConfiguracionController.toggleActivoBaseCampania);
 router.delete("/campania-bases/:id", ConfiguracionController.removeBaseFromCampania);
 
 // Rutas de Ejecucion de Campania

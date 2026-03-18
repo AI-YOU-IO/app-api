@@ -32,7 +32,7 @@ class N8nEnvioMasivoController {
          LEFT JOIN plantilla_whatsapp pw ON emw.id_plantilla = pw.id
          LEFT JOIN empresa e ON emw.id_empresa = e.id
          WHERE emw.estado_envio = 'pendiente'
-           AND emw.fecha_envio <= NOW()
+           AND emw.fecha_envio <= CURRENT_TIMESTAMP
            AND (emw.estado_registro = 1 OR emw.estado_registro IS NULL)
          ORDER BY emw.id_empresa ASC, emw.fecha_envio ASC`
       );

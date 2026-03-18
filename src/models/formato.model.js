@@ -78,13 +78,13 @@ class FormatoModel {
     async update(id, { nombre, descripcion, usuario_actualizacion, id_empresa = null }) {
         try {
             let query = `UPDATE formato
-                SET nombre = ?, descripcion = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                SET nombre = ?, descripcion = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ?`;
             const params = [nombre, descripcion, usuario_actualizacion, id];
 
             if (id_empresa) {
                 query = `UPDATE formato
-                SET nombre = ?, descripcion = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                SET nombre = ?, descripcion = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ? AND id_empresa = ?`;
                 params.push(id_empresa);
             }
@@ -98,11 +98,11 @@ class FormatoModel {
 
     async delete(id, id_empresa = null, usuario_actualizacion = null) {
         try {
-            let query = 'UPDATE formato SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?';
+            let query = 'UPDATE formato SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?';
             const params = [usuario_actualizacion, id];
 
             if (id_empresa) {
-                query = 'UPDATE formato SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?';
+                query = 'UPDATE formato SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND id_empresa = ?';
                 params.push(id_empresa);
             }
 

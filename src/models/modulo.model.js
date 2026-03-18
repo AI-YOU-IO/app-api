@@ -37,7 +37,7 @@ class ModuloModel {
     try {
       const [result] = await this.connection.execute(
         `INSERT INTO modulo (nombre, ruta, fecha_registro, usuario_registro, estado_registro)
-         VALUES (?, ?, NOW(), ?, 1)`,
+         VALUES (?, ?, CURRENT_TIMESTAMP, ?, 1)`,
         [nombre, ruta, usuario_registro]
       );
       return result.insertId;
@@ -49,7 +49,7 @@ class ModuloModel {
   async update(id, { nombre, ruta, usuario_actualizacion = null }) {
     try {
       const [result] = await this.connection.execute(
-        `UPDATE modulo SET nombre = ?, ruta = ?, fecha_actualizacion = NOW(), usuario_actualizacion = ?
+        `UPDATE modulo SET nombre = ?, ruta = ?, fecha_actualizacion = CURRENT_TIMESTAMP, usuario_actualizacion = ?
          WHERE id = ?`,
         [nombre, ruta, usuario_actualizacion, id]
       );
@@ -62,7 +62,7 @@ class ModuloModel {
   async delete(id, usuario_actualizacion = null) {
     try {
       const [result] = await this.connection.execute(
-        `UPDATE modulo SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+        `UPDATE modulo SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
          WHERE id = ?`,
         [usuario_actualizacion, id]
       );

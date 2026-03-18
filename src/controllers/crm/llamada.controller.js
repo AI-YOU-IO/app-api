@@ -238,7 +238,7 @@ class LlamadaController {
                 }
             }
 
-            // Fecha fin es NOW() al momento de guardar la transcripción (zona horaria Lima, Perú UTC-5)
+            // Fecha fin es CURRENT_TIMESTAMP al momento de guardar la transcripción (zona horaria Lima, Perú UTC-5)
             const fecha_fin = getFechaLima();
 
             // Calcular duracion_seg a partir de fecha_inicio y fecha_fin

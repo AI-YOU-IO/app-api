@@ -8,7 +8,7 @@ const messageProcessingRoutes = require('./routes/messageProcessing.route.js');
 const { responseHandler } = require('./middlewares/response.middleware.js');
 const authMiddleware = require('./middlewares/auth.middleware.js');
 const usuarioRoutes = require("./routes/crm/usuario.route.js");
-const auditoriaRoutes = require("./routes/crm/auditoria.route.js");
+// const auditoriaRoutes = require("./routes/crm/auditoria.route.js"); // TODO: Archivo no existe
 const configuracionRoutes = require("./routes/crm/configuracion.route.js");
 const llamadaRoutes = require("./routes/crm/llamada.route.js");
 const personaRoutes = require("./routes/crm/persona.route.js");
@@ -68,7 +68,7 @@ app.use("/api/asterisk", asteriskRoutes);
 app.use("/api/n8n", n8nEnvioMasivoRoutes);
 app.post("/api/crm/tipificaciones", ConfiguracionController.createTipificacion);
 // Rutas protegidas del CRM (requieren auth)
-app.use("/api/crm", authMiddleware, auditoriaRoutes, configuracionRoutes, llamadaRoutes, tipificacionLlamadaRoutes, personaRoutes, whatsappRoutes, transcripcionRoutes, configuracionWhatsappRoutes, consumoIndicadoresRoutes);
+app.use("/api/crm", authMiddleware, configuracionRoutes, llamadaRoutes, tipificacionLlamadaRoutes, personaRoutes, whatsappRoutes, transcripcionRoutes, configuracionWhatsappRoutes, consumoIndicadoresRoutes);
 app.use("/api/crm/clientes", authMiddleware, clientesRoutes);
 app.use("/api/crm/contactos", authMiddleware, contactosRoutes);
 app.use("/api/crm/contacto", authMiddleware, contactoRoutes);

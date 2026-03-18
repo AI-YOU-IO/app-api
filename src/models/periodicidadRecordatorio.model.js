@@ -43,11 +43,11 @@ class PeriodicidadRecordatorioModel {
     const { nombre, cada_horas, empresa_id = null, id_empresa = null, usuario_actualizacion = null } = data;
     const empresaId = empresa_id || id_empresa;
 
-    let query = `UPDATE periodicidad_recordatorio SET nombre = ?, cada_horas = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+    let query = `UPDATE periodicidad_recordatorio SET nombre = ?, cada_horas = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`;
     const params = [nombre, cada_horas, usuario_actualizacion, id];
 
     if (empresaId) {
-      query = `UPDATE periodicidad_recordatorio SET nombre = ?, cada_horas = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND empresa_id = ?`;
+      query = `UPDATE periodicidad_recordatorio SET nombre = ?, cada_horas = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND empresa_id = ?`;
       params.push(empresa_id);
     }
 
@@ -56,11 +56,11 @@ class PeriodicidadRecordatorioModel {
   }
 
   async delete(id, empresa_id = null, usuario_actualizacion = null) {
-    let query = `UPDATE periodicidad_recordatorio SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+    let query = `UPDATE periodicidad_recordatorio SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`;
     const params = [usuario_actualizacion, id];
 
     if (empresa_id) {
-      query = `UPDATE periodicidad_recordatorio SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND empresa_id = ?`;
+      query = `UPDATE periodicidad_recordatorio SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND id_empresa = ?`;
       params.push(empresa_id);
     }
 

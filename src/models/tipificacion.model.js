@@ -112,11 +112,11 @@ class TipificacionModel {
       const { nombre, definicion, orden, color, flag_asesor, flag_bot, id_empresa = null, id_padre = null, usuario_actualizacion = null } = data;
       const ordenValue = orden !== undefined && orden !== null ? orden : 0;
 
-      let query = `UPDATE tipificacion SET nombre = ?, definicion = ?, orden = ?, color = ?, flag_asesor = ?, flag_bot = ?, id_padre = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+      let query = `UPDATE tipificacion SET nombre = ?, definicion = ?, orden = ?, color = ?, flag_asesor = ?, flag_bot = ?, id_padre = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`;
       const params = [nombre, definicion || null, ordenValue, color || null, flag_asesor, flag_bot, id_padre, usuario_actualizacion, id];
 
       if (id_empresa) {
-        query = `UPDATE tipificacion SET nombre = ?, definicion = ?, orden = ?, color = ?, flag_asesor = ?, flag_bot = ?, id_padre = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?`;
+        query = `UPDATE tipificacion SET nombre = ?, definicion = ?, orden = ?, color = ?, flag_asesor = ?, flag_bot = ?, id_padre = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND id_empresa = ?`;
         params.push(id_empresa);
       }
 
@@ -129,11 +129,11 @@ class TipificacionModel {
 
   async delete(id, id_empresa = null, usuario_actualizacion = null) {
     try {
-      let query = `UPDATE tipificacion SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+      let query = `UPDATE tipificacion SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`;
       const params = [usuario_actualizacion, id];
 
       if (id_empresa) {
-        query = `UPDATE tipificacion SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?`;
+        query = `UPDATE tipificacion SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND id_empresa = ?`;
         params.push(id_empresa);
       }
 

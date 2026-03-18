@@ -63,13 +63,13 @@ class BaseNumeroModel {
     async update(id, { nombre, descripcion, id_formato, usuario_actualizacion, id_empresa = null }) {
         try {
             let query = `UPDATE base_numero
-                SET nombre = ?, descripcion = ?, id_formato = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                SET nombre = ?, descripcion = ?, id_formato = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ?`;
             const params = [nombre, descripcion || null, id_formato, usuario_actualizacion || null, id];
 
             if (id_empresa) {
                 query = `UPDATE base_numero
-                SET nombre = ?, descripcion = ?, id_formato = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                SET nombre = ?, descripcion = ?, id_formato = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ? AND id_empresa = ?`;
                 params.push(id_empresa);
             }
@@ -86,11 +86,11 @@ class BaseNumeroModel {
 
     async delete(id, id_empresa = null, usuario_actualizacion = null) {
         try {
-            let query = 'UPDATE base_numero SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?';
+            let query = 'UPDATE base_numero SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?';
             const params = [usuario_actualizacion, id];
 
             if (id_empresa) {
-                query = 'UPDATE base_numero SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?';
+                query = 'UPDATE base_numero SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND id_empresa = ?';
                 params.push(id_empresa);
             }
 

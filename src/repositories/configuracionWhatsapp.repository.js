@@ -14,7 +14,7 @@ class ConfiguracionWhatsappRepository {
           `UPDATE configuracion_whatsapp SET
             app_id = ?, numero_telefono_id = ?, clave_secreta = ?,
             token_whatsapp = ?, waba_id = ?, phone_number = ?,
-            token_expiration = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+            token_expiration = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
           WHERE id_empresa = ?`,
           [
             data.app_id, data.numero_telefono_id, data.clave_secreta,
@@ -28,7 +28,7 @@ class ConfiguracionWhatsappRepository {
             (id_empresa, app_id, numero_telefono_id, clave_secreta,
              token_whatsapp, waba_id, phone_number, token_expiration,
              usuario_registro, fecha_registro)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
           [
             idEmpresa, data.app_id, data.numero_telefono_id, data.clave_secreta,
             data.token_whatsapp, data.waba_id, data.phone_number,

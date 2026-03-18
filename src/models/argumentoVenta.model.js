@@ -42,11 +42,11 @@ class ArgumentoVentaModel {
   async update(id, data) {
     const { titulo, argumento, id_empresa = null, usuario_actualizacion = null } = data;
 
-    let query = `UPDATE argumento_venta SET titulo = ?, argumento = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+    let query = `UPDATE argumento_venta SET titulo = ?, argumento = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`;
     const params = [titulo, argumento, usuario_actualizacion, id];
 
     if (id_empresa) {
-      query = `UPDATE argumento_venta SET titulo = ?, argumento = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?`;
+      query = `UPDATE argumento_venta SET titulo = ?, argumento = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND id_empresa = ?`;
       params.push(id_empresa);
     }
 
@@ -55,11 +55,11 @@ class ArgumentoVentaModel {
   }
 
   async delete(id, id_empresa = null, usuario_actualizacion = null) {
-    let query = `UPDATE argumento_venta SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+    let query = `UPDATE argumento_venta SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`;
     const params = [usuario_actualizacion, id];
 
     if (id_empresa) {
-      query = `UPDATE argumento_venta SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?`;
+      query = `UPDATE argumento_venta SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND id_empresa = ?`;
       params.push(id_empresa);
     }
 

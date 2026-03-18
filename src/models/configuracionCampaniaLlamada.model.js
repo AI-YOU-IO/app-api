@@ -17,32 +17,69 @@ class ConfiguracionCampaniaLlamadaModel {
         }
     }
 
-    async upsert({ id_campania, dias_llamada, hora_inicio, hora_fin, max_intentos, intervalo_reintento, horarios_por_dia, usuario }) {
+    async upsert({
+        id_campania,
+        max_intentos,
+        intervalo_reintento,
+        lunes_horario,
+        martes_horario,
+        miercoles_horario,
+        jueves_horario,
+        viernes_horario,
+        sabado_horario,
+        domingo_horario,
+        usuario
+    }) {
         try {
             // Verificar si ya existe configuración para esta campaña
             const existing = await this.getByCampaniaId(id_campania);
-
-            // Convertir horarios_por_dia a JSON string si viene como objeto
-            const horariosPorDiaStr = horarios_por_dia ?
-                (typeof horarios_por_dia === 'string' ? horarios_por_dia : JSON.stringify(horarios_por_dia)) : null;
 
             if (existing) {
                 // UPDATE
                 const [result] = await this.connection.execute(
                     `UPDATE configuracion_campania_llamada
-                     SET dias_llamada = ?, hora_inicio = ?, hora_fin = ?, max_intentos = ?,
-                         intervalo_reintento = ?, horarios_por_dia = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                     SET max_intentos = ?, intervalo_reintento = ?,
+                         lunes_horario = ?, martes_horario = ?, miercoles_horario = ?,
+                         jueves_horario = ?, viernes_horario = ?, sabado_horario = ?, domingo_horario = ?,
+                         usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                      WHERE id_campania = ?`,
-                    [dias_llamada, hora_inicio, hora_fin, max_intentos, intervalo_reintento || 60, horariosPorDiaStr, usuario || null, id_campania]
+                    [
+                        max_intentos,
+                        intervalo_reintento || 60,
+                        lunes_horario || null,
+                        martes_horario || null,
+                        miercoles_horario || null,
+                        jueves_horario || null,
+                        viernes_horario || null,
+                        sabado_horario || null,
+                        domingo_horario || null,
+                        usuario || null,
+                        id_campania
+                    ]
                 );
                 return { id: existing.id, updated: true };
             } else {
                 // INSERT
                 const [result] = await this.connection.execute(
                     `INSERT INTO configuracion_campania_llamada
-                     (id_campania, dias_llamada, hora_inicio, hora_fin, max_intentos, intervalo_reintento, horarios_por_dia, estado_registro, usuario_registro)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-                    [id_campania, dias_llamada, hora_inicio, hora_fin, max_intentos, intervalo_reintento || 60, horariosPorDiaStr, usuario || null]
+                     (id_campania, max_intentos, intervalo_reintento,
+                      lunes_horario, martes_horario, miercoles_horario, jueves_horario,
+                      viernes_horario, sabado_horario, domingo_horario,
+                      estado_registro, usuario_registro)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+                    [
+                        id_campania,
+                        max_intentos,
+                        intervalo_reintento || 60,
+                        lunes_horario || null,
+                        martes_horario || null,
+                        miercoles_horario || null,
+                        jueves_horario || null,
+                        viernes_horario || null,
+                        sabado_horario || null,
+                        domingo_horario || null,
+                        usuario || null
+                    ]
                 );
                 return { id: result.insertId, updated: false };
             }
@@ -54,7 +91,7 @@ class ConfiguracionCampaniaLlamadaModel {
     async delete(id_campania) {
         try {
             const [result] = await this.connection.execute(
-                `UPDATE configuracion_campania_llamada SET estado_registro = 0, fecha_actualizacion = NOW() WHERE id_campania = ?`,
+                `UPDATE configuracion_campania_llamada SET estado_registro = 0, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id_campania = ?`,
                 [id_campania]
             );
             return result.affectedRows > 0;

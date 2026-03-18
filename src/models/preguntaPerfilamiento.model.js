@@ -41,11 +41,11 @@ class PreguntaPerfilamientoModel {
   async update(id, data) {
     const { pregunta, orden, id_empresa = null, usuario_actualizacion = null } = data;
 
-    let query = `UPDATE pregunta_perfilamiento SET pregunta = ?, orden = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+    let query = `UPDATE pregunta_perfilamiento SET pregunta = ?, orden = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`;
     const params = [pregunta, orden || 0, usuario_actualizacion, id];
 
     if (id_empresa) {
-      query = `UPDATE pregunta_perfilamiento SET pregunta = ?, orden = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?`;
+      query = `UPDATE pregunta_perfilamiento SET pregunta = ?, orden = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND id_empresa = ?`;
       params.push(id_empresa);
     }
 
@@ -54,11 +54,11 @@ class PreguntaPerfilamientoModel {
   }
 
   async delete(id, id_empresa = null, usuario_actualizacion = null) {
-    let query = `UPDATE pregunta_perfilamiento SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+    let query = `UPDATE pregunta_perfilamiento SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`;
     const params = [usuario_actualizacion, id];
 
     if (id_empresa) {
-      query = `UPDATE pregunta_perfilamiento SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?`;
+      query = `UPDATE pregunta_perfilamiento SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND id_empresa = ?`;
       params.push(id_empresa);
     }
 

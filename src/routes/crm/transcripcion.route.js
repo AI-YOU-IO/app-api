@@ -17,6 +17,19 @@ router.get("/transcripciones/:providerCallId", async (req, res) => {
   }
 });
 
+// Obtener transcripciones por id_llamada
+router.get("/transcripciones/llamada/:idLlamada", async (req, res) => {
+  try {
+    const { idLlamada } = req.params;
+    const transcripciones = await model.getByLlamada(idLlamada);
+
+    return res.success(200, 'Transcripciones obtenidas', transcripciones);
+  } catch (err) {
+    console.error('Error al obtener transcripciones por llamada:', err);
+    return res.serverError(500, 'Error al obtener transcripciones');
+  }
+});
+
 // Crear transcripcion usando provider_call_id
 router.post("/transcripcion", async (req, res) => {
   try {

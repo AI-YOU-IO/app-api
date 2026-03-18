@@ -21,7 +21,7 @@ class TblMensajeVistoUsuarioModel {
 
             if (existing.length === 0) {
                 await this.connection.execute(
-                    'INSERT INTO mensaje_visto_usuario (id_usuario, id_contacto, id_mensaje, fecha_visto) VALUES (?, ?, ?, NOW())',
+                    'INSERT INTO mensaje_visto_usuario (id_usuario, id_contacto, id_mensaje, fecha_visto) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
                     [idUsuario, idChat, idMensaje]
                 );
             }
@@ -48,13 +48,13 @@ class TblMensajeVistoUsuarioModel {
             if (existing.length > 0) {
                 if (idMensaje > existing[0].id_mensaje) {
                     await this.connection.execute(
-                        'UPDATE mensaje_visto_usuario SET id_mensaje = ?, fecha_visto = NOW() WHERE id = ?',
+                        'UPDATE mensaje_visto_usuario SET id_mensaje = ?, fecha_visto = CURRENT_TIMESTAMP WHERE id = ?',
                         [idMensaje, existing[0].id]
                     );
                 }
             } else {
                 await this.connection.execute(
-                    'INSERT INTO mensaje_visto_usuario (id_usuario, id_contacto, id_mensaje, fecha_visto) VALUES (?, ?, ?, NOW())',
+                    'INSERT INTO mensaje_visto_usuario (id_usuario, id_contacto, id_mensaje, fecha_visto) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
                     [idUsuario, idChat, idMensaje]
                 );
             }

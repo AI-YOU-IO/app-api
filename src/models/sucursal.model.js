@@ -44,7 +44,7 @@ class SucursalModel {
     try {
       const [result] = await this.connection.execute(
         `INSERT INTO sucursal (nombre, direccion, telefono, email, estado_registro, fecha_registro, usuario_registro, empresa_id)
-         VALUES (?, ?, ?, ?, 1, NOW(), ?, ?)`,
+         VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP, ?, ?)`,
         [nombre, direccion, telefono, email, usuario_registro, id_empresa]
       );
       return result.insertId;
@@ -55,11 +55,11 @@ class SucursalModel {
 
   async update(id, { nombre, direccion, telefono, email, id_empresa, usuario_actualizacion = null }) {
     try {
-      let query = `UPDATE sucursal SET nombre = ?, direccion = ?, telefono = ?, email = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+      let query = `UPDATE sucursal SET nombre = ?, direccion = ?, telefono = ?, email = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`;
       const params = [nombre, direccion, telefono, email, usuario_actualizacion, id];
 
       if (id_empresa) {
-        query = `UPDATE sucursal SET nombre = ?, direccion = ?, telefono = ?, email = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND empresa_id = ?`;
+        query = `UPDATE sucursal SET nombre = ?, direccion = ?, telefono = ?, email = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND empresa_id = ?`;
         params.push(id_empresa);
       }
 
@@ -72,11 +72,11 @@ class SucursalModel {
 
   async delete(id, id_empresa = null, usuario_actualizacion = null) {
     try {
-      let query = `UPDATE sucursal SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+      let query = `UPDATE sucursal SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`;
       const params = [usuario_actualizacion, id];
 
       if (id_empresa) {
-        query = `UPDATE sucursal SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND empresa_id = ?`;
+        query = `UPDATE sucursal SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND empresa_id = ?`;
         params.push(id_empresa);
       }
 

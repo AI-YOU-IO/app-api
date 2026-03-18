@@ -21,7 +21,7 @@ class MessageSandboxModel {
         try {
             const [result] = await this.connection.execute(
                 `INSERT INTO message_sandbox (direction, message, type, url, id_chat_sandbox, fecha_hora)
-                VALUES (?, ?, ?, ?, ?, NOW())`,
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
                 [direction, message, type || 'text', url || null, id_chat_sandbox]
             );
             return result.insertId;

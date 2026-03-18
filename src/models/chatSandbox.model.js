@@ -32,7 +32,7 @@ class ChatSandboxModel {
     async create({ canal }) {
         try {
             const [result] = await this.connection.execute(
-                `INSERT INTO chat_sandbox (canal, fecha_hora) VALUES (?, NOW())`,
+                `INSERT INTO chat_sandbox (canal, fecha_hora) VALUES (?, CURRENT_TIMESTAMP)`,
                 [canal]
             );
             return result.insertId;

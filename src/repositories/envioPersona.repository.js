@@ -87,7 +87,7 @@ class EnvioPersonaRepository {
             const [result] = await pool.execute(
                 `UPDATE envio_persona
                 SET estado = ?, fecha_envio = ?, error_mensaje = ?,
-                    id_campania_ejecucion = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                    id_campania_ejecucion = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ? AND estado_registro = 1`,
                 [
                     data.estado || null,
@@ -108,7 +108,7 @@ class EnvioPersonaRepository {
     async softDelete(id, usuario_actualizacion = null) {
         try {
             const [result] = await pool.execute(
-                `UPDATE envio_persona SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`,
+                `UPDATE envio_persona SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`,
                 [usuario_actualizacion, id]
             );
             return result.affectedRows > 0;

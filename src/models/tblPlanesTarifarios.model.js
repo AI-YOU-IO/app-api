@@ -193,7 +193,7 @@ class TblPlanesTarifariosModel {
         try {
             const [result] = await this.connection.execute(
                 `UPDATE catalogo
-                SET nombre = ?, precio_regular = ?, precio_promocional = ?, descripcion = ?, principal = ?, imagen_url = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                SET nombre = ?, precio_regular = ?, precio_promocional = ?, descripcion = ?, principal = ?, imagen_url = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ?`,
                 [nombre, precio_regular, precio_promocional, descripcion, principal, imagen_url, usuario_actualizacion, id]
             );
@@ -211,7 +211,7 @@ class TblPlanesTarifariosModel {
     async softDelete(id, usuario_actualizacion = null) {
         try {
             const [result] = await this.connection.execute(
-                'UPDATE catalogo SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?',
+                'UPDATE catalogo SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?',
                 [usuario_actualizacion, id]
             );
             return result.affectedRows > 0;

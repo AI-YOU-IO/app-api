@@ -138,13 +138,13 @@ class TipificacionModel {
       if (nivel !== null) {
         query = `UPDATE tipificacion_llamada
                  SET nombre = ?, descripcion = ?, orden = ?, color = ?, id_padre = ?, nivel = ?,
-                     usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                     usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                  WHERE id = ? AND id_empresa = ?`;
         params = [nombre, descripcion || null, ordenValue, color || null, id_padre || null, nivel, usuario_actualizacion, id, id_empresa];
       } else {
         query = `UPDATE tipificacion_llamada
                  SET nombre = ?, descripcion = ?, orden = ?, color = ?,
-                     usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                     usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                  WHERE id = ? AND id_empresa = ?`;
         params = [nombre, descripcion || null, ordenValue, color || null, usuario_actualizacion, id, id_empresa];
       }
@@ -160,13 +160,13 @@ class TipificacionModel {
     try {
       // También eliminar hijos recursivamente
       await this.connection.execute(
-        `UPDATE tipificacion_llamada SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+        `UPDATE tipificacion_llamada SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
          WHERE id_padre = ? AND id_empresa = ?`,
         [usuario_actualizacion, id, id_empresa]
       );
 
       const [result] = await this.connection.execute(
-        `UPDATE tipificacion_llamada SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+        `UPDATE tipificacion_llamada SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
          WHERE id = ? AND id_empresa = ?`,
         [usuario_actualizacion, id, id_empresa]
       );

@@ -70,7 +70,7 @@ class EnvioMasivoWhatsappRepository {
                 `UPDATE envio_masivo_whatsapp
                 SET id_plantilla = ?, titulo = ?, descripcion = ?, cantidad = ?,
                     cantidad_exitosos = ?, cantidad_fallidos = ?, fecha_envio = ?,
-                    estado_envio = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                    estado_envio = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ? AND estado_registro = 1`,
                 [
                     data.id_plantilla,
@@ -95,7 +95,7 @@ class EnvioMasivoWhatsappRepository {
     async softDelete(id, usuario_actualizacion = null) {
         try {
             const [result] = await pool.execute(
-                `UPDATE envio_masivo_whatsapp SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`,
+                `UPDATE envio_masivo_whatsapp SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`,
                 [usuario_actualizacion, id]
             );
             return result.affectedRows > 0;

@@ -31,7 +31,7 @@ class RolModel {
   async create({ nombre, descripcion, usuario_registro = null }) {
     try {
       const [result] = await this.connection.execute(
-        "INSERT INTO rol (nombre, proposito, fecha_registro, usuario_registro, fecha_actualizacion, usuario_actualizacion, estado_registro) VALUES (?, ?, NOW(), ?, NOW(), ?, 1)",
+        "INSERT INTO rol (nombre, proposito, fecha_registro, usuario_registro, fecha_actualizacion, usuario_actualizacion, estado_registro) VALUES (?, ?, CURRENT_TIMESTAMP, ?, CURRENT_TIMESTAMP, ?, 1)",
         [nombre, descripcion, usuario_registro, usuario_registro]
       );
       return result.insertId;
@@ -43,7 +43,7 @@ class RolModel {
   async update(id, { nombre, descripcion, usuario_actualizacion = null }) {
     try {
       const [result] = await this.connection.execute(
-        "UPDATE rol SET nombre = ?, proposito = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?",
+        "UPDATE rol SET nombre = ?, proposito = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?",
         [nombre, descripcion, usuario_actualizacion, id]
       );
       return result.affectedRows > 0;
@@ -55,7 +55,7 @@ class RolModel {
   async delete(id, usuario_actualizacion = null) {
     try {
       const [result] = await this.connection.execute(
-        "UPDATE rol SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?",
+        "UPDATE rol SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?",
         [usuario_actualizacion, id]
       );
       return result.affectedRows > 0;
@@ -84,7 +84,7 @@ class RolModel {
     try {
       // Soft delete existing relationships
       await this.connection.execute(
-        "UPDATE rol_modulo SET estado_registro = 0, fecha_actualizacion = NOW() WHERE rol_id = ? AND estado_registro = 1",
+        "UPDATE rol_modulo SET estado_registro = 0, fecha_actualizacion = CURRENT_TIMESTAMP WHERE rol_id = ? AND estado_registro = 1",
         [rolId]
       );
 

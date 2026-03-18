@@ -2109,6 +2109,27 @@ class ConfiguracionController {
     }
   }
 
+  async toggleActivoBaseCampania(req, res) {
+    try {
+      const { id } = req.params;
+      const usuario_actualizacion = req.user?.userId || null;
+      const campaniaBaseModel = new CampaniaBaseNumeroModel();
+      const nuevoEstado = await campaniaBaseModel.toggleActivo(id, usuario_actualizacion);
+
+      if (nuevoEstado === null) {
+        return res.status(404).json({ msg: "Relacion no encontrada" });
+      }
+
+      return res.status(200).json({
+        msg: nuevoEstado ? "Base activada" : "Base desactivada",
+        data: { activo: nuevoEstado }
+      });
+    } catch (error) {
+      logger.error(`[configuracion.controller.js] Error al cambiar estado activo: ${error.message}`);
+      return res.status(500).json({ msg: "Error al cambiar estado activo" });
+    }
+  }
+
   async removeBaseFromCampania(req, res) {
     try {
       const { id } = req.params;
@@ -2145,23 +2166,41 @@ class ConfiguracionController {
 
   async ejecutarCampania(req, res) {
     try {
-      const { id_campania, ids_base_numero } = req.body;
+      const { id_campania } = req.body;
       const id_empresa = req.user?.idEmpresa;
       const usuario_registro = req.user?.userId || null;
 
-      if (!id_campania || !ids_base_numero?.length) {
-        return res.status(400).json({ msg: "La campania e ids_base_numero son requeridos" });
+      if (!id_campania) {
+        return res.status(400).json({ msg: "La campania es requerida" });
       }
 
-      // Crear ejecucion
+      // Obtener bases activas de la campaña
+      const [basesActivas] = await pool.execute(
+        `SELECT id_base_numero FROM campania_base_numero
+         WHERE id_campania = ? AND estado_registro = 1 AND activo = 1`,
+        [id_campania]
+      );
+
+      if (!basesActivas.length) {
+        return res.status(400).json({ msg: "No hay bases activas en esta campaña" });
+      }
+
+      // Crear una ejecución por cada base activa
       const ejecucionModel = new CampaniaEjecucionModel();
-      const idEjecucion = await ejecucionModel.create({
-        id_empresa,
-        id_campania,
-        id_base_numero: ids_base_numero[0],
-        fecha_programada: new Date(),
-        usuario_registro
-      });
+      const ejecucionesCreadas = [];
+
+      for (const base of basesActivas) {
+        const idEjecucion = await ejecucionModel.create({
+          id_empresa,
+          id_campania,
+          id_base_numero: base.id_base_numero,
+          fecha_programada: new Date(),
+          usuario_registro
+        });
+        ejecucionesCreadas.push(idEjecucion);
+      }
+
+      const idEjecucion = ejecucionesCreadas[0]; // Primera ejecución para el servicio
 
       // Obtener tipificaciones
       const [tipificaciones] = await pool.execute(
@@ -2169,33 +2208,43 @@ class ConfiguracionController {
         [id_empresa]
       );
 
-      // Obtener prompt y voice_code de la campaña
+      // Obtener prompt, voice_code, tool_ruta y canal de la campaña y empresa
       const [campaniaRows] = await pool.execute(
-        `SELECT p.prompt, v.voice_code
+        `SELECT p.prompt, v.voice_code, t.ruta as tool_ruta, e.canal
          FROM campania c
          INNER JOIN plantilla p ON c.id_plantilla = p.id
          LEFT JOIN voz v ON c.id_voz = v.id
+         LEFT JOIN empresa e ON c.id_empresa = e.id
+         LEFT JOIN tool t ON e.id_tool = t.id
          WHERE c.id_empresa = ? AND c.id = ?`,
         [id_empresa, id_campania]
       );
       const prompt = campaniaRows[0]?.prompt || '';
       const voiceCode = campaniaRows[0]?.voice_code || null;
+      const toolRuta = campaniaRows[0]?.tool_ruta || null;
+      const canal = campaniaRows[0]?.canal || 0;
+
+      // Obtener configuración de llamadas de la campaña
+      const configLlamadaModel = new ConfiguracionCampaniaLlamadaModel();
+      const configLlamadas = await configLlamadaModel.getByCampaniaId(id_campania);
 
       // Responder inmediatamente
       res.status(202).json({
         msg: "Ejecucion iniciada en segundo plano",
-        data: { id_ejecucion: idEjecucion, ids_base_numero }
+        data: { id_ejecucion: idEjecucion, total_bases: basesActivas.length }
       });
 
       // Procesar llamadas en background
       llamadaService.procesarLlamadasAsync({
         idEjecucion,
         idCampania: id_campania,
-        idsBaseNumero: ids_base_numero,
         idEmpresa: id_empresa,
         tipificaciones,
         prompt: prompt,
         voiceCode: voiceCode,
+        toolRuta: toolRuta,
+        canal: canal,
+        configLlamadas: configLlamadas,
       });
 
     } catch (error) {
@@ -2748,22 +2797,39 @@ class ConfiguracionController {
   async saveConfiguracionCampaniaLlamada(req, res) {
     try {
       const { id_campania } = req.params;
-      const { dias_llamada, hora_inicio, hora_fin, max_intentos, intervalo_reintento, horarios_por_dia } = req.body;
+      const {
+        max_intentos,
+        intervalo_reintento,
+        lunes_horario,
+        martes_horario,
+        miercoles_horario,
+        jueves_horario,
+        viernes_horario,
+        sabado_horario,
+        domingo_horario
+      } = req.body;
       const usuario = req.user?.id || null;
 
-      if (!dias_llamada && !horarios_por_dia) {
-        return res.status(400).json({ msg: "Debe seleccionar al menos un día" });
+      // Validar que al menos un día tenga horario
+      const tieneAlgunDia = lunes_horario || martes_horario || miercoles_horario ||
+                           jueves_horario || viernes_horario || sabado_horario || domingo_horario;
+
+      if (!tieneAlgunDia) {
+        return res.status(400).json({ msg: "Debe configurar al menos un día" });
       }
 
       const model = new ConfiguracionCampaniaLlamadaModel();
       const result = await model.upsert({
         id_campania: parseInt(id_campania),
-        dias_llamada,
-        hora_inicio,
-        hora_fin,
         max_intentos: max_intentos || 3,
         intervalo_reintento: intervalo_reintento || 60,
-        horarios_por_dia,
+        lunes_horario,
+        martes_horario,
+        miercoles_horario,
+        jueves_horario,
+        viernes_horario,
+        sabado_horario,
+        domingo_horario,
         usuario
       });
 

@@ -81,7 +81,7 @@ class VozModel {
         try {
             const [result] = await this.connection.execute(
                 `UPDATE voz
-                SET nacionalidad = ?, genero = ?, voice_code = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                SET nacionalidad = ?, genero = ?, voice_code = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ? AND estado_registro = 1`,
                 [nacionalidad, genero, voice_code, usuario_actualizacion || null, id]
             );
@@ -94,7 +94,7 @@ class VozModel {
     async delete(id, usuario_actualizacion = null) {
         try {
             const [result] = await this.connection.execute(
-                'UPDATE voz SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?',
+                'UPDATE voz SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?',
                 [usuario_actualizacion, id]
             );
             return result.affectedRows > 0;

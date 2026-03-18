@@ -119,7 +119,7 @@ class PlantillaModel {
         try {
             let query = `UPDATE plantilla
                 SET id_formato = ?, nombre = ?, descripcion = ?, prompt = ?,
-                    usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                    usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ?`;
             const params = [
                 id_formato || null,
@@ -133,7 +133,7 @@ class PlantillaModel {
             if (id_empresa) {
                 query = `UPDATE plantilla
                 SET id_formato = ?, nombre = ?, descripcion = ?, prompt = ?,
-                    usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                    usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ? AND id_empresa = ?`;
                 params.push(id_empresa);
             }
@@ -150,11 +150,11 @@ class PlantillaModel {
 
     async delete(id, id_empresa = null, usuario_actualizacion = null) {
         try {
-            let query = 'UPDATE plantilla SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?';
+            let query = 'UPDATE plantilla SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?';
             const params = [usuario_actualizacion, id];
 
             if (id_empresa) {
-                query = 'UPDATE plantilla SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?';
+                query = 'UPDATE plantilla SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND id_empresa = ?';
                 params.push(id_empresa);
             }
 
@@ -202,8 +202,8 @@ class PlantillaModel {
                     await conn.execute(
                         `INSERT INTO plantilla_tool (id_plantilla, id_tool, orden, estado_registro)
                          VALUES (?, ?, ?, 1)
-                         ON DUPLICATE KEY UPDATE estado_registro = 1, orden = ?`,
-                        [id_plantilla, tools_ids[i], i + 1, i + 1]
+                         ON CONFLICT (id_plantilla, id_tool) DO UPDATE SET estado_registro = 1, orden = EXCLUDED.orden`,
+                        [id_plantilla, tools_ids[i], i + 1]
                     );
                 }
             }
@@ -223,8 +223,8 @@ class PlantillaModel {
             const [result] = await this.connection.execute(
                 `INSERT INTO plantilla_tool (id_plantilla, id_tool, orden, estado_registro)
                  VALUES (?, ?, ?, 1)
-                 ON DUPLICATE KEY UPDATE estado_registro = 1, orden = ?`,
-                [id_plantilla, id_tool, orden, orden]
+                 ON CONFLICT (id_plantilla, id_tool) DO UPDATE SET estado_registro = 1, orden = EXCLUDED.orden`,
+                [id_plantilla, id_tool, orden]
             );
             return result.affectedRows > 0;
         } catch (error) {

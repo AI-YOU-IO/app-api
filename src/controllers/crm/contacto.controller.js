@@ -82,7 +82,7 @@ class ContactoController {
 
       const [result] = await pool.execute(
         `INSERT INTO mensaje (id_chat, direccion, tipo_mensaje, contenido, fecha_hora, estado_registro, usuario_registro)
-         VALUES (?, 'out', 'text', ?, NOW(), 1, ?)`,
+         VALUES (?, 'out', 'text', ?, CURRENT_TIMESTAMP, 1, ?)`,
         [id, contenido, userId || 'system']
       );
 

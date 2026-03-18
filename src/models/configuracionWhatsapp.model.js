@@ -63,7 +63,7 @@ class ConfiguracionWhatsappModel {
                     (id_empresa, app_id, numero_telefono_id, clave_secreta,
                      token_whatsapp, waba_id, phone_number, token_expiration,
                      estado_registro, usuario_registro, fecha_registro)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NOW())`,
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, CURRENT_TIMESTAMP)`,
                 [id_empresa, app_id, numero_telefono_id, clave_secreta,
                  token_whatsapp, waba_id, phone_number, token_expiration,
                  usuario_registro]
@@ -80,7 +80,7 @@ class ConfiguracionWhatsappModel {
                 `UPDATE configuracion_whatsapp SET
                     app_id = ?, numero_telefono_id = ?, clave_secreta = ?,
                     token_whatsapp = ?, waba_id = ?, phone_number = ?,
-                    token_expiration = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                    token_expiration = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                  WHERE id = ? AND estado_registro = 1`,
                 [app_id, numero_telefono_id, clave_secreta,
                  token_whatsapp, waba_id, phone_number, token_expiration,
@@ -96,7 +96,7 @@ class ConfiguracionWhatsappModel {
         try {
             const [result] = await this.connection.execute(
                 `UPDATE configuracion_whatsapp SET estado_registro = 0,
-                    usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                    usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                  WHERE id = ?`,
                 [usuario_actualizacion, id]
             );

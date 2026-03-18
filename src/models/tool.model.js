@@ -122,7 +122,7 @@ class ToolModel {
                 SET nombre = ?, descripcion = ?, tipo_tool = ?, timeout = ?,
                     http_url = ?, http_method = ?, requiere_auth = ?, auth_type = ?,
                     auth_token_key = ?, builtin_params = ?,
-                    usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                    usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ?`,
                 [
                     nombre,
@@ -151,7 +151,7 @@ class ToolModel {
     async delete(id, usuario_actualizacion = null) {
         try {
             const [result] = await this.connection.execute(
-                `UPDATE tool SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`,
+                `UPDATE tool SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`,
                 [usuario_actualizacion, id]
             );
             return result.affectedRows > 0;

@@ -94,7 +94,7 @@ class PlantillaWhatsappRepository {
                 SET name = ?, status = ?, category = ?, \`language\` = ?,
                     header_type = ?, header_text = ?, body = ?, footer = ?,
                     buttons = ?, url_imagen = ?, meta_template_id = ?,
-                    usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                    usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ? AND estado_registro = 1`,
                 [
                     data.name,
@@ -122,7 +122,7 @@ class PlantillaWhatsappRepository {
     async delete(id, usuario_actualizacion = null) {
         try {
             const [result] = await pool.execute(
-                `UPDATE plantilla_whatsapp SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`,
+                `UPDATE plantilla_whatsapp SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`,
                 [usuario_actualizacion, id]
             );
             return [result.affectedRows > 0];

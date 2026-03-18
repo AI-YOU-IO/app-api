@@ -28,7 +28,7 @@ class PromptAsistenteModel {
                 // Actualizar
                 const [result] = await this.connection.execute(
                     `UPDATE prompt_asistente
-                    SET prompt_sistema = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                    SET prompt_sistema = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                     WHERE id_empresa = ? AND estado_registro = 1`,
                     [prompt_sistema, usuario_registro, id_empresa]
                 );

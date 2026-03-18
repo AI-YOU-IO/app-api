@@ -148,7 +148,7 @@ class EnvioPersonaModel {
             const [result] = await this.connection.execute(
                 `UPDATE envio_persona
                 SET estado = ?, fecha_envio = ?, error_mensaje = ?,
-                    id_campania_ejecucion = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                    id_campania_ejecucion = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ? AND estado_registro = 1`,
                 [
                     estado || null,
@@ -168,7 +168,7 @@ class EnvioPersonaModel {
     async updateEstado(id, estado, error_mensaje = null, usuario_actualizacion = null) {
         try {
             const [result] = await this.connection.execute(
-                `UPDATE envio_persona SET estado = ?, error_mensaje = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND estado_registro = 1`,
+                `UPDATE envio_persona SET estado = ?, error_mensaje = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND estado_registro = 1`,
                 [estado, error_mensaje, usuario_actualizacion, id]
             );
             return result.affectedRows > 0;
@@ -180,7 +180,7 @@ class EnvioPersonaModel {
     async delete(id, usuario_actualizacion = null) {
         try {
             const [result] = await this.connection.execute(
-                `UPDATE envio_persona SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`,
+                `UPDATE envio_persona SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`,
                 [usuario_actualizacion, id]
             );
             return result.affectedRows > 0;

@@ -24,7 +24,7 @@ class EstadoModel {
 
   async updateColor(id, color) {
     await this.connection.execute(
-      `UPDATE estado SET color = ?, fecha_actualizacion = NOW() WHERE id = ?`,
+      `UPDATE estado SET color = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`,
       [color || null, id]
     );
     return true;

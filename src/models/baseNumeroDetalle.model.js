@@ -155,7 +155,7 @@ class BaseNumeroDetalleModel {
             const [result] = await this.connection.execute(
                 `UPDATE base_numero_detalle
                 SET telefono = ?, nombre = ?, correo = ?, tipo_documento = ?, numero_documento = ?,
-                    id_tipo_persona = ?, json_adicional = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                    id_tipo_persona = ?, json_adicional = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ?`,
                 [
                     telefono,
@@ -181,7 +181,7 @@ class BaseNumeroDetalleModel {
     async delete(id, usuario_actualizacion = null) {
         try {
             const [result] = await this.connection.execute(
-                'UPDATE base_numero_detalle SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?',
+                'UPDATE base_numero_detalle SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?',
                 [usuario_actualizacion, id]
             );
             return result.affectedRows > 0;
@@ -193,7 +193,7 @@ class BaseNumeroDetalleModel {
     async deleteByBaseNumero(id_base_numero) {
         try {
             const [result] = await this.connection.execute(
-                'UPDATE base_numero_detalle SET estado_registro = 0, fecha_actualizacion = NOW() WHERE id_base_numero = ?',
+                'UPDATE base_numero_detalle SET estado_registro = 0, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id_base_numero = ?',
                 [id_base_numero]
             );
             return result.affectedRows;
@@ -216,6 +216,43 @@ class BaseNumeroDetalleModel {
             return rows.length > 0;
         } catch (error) {
             throw new Error(`Error al verificar duplicado: ${error.message}`);
+        }
+    }
+
+    /**
+     * Obtiene TODOS los números pendientes de llamar para una campaña (sin paginación).
+     * Obtiene las bases desde campania_base_numero y excluye teléfonos ya llamados.
+     * Útil para procesar llamadas en batch.
+     * @param {number} id_campania - ID de la campaña
+     * @returns {Array} Array de números pendientes con _idBase incluido
+     */
+    async getAllUniversoPendientePorCampania(id_campania) {
+        try {
+            const [rows] = await this.connection.query(
+                `SELECT bnd.*, bn.id as _idBase, e.nombre_comercial, e.id as id_empresa
+                FROM base_numero_detalle bnd
+                INNER JOIN base_numero bn ON bn.id = bnd.id_base_numero
+                INNER JOIN campania_base_numero cbn ON cbn.id_base_numero = bn.id
+                INNER JOIN empresa e ON e.id = bn.id_empresa
+                WHERE cbn.id_campania = ?
+                AND cbn.estado_registro = 1
+                AND cbn.activo = 1
+                AND bnd.estado_registro = 1
+                AND NOT EXISTS (
+                    SELECT 1 FROM llamada l
+                    INNER JOIN base_numero_detalle bnd2 ON l.id_base_numero_detalle = bnd2.id
+                    WHERE bnd2.telefono = bnd.telefono
+                    AND l.id_campania = ?
+                    AND l.estado_registro = 1
+                    AND l.fecha_fin IS NOT NULL
+                )
+                ORDER BY bnd.id ASC`,
+                [id_campania, id_campania]
+            );
+
+            return rows;
+        } catch (error) {
+            throw new Error(`Error al obtener universo completo: ${error.message}`);
         }
     }
 
@@ -285,7 +322,7 @@ class BaseNumeroDetalleModel {
                         ELSE p.dni
                     END,
                     p.usuario_actualizacion = ?,
-                    p.fecha_actualizacion = NOW()
+                    p.fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE bnd.id_base_numero = ?
                 AND bnd.estado_registro = 1
                 AND p.id_empresa = ?

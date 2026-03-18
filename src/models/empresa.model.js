@@ -8,8 +8,10 @@ class EmpresaModel {
   async getAll() {
     try {
       const [rows] = await this.connection.execute(
-        `SELECT id, razon_social as nombre, nombre_comercial, ruc, email, telefono, direccion, logo_url, estado_registro, fecha_registro
-         FROM empresa ORDER BY razon_social`
+        `SELECT e.id, e.razon_social as nombre, e.nombre_comercial, e.ruc, e.email, e.telefono, e.direccion, e.logo_url, e.estado_registro, e.fecha_registro, e.id_tool, e.canal, t.nombre as tool_nombre
+         FROM empresa e
+         LEFT JOIN tool t ON e.id_tool = t.id
+         ORDER BY e.razon_social`
       );
       return rows;
     } catch (error) {
@@ -20,7 +22,7 @@ class EmpresaModel {
   async updateEstado(id, estado, usuario_actualizacion = null) {
     try {
       const [result] = await this.connection.execute(
-        `UPDATE empresa SET estado_registro = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`,
+        `UPDATE empresa SET estado_registro = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`,
         [estado, usuario_actualizacion, id]
       );
       return result.affectedRows > 0;
@@ -32,8 +34,10 @@ class EmpresaModel {
   async getById(id) {
     try {
       const [rows] = await this.connection.execute(
-        `SELECT id, razon_social as nombre, nombre_comercial, ruc, email, telefono, direccion, logo_url, estado_registro, fecha_registro
-         FROM empresa WHERE id = ?`,
+        `SELECT e.id, e.razon_social as nombre, e.nombre_comercial, e.ruc, e.email, e.telefono, e.direccion, e.logo_url, e.estado_registro, e.fecha_registro, e.id_tool, e.canal, t.nombre as tool_nombre
+         FROM empresa e
+         LEFT JOIN tool t ON e.id_tool = t.id
+         WHERE e.id = ?`,
         [id]
       );
       return rows[0];
@@ -42,12 +46,12 @@ class EmpresaModel {
     }
   }
 
-  async create({ nombre, ruc, direccion, telefono, email, usuario_registro = null }) {
+  async create({ nombre, ruc, direccion, telefono, email, canal, id_tool, usuario_registro = null }) {
     try {
       const [result] = await this.connection.execute(
-        `INSERT INTO empresa (razon_social, ruc, direccion, telefono, email, estado_registro, fecha_registro, usuario_registro)
-         VALUES (?, ?, ?, ?, ?, 1, NOW(), ?)`,
-        [nombre, ruc || null, direccion || null, telefono || null, email || null, usuario_registro]
+        `INSERT INTO empresa (razon_social, ruc, direccion, telefono, email, canal, id_tool, estado_registro, fecha_registro, usuario_registro)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, ?)`,
+        [nombre, ruc || null, direccion || null, telefono || null, email || null, canal || null, id_tool || null, usuario_registro]
       );
       return result.insertId;
     } catch (error) {
@@ -55,12 +59,12 @@ class EmpresaModel {
     }
   }
 
-  async update(id, { nombre, ruc, direccion, telefono, email, usuario_actualizacion = null }) {
+  async update(id, { nombre, ruc, direccion, telefono, email, canal, id_tool, usuario_actualizacion = null }) {
     try {
       const [result] = await this.connection.execute(
-        `UPDATE empresa SET razon_social = ?, ruc = ?, direccion = ?, telefono = ?, email = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+        `UPDATE empresa SET razon_social = ?, ruc = ?, direccion = ?, telefono = ?, email = ?, canal = ?, id_tool = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
          WHERE id = ?`,
-        [nombre, ruc || null, direccion || null, telefono || null, email || null, usuario_actualizacion, id]
+        [nombre, ruc || null, direccion || null, telefono || null, email || null, canal || null, id_tool || null, usuario_actualizacion, id]
       );
       return result.affectedRows > 0;
     } catch (error) {
@@ -71,7 +75,7 @@ class EmpresaModel {
   async delete(id, usuario_actualizacion = null) {
     try {
       const [result] = await this.connection.execute(
-        `UPDATE empresa SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`,
+        `UPDATE empresa SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`,
         [usuario_actualizacion, id]
       );
       return result.affectedRows > 0;

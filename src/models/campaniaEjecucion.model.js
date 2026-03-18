@@ -100,7 +100,7 @@ class CampaniaEjecucionModel {
                 params.push(mensaje_error);
             }
 
-            query += `, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?`;
+            query += `, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`;
             params.push(usuario_actualizacion || null, id);
 
             const [result] = await this.connection.execute(query, params);
@@ -157,7 +157,7 @@ class CampaniaEjecucionModel {
     async delete(id) {
         try {
             const [result] = await this.connection.execute(
-                'UPDATE campania_ejecucion SET estado_registro = 0, fecha_actualizacion = NOW() WHERE id = ?',
+                'UPDATE campania_ejecucion SET estado_registro = 0, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?',
                 [id]
             );
             return result.affectedRows > 0;

@@ -136,13 +136,13 @@ class FaqModel {
     async update(id, { numero, pregunta, proceso, respuesta, activo, id_empresa = null, usuario_actualizacion = null }) {
         try {
             let query = `UPDATE faq
-                 SET numero = ?, pregunta = ?, proceso = ?, respuesta = ?, activo = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                 SET numero = ?, pregunta = ?, proceso = ?, respuesta = ?, activo = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                  WHERE id = ?`;
             const params = [numero, pregunta, proceso, respuesta, activo, usuario_actualizacion, id];
 
             if (id_empresa) {
                 query = `UPDATE faq
-                 SET numero = ?, pregunta = ?, proceso = ?, respuesta = ?, activo = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+                 SET numero = ?, pregunta = ?, proceso = ?, respuesta = ?, activo = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                  WHERE id = ? AND id_empresa = ?`;
                 params.push(id_empresa);
             }
@@ -179,11 +179,11 @@ class FaqModel {
      */
     async delete(id, id_empresa = null, usuario_actualizacion = null) {
         try {
-            let query = 'UPDATE faq SET activo = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ?';
+            let query = 'UPDATE faq SET activo = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?';
             const params = [usuario_actualizacion, id];
 
             if (id_empresa) {
-                query = 'UPDATE faq SET activo = 0, usuario_actualizacion = ?, fecha_actualizacion = NOW() WHERE id = ? AND id_empresa = ?';
+                query = 'UPDATE faq SET activo = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND id_empresa = ?';
                 params.push(id_empresa);
             }
 
