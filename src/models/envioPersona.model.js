@@ -89,9 +89,9 @@ class EnvioPersonaModel {
     }
 
     async bulkCreate(id_envio_masivo, personas, usuario_registro) {
-        const conn = await this.connection.getConnection();
+        const client = await this.connection.connect();
         try {
-            await conn.beginTransaction();
+            await client.query('BEGIN');
 
             const BATCH_SIZE = 100;
             let totalInsertados = 0;
@@ -102,9 +102,14 @@ class EnvioPersonaModel {
 
                 const values = [];
                 const params = [];
+                let paramIndex = 0;
 
                 for (const persona of batch) {
-                    values.push('(?, ?, ?, ?, ?, 1, ?)');
+                    const placeholders = [];
+                    for (let j = 0; j < 6; j++) {
+                        placeholders.push(`$${++paramIndex}`);
+                    }
+                    values.push(`(${placeholders.join(', ')})`);
                     params.push(
                         id_envio_masivo,
                         persona.id_persona || null,
@@ -116,24 +121,24 @@ class EnvioPersonaModel {
                 }
 
                 const sql = `INSERT INTO envio_persona
-                    (id_envio_masivo, id_persona, estado, fecha_envio, id_campania_ejecucion, estado_registro, usuario_registro)
+                    (id_envio_masivo, id_persona, estado, fecha_envio, id_campania_ejecucion, usuario_registro)
                     VALUES ${values.join(', ')}`;
 
                 try {
-                    const [result] = await conn.query(sql, params);
-                    totalInsertados += result.affectedRows;
+                    const result = await client.query(sql, params);
+                    totalInsertados += result.rowCount;
                 } catch (err) {
                     errores.push({ batch: Math.floor(i / BATCH_SIZE) + 1, error: err.message });
                 }
             }
 
-            await conn.commit();
+            await client.query('COMMIT');
             return { total: totalInsertados, errores };
         } catch (error) {
-            await conn.rollback();
+            await client.query('ROLLBACK');
             throw new Error(`Error en carga masiva de envío persona: ${error.message}`);
         } finally {
-            conn.release();
+            client.release();
         }
     }
 

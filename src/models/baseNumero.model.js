@@ -53,7 +53,7 @@ class BaseNumeroModel {
             );
             return result.insertId;
         } catch (error) {
-            if (error.code === 'ER_DUP_ENTRY') {
+            if (error.code === '23505') {
                 throw new Error('Ya existe una base con ese nombre para esta empresa');
             }
             throw new Error(`Error al crear base de numeros: ${error.message}`);
@@ -77,7 +77,7 @@ class BaseNumeroModel {
             const [result] = await this.connection.execute(query, params);
             return result.affectedRows > 0;
         } catch (error) {
-            if (error.code === 'ER_DUP_ENTRY') {
+            if (error.code === '23505') {
                 throw new Error('Ya existe una base con ese nombre para esta empresa');
             }
             throw new Error(`Error al actualizar base de numeros: ${error.message}`);

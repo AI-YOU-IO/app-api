@@ -109,7 +109,7 @@ class CampaniaModel {
             );
             return result.insertId;
         } catch (error) {
-            if (error.code === 'ER_DUP_ENTRY') {
+            if (error.code === '23505') {
                 throw new Error('Ya existe una campania con ese nombre');
             }
             throw new Error(`Error al crear campania: ${error.message}`);
@@ -137,7 +137,7 @@ class CampaniaModel {
             );
             return result.affectedRows > 0;
         } catch (error) {
-            if (error.code === 'ER_DUP_ENTRY') {
+            if (error.code === '23505') {
                 throw new Error('Ya existe una campania con ese nombre');
             }
             throw new Error(`Error al actualizar campania: ${error.message}`);

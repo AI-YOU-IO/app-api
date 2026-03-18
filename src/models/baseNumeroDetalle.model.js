@@ -72,7 +72,7 @@ class BaseNumeroDetalleModel {
             );
             return result.insertId;
         } catch (error) {
-            if (error.code === 'ER_DUP_ENTRY') {
+            if (error.code === '23505') {
                 throw new Error(`El telefono ${telefono} ya existe en esta base`);
             }
             throw new Error(`Error al crear detalle: ${error.message}`);
@@ -80,9 +80,9 @@ class BaseNumeroDetalleModel {
     }
 
     async bulkCreate(id_base_numero, registros, usuario_registro) {
-        const conn = await this.connection.getConnection();
+        const client = await this.connection.connect();
         try {
-            await conn.beginTransaction();
+            await client.query('BEGIN');
 
             const errores = [];
             let totalInsertados = 0;
@@ -93,12 +93,17 @@ class BaseNumeroDetalleModel {
             for (let i = 0; i < registros.length; i += BATCH_SIZE) {
                 const batch = registros.slice(i, i + BATCH_SIZE);
 
-                // Construir INSERT múltiple: INSERT INTO ... VALUES (...), (...), (...)
+                // Construir INSERT múltiple con placeholders PostgreSQL
                 const values = [];
                 const params = [];
+                let paramIndex = 0;
 
                 for (const registro of batch) {
-                    values.push('(?, ?, ?, ?, ?, ?, ?, ?, 1, ?)');
+                    const placeholders = [];
+                    for (let j = 0; j < 9; j++) {
+                        placeholders.push(`$${++paramIndex}`);
+                    }
+                    values.push(`(${placeholders.join(', ')})`);
                     params.push(
                         id_base_numero,
                         registro.telefono,
@@ -112,16 +117,17 @@ class BaseNumeroDetalleModel {
                     );
                 }
 
-                const sql = `INSERT IGNORE INTO base_numero_detalle
-                    (id_base_numero, telefono, nombre, correo, tipo_documento, numero_documento, id_tipo_persona, json_adicional, estado_registro, usuario_registro)
-                    VALUES ${values.join(', ')}`;
+                const sql = `INSERT INTO base_numero_detalle
+                    (id_base_numero, telefono, nombre, correo, tipo_documento, numero_documento, id_tipo_persona, json_adicional, usuario_registro)
+                    VALUES ${values.join(', ')}
+                    ON CONFLICT (id_base_numero, telefono) DO NOTHING`;
 
                 try {
-                    const [result] = await conn.query(sql, params);
-                    totalInsertados += result.affectedRows;
+                    const result = await client.query(sql, params);
+                    totalInsertados += result.rowCount;
 
                     // Calcular duplicados en este batch
-                    const duplicadosEnBatch = batch.length - result.affectedRows;
+                    const duplicadosEnBatch = batch.length - result.rowCount;
                     if (duplicadosEnBatch > 0) {
                         // No registramos cada duplicado individualmente para mejor rendimiento
                         // Solo contamos los que no se insertaron
@@ -132,7 +138,7 @@ class BaseNumeroDetalleModel {
                 }
             }
 
-            await conn.commit();
+            await client.query('COMMIT');
 
             // Calcular duplicados totales
             const totalDuplicados = registros.length - totalInsertados - errores.length;
@@ -143,10 +149,10 @@ class BaseNumeroDetalleModel {
                 total: totalInsertados
             };
         } catch (error) {
-            await conn.rollback();
+            await client.query('ROLLBACK');
             throw new Error(`Error en carga masiva: ${error.message}`);
         } finally {
-            conn.release();
+            client.release();
         }
     }
 
@@ -171,7 +177,7 @@ class BaseNumeroDetalleModel {
             );
             return result.affectedRows > 0;
         } catch (error) {
-            if (error.code === 'ER_DUP_ENTRY') {
+            if (error.code === '23505') {
                 throw new Error('El telefono ya existe en esta base');
             }
             throw new Error(`Error al actualizar detalle: ${error.message}`);
@@ -277,7 +283,7 @@ class BaseNumeroDetalleModel {
 
             // 1. Insertar personas nuevas (únicas por celular + id_empresa)
             const sqlInsert = `
-                INSERT IGNORE INTO persona (celular, id_empresa, id_estado, id_tipo_persona, nombre_completo, dni, usuario_registro)
+                INSERT INTO persona (celular, id_empresa, id_estado, id_tipo_persona, nombre_completo, dni, usuario_registro)
                 SELECT
                     bnd.telefono,
                     ?,
@@ -295,6 +301,7 @@ class BaseNumeroDetalleModel {
                     AND p.id_empresa = ?
                     AND p.estado_registro = 1
                 )
+                ON CONFLICT (celular, id_empresa) DO NOTHING
             `;
 
             const [insertResult] = await this.connection.query(sqlInsert, [
@@ -308,28 +315,29 @@ class BaseNumeroDetalleModel {
 
             // 2. Actualizar personas existentes que no tengan nombre o dni
             const sqlUpdate = `
-                UPDATE persona p
-                INNER JOIN base_numero_detalle bnd ON bnd.telefono = p.celular
+                UPDATE persona
                 SET
-                    p.nombre_completo = CASE
-                        WHEN (p.nombre_completo IS NULL OR p.nombre_completo = '') AND bnd.nombre IS NOT NULL AND bnd.nombre != ''
+                    nombre_completo = CASE
+                        WHEN (persona.nombre_completo IS NULL OR persona.nombre_completo = '') AND bnd.nombre IS NOT NULL AND bnd.nombre != ''
                         THEN bnd.nombre
-                        ELSE p.nombre_completo
+                        ELSE persona.nombre_completo
                     END,
-                    p.dni = CASE
-                        WHEN (p.dni IS NULL OR p.dni = '') AND bnd.numero_documento IS NOT NULL AND bnd.numero_documento != ''
+                    dni = CASE
+                        WHEN (persona.dni IS NULL OR persona.dni = '') AND bnd.numero_documento IS NOT NULL AND bnd.numero_documento != ''
                         THEN bnd.numero_documento
-                        ELSE p.dni
+                        ELSE persona.dni
                     END,
-                    p.usuario_actualizacion = ?,
-                    p.fecha_actualizacion = CURRENT_TIMESTAMP
-                WHERE bnd.id_base_numero = ?
+                    usuario_actualizacion = ?,
+                    fecha_actualizacion = CURRENT_TIMESTAMP
+                FROM base_numero_detalle bnd
+                WHERE bnd.telefono = persona.celular
+                AND bnd.id_base_numero = ?
                 AND bnd.estado_registro = 1
-                AND p.id_empresa = ?
-                AND p.estado_registro = 1
+                AND persona.id_empresa = ?
+                AND persona.estado_registro = 1
                 AND (
-                    ((p.nombre_completo IS NULL OR p.nombre_completo = '') AND bnd.nombre IS NOT NULL AND bnd.nombre != '')
-                    OR ((p.dni IS NULL OR p.dni = '') AND bnd.numero_documento IS NOT NULL AND bnd.numero_documento != '')
+                    ((persona.nombre_completo IS NULL OR persona.nombre_completo = '') AND bnd.nombre IS NOT NULL AND bnd.nombre != '')
+                    OR ((persona.dni IS NULL OR persona.dni = '') AND bnd.numero_documento IS NOT NULL AND bnd.numero_documento != '')
                 )
             `;
 

@@ -41,7 +41,7 @@ class CampaniaBaseNumeroModel {
             );
             return result.insertId;
         } catch (error) {
-            if (error.code === 'ER_DUP_ENTRY') {
+            if (error.code === '23505') {
                 throw new Error('Esta base ya esta asignada a la campania');
             }
             throw new Error(`Error al agregar base a campania: ${error.message}`);
@@ -75,10 +75,13 @@ class CampaniaBaseNumeroModel {
     async removeByFormatoMismatch(id_campania, id_formato) {
         try {
             const [result] = await this.connection.execute(
-                `UPDATE campania_base_numero cbn
-                INNER JOIN base_numero bn ON cbn.id_base_numero = bn.id
-                SET cbn.estado_registro = 0, cbn.fecha_actualizacion = CURRENT_TIMESTAMP
-                WHERE cbn.id_campania = ? AND cbn.estado_registro = 1 AND bn.id_formato != ?`,
+                `UPDATE campania_base_numero
+                SET estado_registro = 0, fecha_actualizacion = CURRENT_TIMESTAMP
+                FROM base_numero bn
+                WHERE campania_base_numero.id_base_numero = bn.id
+                AND campania_base_numero.id_campania = ?
+                AND campania_base_numero.estado_registro = 1
+                AND bn.id_formato != ?`,
                 [id_campania, id_formato]
             );
             return result.affectedRows;

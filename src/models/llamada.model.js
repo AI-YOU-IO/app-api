@@ -166,7 +166,7 @@ class LlamadaModel {
             );
             return result.insertId;
         } catch (error) {
-            if (error.code === 'ER_DUP_ENTRY') {
+            if (error.code === '23505') {
                 throw new Error('Ya existe una llamada con ese provider_call_id');
             }
             throw new Error(`Error al crear llamada: ${error.message}`);

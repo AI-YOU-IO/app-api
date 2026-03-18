@@ -96,7 +96,7 @@ class ToolModel {
             );
             return result.insertId;
         } catch (error) {
-            if (error.code === 'ER_DUP_ENTRY') {
+            if (error.code === '23505') {
                 throw new Error('Ya existe un tool con ese nombre para esta empresa');
             }
             throw new Error(`Error al crear tool: ${error.message}`);
@@ -141,7 +141,7 @@ class ToolModel {
             );
             return result.affectedRows > 0;
         } catch (error) {
-            if (error.code === 'ER_DUP_ENTRY') {
+            if (error.code === '23505') {
                 throw new Error('Ya existe un tool con ese nombre para esta empresa');
             }
             throw new Error(`Error al actualizar tool: ${error.message}`);
@@ -257,13 +257,13 @@ class ToolModel {
     }
 
     async updateParametros(id_tool, parametros) {
-        const conn = await this.connection.getConnection();
+        const client = await this.connection.connect();
         try {
-            await conn.beginTransaction();
+            await client.query('BEGIN');
 
             // Desactivar parámetros existentes
-            await conn.execute(
-                `UPDATE tool_parametro SET estado_registro = 0 WHERE id_tool = ?`,
+            await client.query(
+                `UPDATE tool_parametro SET estado_registro = 0 WHERE id_tool = $1`,
                 [id_tool]
             );
 
@@ -271,10 +271,10 @@ class ToolModel {
             if (parametros && parametros.length > 0) {
                 for (let i = 0; i < parametros.length; i++) {
                     const p = parametros[i];
-                    await conn.execute(
+                    await client.query(
                         `INSERT INTO tool_parametro
                         (id_tool, nombre, tipo_dato, descripcion, ubicacion, requerido, es_estatico, valor_estatico, orden, estado_registro)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1)`,
                         [
                             id_tool,
                             p.nombre,
@@ -290,13 +290,13 @@ class ToolModel {
                 }
             }
 
-            await conn.commit();
+            await client.query('COMMIT');
             return true;
         } catch (error) {
-            await conn.rollback();
+            await client.query('ROLLBACK');
             throw new Error(`Error al actualizar parámetros: ${error.message}`);
         } finally {
-            conn.release();
+            client.release();
         }
     }
 }

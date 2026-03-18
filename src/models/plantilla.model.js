@@ -101,7 +101,7 @@ class PlantillaModel {
             );
             return result.insertId;
         } catch (error) {
-            if (error.code === 'ER_DUP_ENTRY') {
+            if (error.code === '23505') {
                 throw new Error('Ya existe una plantilla con ese nombre');
             }
             throw new Error(`Error al crear plantilla: ${error.message}`);
@@ -141,7 +141,7 @@ class PlantillaModel {
             const [result] = await this.connection.execute(query, params);
             return result.affectedRows > 0;
         } catch (error) {
-            if (error.code === 'ER_DUP_ENTRY') {
+            if (error.code === '23505') {
                 throw new Error('Ya existe una plantilla con ese nombre');
             }
             throw new Error(`Error al actualizar plantilla: ${error.message}`);
@@ -186,35 +186,35 @@ class PlantillaModel {
     }
 
     async updateTools(id_plantilla, tools_ids) {
-        const conn = await this.connection.getConnection();
+        const client = await this.connection.connect();
         try {
-            await conn.beginTransaction();
+            await client.query('BEGIN');
 
             // Desactivar tools existentes
-            await conn.execute(
-                `UPDATE plantilla_tool SET estado_registro = 0 WHERE id_plantilla = ?`,
+            await client.query(
+                `UPDATE plantilla_tool SET estado_registro = 0 WHERE id_plantilla = $1`,
                 [id_plantilla]
             );
 
             // Insertar nuevos tools
             if (tools_ids && tools_ids.length > 0) {
                 for (let i = 0; i < tools_ids.length; i++) {
-                    await conn.execute(
+                    await client.query(
                         `INSERT INTO plantilla_tool (id_plantilla, id_tool, orden, estado_registro)
-                         VALUES (?, ?, ?, 1)
+                         VALUES ($1, $2, $3, 1)
                          ON CONFLICT (id_plantilla, id_tool) DO UPDATE SET estado_registro = 1, orden = EXCLUDED.orden`,
                         [id_plantilla, tools_ids[i], i + 1]
                     );
                 }
             }
 
-            await conn.commit();
+            await client.query('COMMIT');
             return true;
         } catch (error) {
-            await conn.rollback();
+            await client.query('ROLLBACK');
             throw new Error(`Error al actualizar tools: ${error.message}`);
         } finally {
-            conn.release();
+            client.release();
         }
     }
 

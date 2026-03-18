@@ -40,10 +40,34 @@ const testConnection = async () => {
 const executeQuery = async (sql, params = []) => {
     // Convertir placeholders de MySQL (?) a PostgreSQL ($1, $2, ...)
     let paramIndex = 0;
-    const pgSql = sql.replace(/\?/g, () => `$${++paramIndex}`);
+    let pgSql = sql.replace(/\?/g, () => `$${++paramIndex}`);
+
+    // Convertir INSERT IGNORE a INSERT ... ON CONFLICT DO NOTHING
+    pgSql = pgSql.replace(/INSERT IGNORE INTO/gi, 'INSERT INTO');
+    const isInsertIgnore = /INSERT IGNORE/i.test(sql);
+    if (isInsertIgnore) {
+        // Agregar ON CONFLICT DO NOTHING al final del INSERT (antes del RETURNING si existe)
+        if (!pgSql.includes('ON CONFLICT')) {
+            pgSql = pgSql.replace(/(VALUES\s*\([^)]+\))/i, '$1 ON CONFLICT DO NOTHING');
+        }
+    }
+
+    // Para INSERT, agregar RETURNING id si no existe
+    const isInsert = /^\s*INSERT\s+INTO/i.test(pgSql);
+    if (isInsert && !pgSql.toLowerCase().includes('returning')) {
+        pgSql = pgSql.trim().replace(/;?\s*$/, ' RETURNING id');
+    }
 
     const result = await pool.query(pgSql, params);
-    return [result.rows, result];
+
+    // Mapear propiedades de MySQL a PostgreSQL
+    const mysqlCompatResult = {
+        ...result,
+        affectedRows: result.rowCount,
+        insertId: result.rows && result.rows.length > 0 ? result.rows[0].id : null
+    };
+
+    return [result.rows, mysqlCompatResult];
 };
 
 // Wrapper del pool con métodos execute y query compatibles
