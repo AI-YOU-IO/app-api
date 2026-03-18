@@ -159,7 +159,7 @@ class ReportesCrmController {
       const [leadsSemanasResult] = await pool.execute(`
         SELECT COUNT(*) as total
         FROM persona p
-        WHERE p.fecha_registro >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        WHERE p.fecha_registro >= CURRENT_DATE - INTERVAL '7 days'
         AND p.estado_registro = 1
         ${empresaCondition}
         ${asesorCondition}

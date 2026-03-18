@@ -1,6 +1,9 @@
 const plantillaWhatsappRepository = require("../repositories/plantillaWhatsapp.repository.js");
 const whatsappGraphService = require("../services/whatsapp/whatsappGraph.service.js");
 const logger = require('../config/logger/loggerClient.js');
+const Persona = require("../models/persona.model.js");
+const Chat = require("../models/chat.model.js");
+const Mensaje = require("../models/mensaje.model.js");
 
 class PlantillaWhatsappController {
   /**
@@ -296,11 +299,39 @@ class PlantillaWhatsappController {
         components || []
       );
 
-      return res.status(200).json({
+      res.status(200).json({
         success: true,
         msg: "Plantilla enviada correctamente",
         data: result.response
       });
+
+      // Crear chat si no existe y guardar mensaje saliente
+      try {
+        const persona = await Persona.selectByCelular(phone, id_empresa);
+        if (persona) {
+          let chat = await Chat.findByPersona(persona.id);
+          if (!chat) {
+            chat = await Chat.create({
+              id_empresa,
+              id_persona: persona.id,
+              usuario_registro: null
+            });
+          }
+
+          await Mensaje.create({
+            id_chat: chat.id || chat,
+            contenido: `Hola soy Lili, aqui te comparto el link de operación: ${template_name}`,
+            direccion: "out",
+            wid_mensaje: null,
+            tipo_mensaje: "texto",
+            fecha_hora: new Date(),
+            usuario_registro: null
+          });
+        }
+      } catch (chatError) {
+        logger.error(`[plantillaWhatsapp.controller.js] Error al crear chat/mensaje: ${chatError.message}`);
+      }
+
     } catch (error) {
       logger.error(`[plantillaWhatsapp.controller.js] Error al enviar plantilla: ${error.message}`);
       const errorMsg = error.response?.data?.error?.message || error.message || "Error al enviar plantilla";
