@@ -13,9 +13,15 @@ class EmpresaModel {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         `SELECT e.id, e.razon_social as nombre, e.nombre_comercial, e.ruc, e.email, e.telefono, e.direccion, e.logo_url, e.estado_registro, e.fecha_registro, e.id_tool, e.canal, t.nombre as tool_nombre
          FROM empresa e
          LEFT JOIN tool t ON e.id_tool = t.id
+=======
+        `SELECT e.id, e.razon_social as nombre, e.nombre_comercial, e.ruc, e.email, e.telefono, e.direccion, e.canal, e.logo_url, e.estado_registro, e.fecha_registro, e.id_tool, t.nombre as tool_nombre
+         FROM empresa e
+         LEFT JOIN tool t ON t.id = e.id_tool
+>>>>>>> Stashed changes
 =======
         `SELECT e.id, e.razon_social as nombre, e.nombre_comercial, e.ruc, e.email, e.telefono, e.direccion, e.canal, e.logo_url, e.estado_registro, e.fecha_registro, e.id_tool, t.nombre as tool_nombre
          FROM empresa e
@@ -69,11 +75,14 @@ class EmpresaModel {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         `SELECT e.id, e.razon_social as nombre, e.nombre_comercial, e.ruc, e.email, e.telefono, e.direccion, e.logo_url, e.estado_registro, e.fecha_registro, e.id_tool, e.canal, t.nombre as tool_nombre
          FROM empresa e
          LEFT JOIN tool t ON e.id_tool = t.id
          WHERE e.id = ?`,
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======
@@ -102,8 +111,13 @@ class EmpresaModel {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
          VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, ?)`,
         [nombre, ruc || null, direccion || null, telefono || null, email || null, canal || null, id_tool || null, usuario_registro]
+=======
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), ?)`,
+        [nombre, ruc || null, direccion || null, telefono || null, email || null, canal ?? null, id_tool || null, usuario_registro]
+>>>>>>> Stashed changes
 =======
          VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), ?)`,
         [nombre, ruc || null, direccion || null, telefono || null, email || null, canal ?? null, id_tool || null, usuario_registro]
@@ -139,9 +153,15 @@ class EmpresaModel {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         `UPDATE empresa SET razon_social = ?, ruc = ?, direccion = ?, telefono = ?, email = ?, canal = ?, id_tool = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
          WHERE id = ?`,
         [nombre, ruc || null, direccion || null, telefono || null, email || null, canal || null, id_tool || null, usuario_actualizacion, id]
+=======
+        `UPDATE empresa SET razon_social = ?, ruc = ?, direccion = ?, telefono = ?, email = ?, canal = ?, id_tool = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
+         WHERE id = ?`,
+        [nombre, ruc || null, direccion || null, telefono || null, email || null, canal ?? null, id_tool || null, usuario_actualizacion, id]
+>>>>>>> Stashed changes
 =======
         `UPDATE empresa SET razon_social = ?, ruc = ?, direccion = ?, telefono = ?, email = ?, canal = ?, id_tool = ?, usuario_actualizacion = ?, fecha_actualizacion = NOW()
          WHERE id = ?`,

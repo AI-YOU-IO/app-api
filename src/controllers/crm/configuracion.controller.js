@@ -2215,7 +2215,11 @@ class ConfiguracionController {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         `SELECT p.prompt, v.voice_code, t.ruta as tool_ruta, e.canal
+=======
+        `SELECT p.prompt, v.voice_code, t.ruta ruta_tool, e.canal
+>>>>>>> Stashed changes
 =======
         `SELECT p.prompt, v.voice_code, t.ruta ruta_tool, e.canal
 >>>>>>> Stashed changes
@@ -2248,12 +2252,17 @@ class ConfiguracionController {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       const toolRuta = campaniaRows[0]?.tool_ruta || null;
       const canal = campaniaRows[0]?.canal || 0;
 
       // Obtener configuración de llamadas de la campaña
       const configLlamadaModel = new ConfiguracionCampaniaLlamadaModel();
       const configLlamadas = await configLlamadaModel.getByCampaniaId(id_campania);
+=======
+      const canal = campaniaRows[0]?.canal || null;
+      const ruta_tool = campaniaRows[0]?.ruta_tool || null;
+>>>>>>> Stashed changes
 =======
       const canal = campaniaRows[0]?.canal || null;
       const ruta_tool = campaniaRows[0]?.ruta_tool || null;
