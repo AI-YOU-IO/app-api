@@ -234,6 +234,8 @@ class BaseNumeroDetalleModel {
      */
     async getAllUniversoPendientePorCampania(id_campania) {
         try {
+            console.log(`[getAllUniversoPendientePorCampania] id_campania: ${id_campania}`);
+
             const [rows] = await this.connection.query(
                 `SELECT bnd.*, bn.id as _idBase, e.nombre_comercial, e.id as id_empresa
                 FROM base_numero_detalle bnd
@@ -256,6 +258,7 @@ class BaseNumeroDetalleModel {
                 [id_campania, id_campania]
             );
 
+            console.log(`[getAllUniversoPendientePorCampania] rows encontradas: ${rows?.length || 0}`);
             return rows;
         } catch (error) {
             throw new Error(`Error al obtener universo completo: ${error.message}`);

@@ -1,4 +1,5 @@
 const LlamadaModel = require("../../models/llamada.model.js");
+const EstadoLlamadaAsteriskModel = require("../../models/estadoLlamadaAsterisk.model.js");
 const logger = require('../../config/logger/loggerClient.js');
 const llamadaService = require('../../services/llamada/llamada.service.js');
 const s3Service = require('../../services/s3.service.js');
@@ -166,6 +167,7 @@ class LlamadaController {
             }
 
             const llamadaModel = new LlamadaModel();
+            const estadoAsteriskModel = new EstadoLlamadaAsteriskModel();
 
             // Buscar la llamada por provider_call_id
             const llamada = await llamadaModel.getByProviderCallId(provider_call_id);
@@ -174,12 +176,16 @@ class LlamadaController {
                 return res.status(404).json({ msg: "No se encontró llamada con ese provider_call_id" });
             }
 
+            // Buscar el estado COMPLETED en estado_llamada_asterisk
+            const estadoCompleted = await estadoAsteriskModel.getByCodigo('COMPLETED');
+
             // Subir audio a S3 con folder 'llamadas' usando id_empresa de la llamada
             const archivo_llamada = await s3Service.uploadFile(req.file, 'llamadas', llamada.id_empresa);
 
-            // Actualizar la llamada con el archivo de audio usando provider_call_id
+            // Actualizar la llamada con el archivo de audio y estado COMPLETED
             const updated = await llamadaModel.actualizarAudioLlamadaPorProvider(provider_call_id, {
-                archivo_llamada
+                archivo_llamada,
+                id_estado_llamada_asterisk: estadoCompleted?.id || null
             });
 
             if (!updated) {
@@ -191,7 +197,8 @@ class LlamadaController {
                 data: {
                     provider_call_id,
                     id_llamada: llamada.id,
-                    archivo_llamada
+                    archivo_llamada,
+                    id_estado_llamada_asterisk: estadoCompleted?.id || null
                 }
             });
         } catch (error) {
@@ -295,6 +302,80 @@ class LlamadaController {
             logger.error(`[llamada.controller.js] Error al guardar transcripción: ${error.message}`);
             logger.error(`[llamada.controller.js] Stack: ${error.stack}`);
             return res.status(500).json({ msg: "Error al guardar transcripción", error: error.message });
+        }
+    }
+
+    async actualizarEstadoAsterisk(req, res) {
+        try {
+            const {
+                provider_call_id,
+                status,
+                cause,
+                cause_text,
+                duration,
+                answered,
+                timestamp
+            } = req.body;
+
+            logger.info(`[llamada.controller.js] Webhook estado Asterisk: provider_call_id=${provider_call_id}, status=${status}, cause=${cause}`);
+
+            if (!provider_call_id) {
+                return res.status(400).json({ msg: "El campo provider_call_id es requerido" });
+            }
+
+            if (!status) {
+                return res.status(400).json({ msg: "El campo status es requerido" });
+            }
+
+            const llamadaModel = new LlamadaModel();
+            const estadoAsteriskModel = new EstadoLlamadaAsteriskModel();
+
+            // Buscar la llamada
+            const llamada = await llamadaModel.getByProviderCallId(provider_call_id);
+            if (!llamada) {
+                logger.warn(`[llamada.controller.js] No se encontró llamada con provider_call_id: ${provider_call_id}`);
+                return res.status(404).json({ msg: "No se encontró llamada con ese provider_call_id" });
+            }
+
+            // Buscar el estado de Asterisk por código
+            const estadoAsterisk = await estadoAsteriskModel.getByCodigo(status);
+            if (!estadoAsterisk) {
+                logger.warn(`[llamada.controller.js] No se encontró estado Asterisk con código: ${status}`);
+                return res.status(404).json({ msg: `No se encontró estado Asterisk con código: ${status}` });
+            }
+
+            // Este endpoint solo recibe estados de error (llamada no conectó)
+            // Siempre id_estado_llamada = 3 (Fallida/No contestada)
+            const id_estado_llamada = 3;
+
+            // Actualizar la llamada (no se actualiza duracion_seg ni fecha_fin)
+            const updated = await llamadaModel.actualizarEstadoAsterisk(provider_call_id, {
+                id_estado_llamada_asterisk: estadoAsterisk.id,
+                id_estado_llamada,
+                duracion_seg: null,
+                fecha_fin: null
+            });
+
+            if (!updated) {
+                return res.status(500).json({ msg: "No se pudo actualizar la llamada" });
+            }
+
+            logger.info(`[llamada.controller.js] Llamada ${provider_call_id} actualizada: estado_asterisk=${status}(${estadoAsterisk.id}), estado_llamada=${id_estado_llamada}`);
+
+            return res.status(200).json({
+                msg: "Estado de llamada actualizado exitosamente",
+                data: {
+                    provider_call_id,
+                    id_llamada: llamada.id,
+                    status,
+                    id_estado_llamada_asterisk: estadoAsterisk.id,
+                    id_estado_llamada
+                }
+            });
+        } catch (error) {
+            logger.error(`[llamada.controller.js] Error al actualizar estado Asterisk: ${error.message}`);
+            logger.error(`[llamada.controller.js] Stack: ${error.stack}`);
+            return res.status(500).json({ msg: "Error al actualizar estado de llamada", error: error.message });
         }
     }
 }

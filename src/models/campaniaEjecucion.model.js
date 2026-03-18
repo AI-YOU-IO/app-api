@@ -57,7 +57,7 @@ class CampaniaEjecucionModel {
 
     async create({ id_empresa, id_campania, id_base_numero, fecha_programada, usuario_registro }) {
         try {
-            const [result] = await this.connection.execute(
+            const [rows, result] = await this.connection.execute(
                 `INSERT INTO campania_ejecucion
                 (id_empresa, id_campania, id_base_numero, fecha_programada, estado_ejecucion, estado_registro, usuario_registro)
                 VALUES (?, ?, ?, ?, 'pendiente', 1, ?)`,
@@ -69,6 +69,7 @@ class CampaniaEjecucionModel {
                     usuario_registro || null
                 ]
             );
+            console.log(`[campaniaEjecucion.create] rows:`, rows, `result.insertId:`, result.insertId);
             return result.insertId;
         } catch (error) {
             throw new Error(`Error al crear ejecucion: ${error.message}`);

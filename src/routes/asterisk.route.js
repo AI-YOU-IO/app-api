@@ -47,4 +47,7 @@ router.post("/upload-audio", authAsteriskToken, uploadAudio.single('audio'), Lla
 // Ruta de transcripcion
 router.post("/transcripcion", authAsteriskToken, LlamadaController.guardarTranscripcion);
 
+// Ruta de estado de llamada Asterisk (webhook)
+router.post("/call-status", authAsteriskToken, LlamadaController.actualizarEstadoAsterisk);
+
 module.exports = router;

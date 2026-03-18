@@ -130,8 +130,7 @@ class LlamadaModel {
             const [rows] = await this.connection.execute(
                 `SELECT COALESCE(MAX(codigo_llamada), 0) + 1 as next_codigo
                 FROM llamada
-                WHERE id_empresa = ?
-                FOR UPDATE`,
+                WHERE id_empresa = ?`,
                 [id_empresa]
             );
             return rows[0].next_codigo;
@@ -142,15 +141,18 @@ class LlamadaModel {
 
     async create({ id_empresa, id_campania, id_base_numero, id_base_numero_detalle, id_campania_ejecucion, provider_call_id, usuario_registro = null }) {
         try {
+            console.log(`[llamada.create] Iniciando - id_empresa: ${id_empresa}, id_campania: ${id_campania}, id_base_numero: ${id_base_numero}`);
             const codigo_llamada = await this.getNextCodigoLlamada(id_empresa);
+            console.log(`[llamada.create] codigo_llamada: ${codigo_llamada}`);
 
-            // Fecha con zona horaria Lima, Perú (UTC-5) en formato MySQL
+            // Fecha con zona horaria Lima, Perú (UTC-5) en formato PostgreSQL
             const fechaLima = getFechaLima();
 
-            const [result] = await this.connection.execute(
+            const [rows] = await this.connection.execute(
                 `INSERT INTO llamada
                 (id_empresa, id_campania, id_base_numero, id_base_numero_detalle, id_campania_ejecucion, provider_call_id, codigo_llamada, id_estado_llamada, fecha_inicio, fecha_registro, estado_registro, usuario_registro)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 2, ?, ?, 1, ?)`,
+                VALUES (?, ?, ?, ?, ?, ?, ?, 2, ?, ?, 1, ?)
+                RETURNING id`,
                 [
                     id_empresa,
                     id_campania,
@@ -164,7 +166,8 @@ class LlamadaModel {
                     usuario_registro
                 ]
             );
-            return result.insertId;
+            console.log(`[llamada.create] INSERT result - rows:`, rows);
+            return rows[0]?.id;
         } catch (error) {
             if (error.code === '23505') {
                 throw new Error('Ya existe una llamada con ese provider_call_id');
@@ -188,7 +191,7 @@ class LlamadaModel {
 
     async actualizarEstadoLlamada(provider_call_id, id_estado_llamada, fecha_fin = null) {
         try {
-            const [result] = await this.connection.execute(
+            const [, result] = await this.connection.execute(
                 `UPDATE llamada
                 SET id_estado_llamada = ?,
                     fecha_fin = COALESCE(?, fecha_fin)
@@ -203,7 +206,7 @@ class LlamadaModel {
 
     async actualizarArchivoLlamada(id, archivo_llamada) {
         try {
-            const [result] = await this.connection.execute(
+            const [, result] = await this.connection.execute(
                 `UPDATE llamada
                 SET archivo_llamada = ?,
                     id_estado_llamada = 3,
@@ -219,7 +222,7 @@ class LlamadaModel {
 
     async actualizarMetadataUltravox(id, { id_ultravox_call, metadata_ultravox_call, fecha_fin, duracion_seg }) {
         try {
-            const [result] = await this.connection.execute(
+            const [, result] = await this.connection.execute(
                 `UPDATE llamada
                 SET id_ultravox_call = COALESCE(?, id_ultravox_call),
                     metadata_ultravox_call = COALESCE(?, metadata_ultravox_call),
@@ -241,18 +244,43 @@ class LlamadaModel {
         }
     }
 
-    async actualizarAudioLlamadaPorProvider(provider_call_id, { archivo_llamada, id_ultravox_call, metadata_ultravox_call }) {
+    async actualizarEstadoAsterisk(provider_call_id, { id_estado_llamada_asterisk, id_estado_llamada, duracion_seg, fecha_fin }) {
         try {
-            const [result] = await this.connection.execute(
+            const [, result] = await this.connection.execute(
+                `UPDATE llamada
+                SET id_estado_llamada_asterisk = ?,
+                    id_estado_llamada = ?,
+                    duracion_seg = COALESCE(?, duracion_seg),
+                    fecha_fin = COALESCE(?, fecha_fin)
+                WHERE provider_call_id = ?`,
+                [
+                    id_estado_llamada_asterisk,
+                    id_estado_llamada,
+                    duracion_seg !== null && duracion_seg !== undefined ? duracion_seg : null,
+                    fecha_fin || null,
+                    provider_call_id
+                ]
+            );
+            return result.affectedRows > 0;
+        } catch (err) {
+            throw new Error(`Error al actualizar estado asterisk: ${err.message}`);
+        }
+    }
+
+    async actualizarAudioLlamadaPorProvider(provider_call_id, { archivo_llamada, id_ultravox_call, metadata_ultravox_call, id_estado_llamada_asterisk }) {
+        try {
+            const [, result] = await this.connection.execute(
                 `UPDATE llamada
                 SET archivo_llamada = COALESCE(?, archivo_llamada),
                     id_ultravox_call = COALESCE(?, id_ultravox_call),
-                    metadata_ultravox_call = COALESCE(?, metadata_ultravox_call)
+                    metadata_ultravox_call = COALESCE(?, metadata_ultravox_call),
+                    id_estado_llamada_asterisk = COALESCE(?, id_estado_llamada_asterisk)
                 WHERE provider_call_id = ?`,
                 [
                     archivo_llamada || null,
                     id_ultravox_call || null,
                     metadata_ultravox_call ? JSON.stringify(metadata_ultravox_call) : null,
+                    id_estado_llamada_asterisk || null,
                     provider_call_id
                 ]
             );

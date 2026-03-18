@@ -5,8 +5,8 @@ const LlamadaModel = require('../../models/llamada.model.js');
 const CampaniaEjecucionModel = require('../../models/campaniaEjecucion.model.js');
 
 const ULTRAVOX_API_URL = process.env.ULTRAVOX_API_URL || 'https://bot.ai-you.io/api/calls/ultravox';
-const MAX_CONCURRENT = process.env.MAX_NUM_CONCURRENT;
-const POLL_INTERVAL = 10000; // 10 segundos
+const BATCH_SIZE = 100; // Tamaño de cada bloque de llamadas (recomendado: 100)
+const BATCH_DELAY_MS = 500; // Delay entre bloques (500ms)
 
 class LlamadaService {
     constructor() {
@@ -37,9 +37,12 @@ class LlamadaService {
      */
     async realizarLlamada(body) {
         try {
+            console.log(`[LlamadaService.realizarLlamada] Llamando a: ${body.destination}`);
             const response = await this.client.post('', body);
+            console.log(`[LlamadaService.realizarLlamada] Respuesta:`, JSON.stringify(response.data));
             return response.data;
         } catch (error) {
+            console.log(`[LlamadaService.realizarLlamada] Error HTTP:`, error.response?.status, JSON.stringify(error.response?.data));
             logger.error(`[LlamadaService] Error al realizar llamada a ${body.destination}: ${error.message}`);
             throw error;
         }
@@ -47,9 +50,6 @@ class LlamadaService {
 
     /**
      * Carga TODOS los números pendientes de llamar para una campaña.
-     * Obtiene las bases desde campania_base_numero y filtra los ya llamados.
-     * @param {number} idCampania - ID de la campaña
-     * @returns {Array} Array de números pendientes
      */
     async cargarUniversoPendiente(idCampania) {
         const detalleModel = new BaseNumeroDetalleModel();
@@ -62,8 +62,15 @@ class LlamadaService {
     }
 
     /**
-     * Inicia el procesamiento async de llamadas.
-     * Mantiene hasta 200 llamadas concurrentes, polleando cada 10s.
+     * Pequeña pausa entre bloques
+     */
+    sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Procesa llamadas en bloques.
+     * Asterisk maneja la concurrencia, solo enviamos en bloques para no saturar la API.
      */
     async procesarLlamadasAsync({ idEjecucion, idCampania, idEmpresa, tipificaciones, prompt, voiceCode, toolRuta, canal, configLlamadas }) {
         const ejecucionModel = new CampaniaEjecucionModel();
@@ -80,31 +87,31 @@ class LlamadaService {
         try {
             await ejecucionModel.iniciarEjecucion(idEjecucion);
 
-            // 1. Cargar universo de números pendientes (excluye ya llamados)
+            // 1. Cargar universo de números pendientes
             const numeros = await this.cargarUniversoPendiente(idCampania);
             const totalNumeros = numeros.length;
-            let indicePendiente = 0;
             let completadas = 0;
             let fallidas = 0;
-            const llamadasEnVuelo = new Set(); // provider_call_id de llamadas despachadas
 
-            logger.info(`[LlamadaService] Ejecución ${idEjecucion}: ${totalNumeros} números a procesar`);
+            logger.info(`[LlamadaService] Ejecución ${idEjecucion}: ${totalNumeros} números a procesar en bloques de ${BATCH_SIZE}`);
 
-            // 2. Despachar lote inicial (hasta MAX_CONCURRENT)
-            const despacharLote = async () => {
-                const sesiones = await this.getSesionesActivas(idEmpresa);
-                const slotsDisponibles = MAX_CONCURRENT - sesiones.length;
+            // 2. Procesar en bloques
+            for (let i = 0; i < totalNumeros; i += BATCH_SIZE) {
+                // Verificar si fue cancelada
+                const estado = this.ejecucionesActivas.get(idEjecucion);
+                if (!estado?.active) {
+                    logger.info(`[LlamadaService] Ejecución ${idEjecucion} cancelada en bloque ${Math.floor(i / BATCH_SIZE) + 1}`);
+                    break;
+                }
 
-                if (slotsDisponibles <= 0) return;
+                const bloque = numeros.slice(i, i + BATCH_SIZE);
+                const numBloque = Math.floor(i / BATCH_SIZE) + 1;
+                const totalBloques = Math.ceil(totalNumeros / BATCH_SIZE);
 
-                const cantidadADespachar = Math.min(slotsDisponibles, totalNumeros - indicePendiente);
+                logger.info(`[LlamadaService] Procesando bloque ${numBloque}/${totalBloques} (${bloque.length} números)`);
 
-                const promesas = [];
-                for (let i = 0; i < cantidadADespachar; i++) {
-                    const num = numeros[indicePendiente];
-                    if (!num) break;
-                    indicePendiente++;
-
+                // Crear promesas para este bloque
+                const promesas = bloque.map(async (num) => {
                     const telefono = this.formatearTelefono(num.telefono);
                     const body = {
                         destination: telefono,
@@ -128,72 +135,45 @@ class LlamadaService {
                         }
                     };
 
-                    promesas.push(
-                        this.realizarLlamada(body)
-                            .then(async (result) => {
-                                completadas++;
-                                // console.log(result);
-                                if (result?.success) {
-                                    await llamadaModel.create({
-                                        id_empresa: idEmpresa,
-                                        id_campania: idCampania,
-                                        id_base_numero: num._idBase,
-                                        id_base_numero_detalle: num.id,
-                                        id_campania_ejecucion: idEjecucion,
-                                        provider_call_id: result.data.channelId
-                                    });
-                                    llamadasEnVuelo.add(result.data.channelId);
-                                }
-                            })
-                            .catch(() => {
-                                fallidas++;
-                                logger.error(`[LlamadaService] Fallo llamada a ${telefono}`);
-                            })
-                    );
+                    try {
+                        const result = await this.realizarLlamada(body);
+                        if (result?.success) {
+                            await llamadaModel.create({
+                                id_empresa: idEmpresa,
+                                id_campania: idCampania,
+                                id_base_numero: num.id_base_numero,
+                                id_base_numero_detalle: num.id,
+                                id_campania_ejecucion: idEjecucion,
+                                provider_call_id: result.data.channelId
+                            });
+                            return { success: true, telefono };
+                        }
+                        return { success: false, telefono, error: 'No success en respuesta' };
+                    } catch (error) {
+                        console.error(`[LlamadaService] Error en llamada ${telefono}:`, error.message);
+                        return { success: false, telefono, error: error.message };
+                    }
+                });
+
+                // Ejecutar bloque en paralelo
+                const resultados = await Promise.allSettled(promesas);
+
+                // Contar resultados
+                for (const resultado of resultados) {
+                    if (resultado.status === 'fulfilled' && resultado.value.success) {
+                        completadas++;
+                    } else {
+                        fallidas++;
+                    }
                 }
 
-                await Promise.allSettled(promesas);
-            };
+                // Pequeño delay entre bloques para no saturar
+                if (i + BATCH_SIZE < totalNumeros) {
+                    await this.sleep(BATCH_DELAY_MS);
+                }
+            }
 
-            // 3. Despachar lote inicial
-            await despacharLote();
-
-            // 4. Poll loop: cada 10s revisar sesiones y despachar más
-            await new Promise((resolve) => {
-                const interval = setInterval(async () => {
-                    // Verificar si fue cancelada
-                    const estado = this.ejecucionesActivas.get(idEjecucion);
-                    if (!estado?.active) {
-                        clearInterval(interval);
-                        resolve();
-                        return;
-                    }
-
-                    // Marcar como finalizadas las llamadas que ya no están en sesiones activas
-                    const sesionesActuales = await this.getSesionesActivas(idEmpresa);
-                    const channelIdsActivos = new Set(sesionesActuales.map(s => s.channelId));
-                    for (const channelId of llamadasEnVuelo) {
-                        if (!channelIdsActivos.has(channelId)) {
-                            llamadasEnVuelo.delete(channelId);
-                            await llamadaModel.actualizarEstadoLlamada(channelId, 4).catch(() => {});
-                        }
-                    }
-
-                    // Si ya se despacharon todos, esperar a que terminen las activas
-                    if (indicePendiente >= totalNumeros) {
-                        if (sesionesActuales.length === 0 && llamadasEnVuelo.size === 0) {
-                            clearInterval(interval);
-                            resolve();
-                        }
-                        return;
-                    }
-
-                    // Despachar más números
-                    await despacharLote();
-                }, POLL_INTERVAL);
-            });
-
-            // 5. Finalizar ejecución
+            // 3. Finalizar ejecución
             await ejecucionModel.finalizarEjecucion(idEjecucion, {
                 resultado: JSON.stringify({ total: totalNumeros, completadas, fallidas })
             });
