@@ -97,8 +97,8 @@ class CampaniaEjecucionModel {
         try {
             const [rows, result] = await this.connection.execute(
                 `INSERT INTO campania_ejecucion
-                (id_empresa, id_campania, id_base_numero, fecha_programada, estado_ejecucion, estado_registro, usuario_registro)
-                VALUES (?, ?, ?, ?, 'pendiente', 1, ?)`,
+                (id_empresa, id_campania, id_base_numero, fecha_programada, estado_registro, usuario_registro)
+                VALUES (?, ?, ?, ?, 1, ?)`,
                 [
                     id_empresa,
                     id_campania,
@@ -111,85 +111,6 @@ class CampaniaEjecucionModel {
             return result.insertId;
         } catch (error) {
             throw new Error(`Error al crear ejecucion: ${error.message}`);
-        }
-    }
-
-    async updateEstado(id, { estado_ejecucion, fecha_inicio, fecha_fin, resultado, mensaje_error, usuario_actualizacion }) {
-        try {
-            let query = `UPDATE campania_ejecucion SET estado_ejecucion = ?`;
-            const params = [estado_ejecucion];
-
-            if (fecha_inicio !== undefined) {
-                query += `, fecha_inicio = ?`;
-                params.push(fecha_inicio);
-            }
-
-            if (fecha_fin !== undefined) {
-                query += `, fecha_fin = ?`;
-                params.push(fecha_fin);
-            }
-
-            if (resultado !== undefined) {
-                query += `, resultado = ?`;
-                params.push(resultado);
-            }
-
-            if (mensaje_error !== undefined) {
-                query += `, mensaje_error = ?`;
-                params.push(mensaje_error);
-            }
-
-            query += `, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`;
-            params.push(usuario_actualizacion || null, id);
-
-            const [result] = await this.connection.execute(query, params);
-            return result.affectedRows > 0;
-        } catch (error) {
-            throw new Error(`Error al actualizar estado de ejecucion: ${error.message}`);
-        }
-    }
-
-    async iniciarEjecucion(id, usuario_actualizacion) {
-        return this.updateEstado(id, {
-            estado_ejecucion: 'en_proceso',
-            fecha_inicio: new Date(),
-            usuario_actualizacion
-        });
-    }
-
-    async finalizarEjecucion(id, { resultado, mensaje_error, usuario_actualizacion }) {
-        return this.updateEstado(id, {
-            estado_ejecucion: 'ejecutado',
-            fecha_fin: new Date(),
-            resultado,
-            mensaje_error,
-            usuario_actualizacion
-        });
-    }
-
-    async cancelarEjecucion(id, { mensaje_error, usuario_actualizacion }) {
-        return this.updateEstado(id, {
-            estado_ejecucion: 'cancelado',
-            fecha_fin: new Date(),
-            mensaje_error,
-            usuario_actualizacion
-        });
-    }
-
-    async getEstadisticas(id_campania) {
-        try {
-            const [rows] = await this.connection.execute(
-                `SELECT
-                    estado_ejecucion,
-                    COUNT(*)::integer as cantidad
-                FROM campania_ejecucion
-                WHERE id_campania = ? AND estado_registro = 1
-                GROUP BY estado_ejecucion`,
-                [id_campania]
-            );
-            return rows;
-        } catch (error) {
-            throw new Error(`Error al obtener estadisticas: ${error.message}`);
         }
     }
 
