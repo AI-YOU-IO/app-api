@@ -68,10 +68,13 @@ class LlamadaService {
      */
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
     async procesarLlamadasAsync({ idEjecucion, idCampania, idsBaseNumero, idEmpresa, tipificaciones, prompt, canal, ruta_tool, voiceCode }) {
