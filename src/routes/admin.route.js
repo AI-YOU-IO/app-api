@@ -10,6 +10,9 @@ router.post("/empresas", AdminController.createEmpresa);
 router.put("/empresas/:id", AdminController.updateEmpresa);
 router.put("/empresas/:id/estado", AdminController.updateEmpresaEstado);
 
+// Tools
+router.get("/tools", AdminController.getTools);
+
 // Usuarios (admin-level, con info de empresa)
 router.get("/usuarios", AdminController.getUsuarios);
 router.get("/usuarios/:id", AdminController.getUsuarioById);

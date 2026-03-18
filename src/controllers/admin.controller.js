@@ -1,5 +1,6 @@
 const EmpresaModel = require("../models/empresa.model.js");
 const UsuarioModel = require("../models/usuario.model.js");
+const ToolModel = require("../models/tool.model.js");
 const logger = require('../config/logger/loggerClient.js');
 
 class AdminController {
@@ -141,6 +142,18 @@ class AdminController {
     } catch (error) {
       logger.error(`[admin.controller.js] Error al eliminar usuario: ${error.message}`);
       return res.serverError(500, 'Error al eliminar usuario');
+    }
+  }
+
+  // ==================== TOOLS ====================
+  async getTools(req, res) {
+    try {
+      const toolModel = new ToolModel();
+      const tools = await toolModel.getAll();
+      return res.success(200, 'Tools obtenidos correctamente', tools);
+    } catch (error) {
+      logger.error(`[admin.controller.js] Error al obtener tools: ${error.message}`);
+      return res.serverError(500, 'Error al obtener tools');
     }
   }
 }

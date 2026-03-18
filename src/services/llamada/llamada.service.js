@@ -66,9 +66,15 @@ class LlamadaService {
     /**
      * Pequeña pausa entre bloques
      */
+<<<<<<< Updated upstream
     sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
+=======
+    async procesarLlamadasAsync({ idEjecucion, idCampania, idsBaseNumero, idEmpresa, tipificaciones, prompt, canal, ruta_tool, voiceCode }) {
+        const ejecucionModel = new CampaniaEjecucionModel();
+        const llamadaModel = new LlamadaModel();
+>>>>>>> Stashed changes
 
     /**
      * Procesa una ronda de llamadas en bloques.
@@ -179,12 +185,84 @@ class LlamadaService {
             let totalEnviadas = 0;
             let totalFallidas = 0;
 
+<<<<<<< Updated upstream
             // Bucle de rondas de reintentos
             while (ronda <= maxIntentos) {
                 const estado = this.ejecucionesActivas.get(idEjecucion);
                 if (!estado?.active) {
                     logger.info(`[LlamadaService] Ejecución ${idEjecucion} cancelada antes de ronda ${ronda}`);
                     break;
+=======
+            // 1. Cargar todos los números de todas las bases
+            const numeros = await this.cargarTodosLosNumeros(idsBaseNumero);
+            const totalNumeros = numeros.length;
+            let indicePendiente = 0;
+            let completadas = 0;
+            let fallidas = 0;
+            const llamadasEnVuelo = new Set(); // provider_call_id de llamadas despachadas
+
+            logger.info(`[LlamadaService] Ejecución ${idEjecucion}: ${totalNumeros} números a procesar`);
+
+            // 2. Despachar lote inicial (hasta MAX_CONCURRENT)
+            const despacharLote = async () => {
+                const sesiones = await this.getSesionesActivas(idEmpresa);
+                const slotsDisponibles = MAX_CONCURRENT - sesiones.length;
+
+                if (slotsDisponibles <= 0) return;
+
+                const cantidadADespachar = Math.min(slotsDisponibles, totalNumeros - indicePendiente);
+
+                const promesas = [];
+                for (let i = 0; i < cantidadADespachar; i++) {
+                    const num = numeros[indicePendiente];
+                    if (!num) break;
+                    indicePendiente++;
+
+                    const telefono = this.formatearTelefono(num.telefono);
+                    const body = {
+                        destination: telefono,
+                        data: {
+                            nombre_completo: num.nombre,
+                            celular: telefono,
+                            id_empresa: num.id_empresa,
+                            ...(num.json_adicional || {})
+                        },
+                        extras: {
+                            voice: voiceCode,
+                            tipificaciones,
+                            prompt: prompt,
+                            canal: canal,
+                            ruta_tool: ruta_tool,
+                            empresa: {
+                                id: num.id_empresa,
+                                nombre: num.nombre_comercial,
+                            }
+                        }
+                    };
+
+                    promesas.push(
+                        this.realizarLlamada(body)
+                            .then(async (result) => {
+                                completadas++;
+                                // console.log(result);
+                                if (result?.success) {
+                                    await llamadaModel.create({
+                                        id_empresa: idEmpresa,
+                                        id_campania: idCampania,
+                                        id_base_numero: num._idBase,
+                                        id_base_numero_detalle: num.id,
+                                        id_campania_ejecucion: idEjecucion,
+                                        provider_call_id: result.data.channelId
+                                    });
+                                    llamadasEnVuelo.add(result.data.channelId);
+                                }
+                            })
+                            .catch(() => {
+                                fallidas++;
+                                logger.error(`[LlamadaService] Fallo llamada a ${telefono}`);
+                            })
+                    );
+>>>>>>> Stashed changes
                 }
 
                 // Cargar números pendientes (ya excluye exitosas y las que alcanzaron max_intentos)
