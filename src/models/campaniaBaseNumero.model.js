@@ -50,7 +50,7 @@ class CampaniaBaseNumeroModel {
 
     async remove(id, usuario_actualizacion = null) {
         try {
-            const [result] = await this.connection.execute(
+            const [, result] = await this.connection.execute(
                 'UPDATE campania_base_numero SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?',
                 [usuario_actualizacion, id]
             );
@@ -62,7 +62,7 @@ class CampaniaBaseNumeroModel {
 
     async removeByCampaniaAndBase(id_campania, id_base_numero) {
         try {
-            const [result] = await this.connection.execute(
+            const [, result] = await this.connection.execute(
                 'UPDATE campania_base_numero SET estado_registro = 0, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id_campania = ? AND id_base_numero = ?',
                 [id_campania, id_base_numero]
             );
@@ -74,7 +74,7 @@ class CampaniaBaseNumeroModel {
 
     async removeByFormatoMismatch(id_campania, id_formato) {
         try {
-            const [result] = await this.connection.execute(
+            const [, result] = await this.connection.execute(
                 `UPDATE campania_base_numero
                 SET estado_registro = 0, fecha_actualizacion = CURRENT_TIMESTAMP
                 FROM base_numero bn
@@ -105,7 +105,8 @@ class CampaniaBaseNumeroModel {
 
     async toggleActivo(id, usuario_actualizacion = null) {
         try {
-            const [result] = await this.connection.execute(
+            console.log(`[toggleActivo] id=${id}, usuario=${usuario_actualizacion}`);
+            const [, result] = await this.connection.execute(
                 `UPDATE campania_base_numero
                 SET activo = CASE WHEN activo = 1 THEN 0 ELSE 1 END,
                     usuario_actualizacion = ?,
@@ -113,16 +114,20 @@ class CampaniaBaseNumeroModel {
                 WHERE id = ? AND estado_registro = 1`,
                 [usuario_actualizacion, id]
             );
+            console.log(`[toggleActivo] result:`, result);
 
             if (result.affectedRows > 0) {
                 const [rows] = await this.connection.execute(
                     'SELECT activo FROM campania_base_numero WHERE id = ?',
                     [id]
                 );
+                console.log(`[toggleActivo] nuevo activo:`, rows[0]?.activo);
                 return rows[0]?.activo;
             }
+            console.log(`[toggleActivo] No se afectaron filas`);
             return null;
         } catch (error) {
+            console.error(`[toggleActivo] Error:`, error);
             throw new Error(`Error al cambiar estado activo: ${error.message}`);
         }
     }

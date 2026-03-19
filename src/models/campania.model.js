@@ -19,7 +19,14 @@ class CampaniaModel {
                     (SELECT COUNT(*)::integer FROM campania_base_numero cbn
                      WHERE cbn.id_campania = c.id AND cbn.estado_registro = 1) as total_bases,
                     (SELECT COUNT(*)::integer FROM campania_ejecucion ce
-                     WHERE ce.id_campania = c.id AND ce.estado_registro = 1) as total_ejecuciones
+                     WHERE ce.id_campania = c.id AND ce.estado_registro = 1) as total_ejecuciones,
+                    (SELECT COUNT(*)::integer FROM llamada l
+                     WHERE l.id_campania = c.id AND l.estado_registro = 1 AND l.id_estado_llamada IN (1, 2)) as llamadas_en_proceso,
+                    CASE
+                        WHEN (SELECT COUNT(*) FROM llamada l WHERE l.id_campania = c.id AND l.estado_registro = 1 AND l.id_estado_llamada IN (1, 2)) > 0 THEN 'ejecutando'
+                        WHEN (SELECT COUNT(*) FROM campania_ejecucion ce WHERE ce.id_campania = c.id AND ce.estado_registro = 1) = 0 THEN 'sin_ejecuciones'
+                        ELSE 'finalizado'
+                    END as estado_campania
                 FROM campania c
                 LEFT JOIN tipo_campania tc ON c.id_tipo_campania = tc.id AND tc.estado_registro = 1
                 LEFT JOIN formato f ON c.id_formato = f.id
