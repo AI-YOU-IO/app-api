@@ -4,6 +4,7 @@ const Persona = require("../models/persona.model.js");
 const Usuario = require("../models/usuario.model.js");
 const Chat = require("../models/chat.model.js");
 const Mensaje = require("../models/mensaje.model.js");
+const ConfiguracionWhatsapp = require("../models/configuracionWhatsapp.model.js");
 const logger = require("../config/logger/loggerClient");
 
 class MessageProcessingController {
@@ -22,18 +23,25 @@ class MessageProcessingController {
 
     async processMessage(req, res) {
         try {
-            const { phone, question, wid, id_empresa, messageType, files } = req.body;
+            const { phone, question, wid, phone_number_id, messageType, files } = req.body;
 
-            if (!phone || !question || !id_empresa) {
-                return res.serverError(400, "Campos requeridos: phone, question, id_empresa");
+            if (!phone || !question || !phone_number_id) {
+                return res.serverError(400, "Campos requeridos: phone, question, phone_number_id");
             }
 
             const phoneTrimmed = phone.trim();
             const questionTrimmed = question.trim();
             const widTrimmed = wid ? wid.trim() : null;
-            const empresaId = parseInt(id_empresa, 10);
             const tipoMensaje = messageType || "texto";
             const archivos = Array.isArray(files) ? files : [];
+
+            // Resolver id_empresa a partir del phone_number_id en configuracion_whatsapp
+            const configWhatsapp = await ConfiguracionWhatsapp.getByPhoneNumberId(phone_number_id);
+            if (!configWhatsapp) {
+                logger.error(`[messageProcessing.controller.js] No se encontró configuración para phone_number_id: ${phone_number_id}`);
+                return res.serverError(400, "No se encontró configuración WhatsApp para el phone_number_id proporcionado");
+            }
+            const empresaId = configWhatsapp.id_empresa;
 
             let persona = await Persona.selectByCelular(phoneTrimmed, empresaId);
 

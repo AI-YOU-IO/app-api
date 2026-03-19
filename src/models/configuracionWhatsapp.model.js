@@ -56,6 +56,23 @@ class ConfiguracionWhatsappModel {
         }
     }
 
+    async getByPhoneNumberId(phoneNumberId) {
+        try {
+            const [rows] = await this.connection.execute(
+                `SELECT id, id_empresa, app_id, numero_telefono_id, clave_secreta,
+                        token_whatsapp, waba_id, phone_number, token_expiration,
+                        estado_registro, usuario_registro, fecha_registro,
+                        fecha_actualizacion, usuario_actualizacion
+                 FROM configuracion_whatsapp
+                 WHERE numero_telefono_id = ? AND estado_registro = 1`,
+                [phoneNumberId]
+            );
+            return rows[0] || null;
+        } catch (error) {
+            throw new Error(`Error al obtener configuración WhatsApp por numero_telefono_id: ${error.message}`);
+        }
+    }
+
     async create({ id_empresa, app_id, numero_telefono_id, clave_secreta, token_whatsapp, waba_id, phone_number, token_expiration, usuario_registro }) {
         try {
             const [result] = await this.connection.execute(
