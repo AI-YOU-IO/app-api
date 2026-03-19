@@ -275,6 +275,48 @@ class BaseNumeroDetalleModel {
     }
 
     /**
+     * Cuenta los números pendientes de llamar para una campaña.
+     * Usa la misma lógica que getAllUniversoPendientePorCampania pero solo retorna el conteo.
+     * @param {number} id_campania - ID de la campaña
+     * @param {number} max_intentos - Máximo de intentos permitidos (default 1)
+     * @returns {number} Cantidad de números pendientes
+     */
+    async countUniversoPendientePorCampania(id_campania, max_intentos = 1) {
+        try {
+            const [rows] = await this.connection.query(
+                `SELECT COUNT(*)::integer as total
+                FROM base_numero_detalle bnd
+                INNER JOIN base_numero bn ON bn.id = bnd.id_base_numero
+                INNER JOIN campania_base_numero cbn ON cbn.id_base_numero = bn.id
+                WHERE cbn.id_campania = $1
+                AND cbn.estado_registro = 1
+                AND cbn.activo = 1
+                AND bnd.estado_registro = 1
+                -- Excluir números con llamada exitosa (estado 4)
+                AND NOT EXISTS (
+                    SELECT 1 FROM llamada l
+                    WHERE l.id_base_numero_detalle = bnd.id
+                    AND l.id_campania = $1
+                    AND l.estado_registro = 1
+                    AND l.id_estado_llamada = 4
+                )
+                -- Excluir números que ya alcanzaron max_intentos
+                AND (
+                    SELECT COUNT(*) FROM llamada l
+                    WHERE l.id_base_numero_detalle = bnd.id
+                    AND l.id_campania = $1
+                    AND l.estado_registro = 1
+                    AND l.fecha_fin IS NOT NULL
+                ) < $2`,
+                [id_campania, max_intentos]
+            );
+            return rows[0]?.total || 0;
+        } catch (error) {
+            throw new Error(`Error al contar universo pendiente: ${error.message}`);
+        }
+    }
+
+    /**
      * Sincroniza los registros de base_numero_detalle hacia la tabla persona
      * Solo inserta personas nuevas (únicas por celular + id_empresa)
      * @param {number} id_base_numero - ID de la base de números

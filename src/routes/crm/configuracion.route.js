@@ -166,6 +166,7 @@ router.delete("/campania-bases/:id", ConfiguracionController.removeBaseFromCampa
 // Rutas de Ejecucion de Campania
 router.get("/campanias/:idCampania/ejecuciones", ConfiguracionController.getEjecucionesByCampania);
 router.get("/campanias/:idCampania/estadisticas", ConfiguracionController.getEstadisticasCampania);
+router.get("/campanias/:idCampania/numeros-pendientes", ConfiguracionController.getNumerosPendientesCampania);
 router.post("/campania-ejecuciones/ejecutar", ConfiguracionController.ejecutarCampania);
 router.post("/campanias/reprocesar", ConfiguracionController.reprocesarCampania);
 router.get("/campania-ejecuciones/:id", ConfiguracionController.getEjecucionById);

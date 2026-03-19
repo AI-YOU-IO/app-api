@@ -2465,6 +2465,25 @@ class ConfiguracionController {
     }
   }
 
+  async getNumerosPendientesCampania(req, res) {
+    try {
+      const { idCampania } = req.params;
+
+      // Obtener max_intentos de la configuración de la campaña
+      const configModel = new ConfiguracionCampaniaLlamadaModel();
+      const config = await configModel.getByCampaniaId(idCampania);
+      const maxIntentos = config?.max_intentos || 1;
+
+      const detalleModel = new BaseNumeroDetalleModel();
+      const totalPendientes = await detalleModel.countUniversoPendientePorCampania(idCampania, maxIntentos);
+
+      return res.status(200).json({ data: { total_pendientes: totalPendientes } });
+    } catch (error) {
+      logger.error(`[configuracion.controller.js] Error al obtener números pendientes: ${error.message}`);
+      return res.status(500).json({ msg: "Error al obtener números pendientes" });
+    }
+  }
+
   async cancelarEjecucion(req, res) {
     try {
       const { id } = req.params;
