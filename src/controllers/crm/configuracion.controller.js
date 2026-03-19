@@ -2241,8 +2241,6 @@ class ConfiguracionController {
         idEmpresa: id_empresa,
         tipificaciones,
         prompt: prompt,
-        canal: canal,
-        ruta_tool: ruta_tool,
         voiceCode: voiceCode,
         toolRuta: toolRuta,
         canal: canal,
