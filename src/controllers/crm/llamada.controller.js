@@ -353,20 +353,22 @@ class LlamadaController {
                 return res.status(404).json({ msg: "No se encontró llamada con ese id_llamada" });
             }
 
-            // Vincular el provider_call_id si no lo tiene
-            if (!llamada.provider_call_id) {
-                await llamadaModel.actualizarProviderCallId(id_llamada, provider_call_id);
-                logger.info(`[llamada.controller.js] callEntrada: Llamada ${id_llamada} vinculada con provider_call_id ${provider_call_id}`);
+            // Actualizar estado a 2 (En curso), fecha_inicio y vincular provider_call_id
+            const [, result] = await llamadaModel.connection.execute(
+                `UPDATE llamada
+                SET id_estado_llamada = 2,
+                    fecha_inicio = CURRENT_TIMESTAMP,
+                    provider_call_id = ?
+                WHERE id = ?`,
+                [provider_call_id, id_llamada]
+            );
+
+            if (result.affectedRows === 0) {
+                logger.warn(`[llamada.controller.js] callEntrada: No se pudo actualizar llamada ${id_llamada}`);
+                return res.status(500).json({ msg: "No se pudo actualizar la llamada" });
             }
 
-            // Actualizar estado a 2 (En curso) y fecha_inicio
-            const updated = await llamadaModel.iniciarLlamada(provider_call_id);
-
-            if (!updated) {
-                logger.warn(`[llamada.controller.js] callEntrada: Llamada ${provider_call_id} ya estaba iniciada o no se pudo actualizar`);
-            }
-
-            logger.info(`[llamada.controller.js] callEntrada: Llamada ${id_llamada} iniciada - estado=2, fecha_inicio=NOW`);
+            logger.info(`[llamada.controller.js] callEntrada: Llamada ${id_llamada} iniciada - estado=2, provider_call_id=${provider_call_id}`);
 
             return res.status(200).json({
                 msg: "Llamada iniciada exitosamente",
@@ -384,34 +386,51 @@ class LlamadaController {
 
     async callTerminada(req, res) {
         try {
-            const { provider_call_id } = req.body;
+            const { provider_call_id, id_llamada } = req.body;
 
-            if (!provider_call_id) {
-                return res.status(400).json({ msg: "El campo provider_call_id es requerido" });
+            if (!provider_call_id && !id_llamada) {
+                return res.status(400).json({ msg: "Se requiere provider_call_id o id_llamada" });
             }
 
             const llamadaModel = new LlamadaModel();
+            let llamada = null;
 
-            // Buscar la llamada
-            const llamada = await llamadaModel.getByProviderCallId(provider_call_id);
-            if (!llamada) {
-                logger.warn(`[llamada.controller.js] callTerminada: No se encontró llamada con provider_call_id: ${provider_call_id}`);
-                return res.status(404).json({ msg: "No se encontró llamada con ese provider_call_id" });
+            // Buscar por provider_call_id si viene, sino por id_llamada
+            if (provider_call_id) {
+                llamada = await llamadaModel.getByProviderCallId(provider_call_id);
             }
 
-            // Actualizar estado a 4 (Completada) y fecha_fin
-            const updated = await llamadaModel.actualizarEstadoTerminada(provider_call_id);
+            if (!llamada && id_llamada) {
+                llamada = await llamadaModel.getById(id_llamada);
 
-            if (!updated) {
+                // Vincular provider_call_id si viene y la llamada no lo tiene
+                if (llamada && provider_call_id && !llamada.provider_call_id) {
+                    await llamadaModel.actualizarProviderCallId(id_llamada, provider_call_id);
+                    logger.info(`[llamada.controller.js] callTerminada: Llamada ${id_llamada} vinculada con provider_call_id ${provider_call_id}`);
+                }
+            }
+
+            if (!llamada) {
+                logger.warn(`[llamada.controller.js] callTerminada: No se encontró llamada - provider_call_id: ${provider_call_id}, id_llamada: ${id_llamada}`);
+                return res.status(404).json({ msg: "No se encontró llamada" });
+            }
+
+            // Actualizar estado a 4 (Completada) y fecha_fin directamente por id
+            const [, result] = await llamadaModel.connection.execute(
+                `UPDATE llamada SET id_estado_llamada = 4, fecha_fin = CURRENT_TIMESTAMP WHERE id = $1`,
+                [llamada.id]
+            );
+
+            if (result.affectedRows === 0) {
                 return res.status(500).json({ msg: "No se pudo actualizar el estado de la llamada" });
             }
 
-            logger.info(`[llamada.controller.js] callTerminada: Llamada ${provider_call_id} terminada - estado=4, fecha_fin=NOW`);
+            logger.info(`[llamada.controller.js] callTerminada: Llamada ${llamada.id} terminada - estado=4, fecha_fin=NOW`);
 
             return res.status(200).json({
                 msg: "Llamada terminada exitosamente",
                 data: {
-                    provider_call_id,
+                    provider_call_id: provider_call_id || llamada.provider_call_id,
                     id_llamada: llamada.id,
                     id_estado_llamada: 4
                 }
