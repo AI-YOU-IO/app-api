@@ -157,27 +157,46 @@ class LlamadaService {
 
             logger.info(`[LlamadaService] Ronda ${ronda} - Bloque ${numBloque}/${totalBloques} (${bloque.length} números)`);
 
-            // Construir el batch request
-            const calls = bloque.map(num => {
+            // 1. Primero crear los registros en llamada para obtener los id_llamada
+            const calls = [];
+            for (const num of bloque) {
                 const telefono = this.formatearTelefono(num.telefono);
-                return {
-                    destination: telefono,
-                    data: {
-                        nombre_completo: num.nombre,
-                        celular: telefono,
-                        id_empresa: num.id_empresa,
-                        ...(num.json_adicional || {})
-                    },
-                    // Guardamos referencia para después registrar en BD
-                    _ref: {
-                        id: num.id,
-                        id_base_numero: num.id_base_numero
-                    }
-                };
-            });
+                try {
+                    const idLlamada = await llamadaModel.create({
+                        id_empresa: idEmpresa,
+                        id_campania: idCampania,
+                        id_base_numero: num.id_base_numero,
+                        id_base_numero_detalle: num.id,
+                        id_campania_ejecucion: idEjecucion,
+                        provider_call_id: null // Se actualiza via webhook call-entrada
+                    });
 
+                    calls.push({
+                        destination: telefono,
+                        data: {
+                            nombre_completo: num.nombre,
+                            celular: telefono,
+                            id_empresa: num.id_empresa,
+                            id_llamada: idLlamada, // Incluimos el id_llamada para que Ultravox lo devuelva en webhooks
+                            ...(num.json_adicional || {})
+                        }
+                    });
+                    enviadas++;
+                } catch (dbError) {
+                    logger.warn(`[LlamadaService] Error al crear registro llamada para ${telefono}: ${dbError.message}`);
+                    fallidas++;
+                }
+            }
+
+            // Si no hay llamadas creadas, continuar con el siguiente bloque
+            if (calls.length === 0) {
+                logger.warn(`[LlamadaService] Bloque ${numBloque} sin llamadas creadas, saltando...`);
+                continue;
+            }
+
+            // 2. Enviar el batch a Ultravox con los id_llamada incluidos
             const batchBody = {
-                calls: calls.map(({ _ref, ...call }) => call), // Sin _ref para el API
+                calls: calls,
                 extras: {
                     voice: voiceCode,
                     tipificaciones,
@@ -198,33 +217,13 @@ class LlamadaService {
                 const result = await this.realizarLlamadasBatch(batchBody);
 
                 if (result?.success && result?.encoladas > 0) {
-                    // Registrar todas las llamadas del batch como encoladas (sin channelId)
-                    // El webhook call-entrada las actualizará cuando inicien
-                    for (const originalCall of calls) {
-                        try {
-                            await llamadaModel.create({
-                                id_empresa: idEmpresa,
-                                id_campania: idCampania,
-                                id_base_numero: originalCall._ref.id_base_numero,
-                                id_base_numero_detalle: originalCall._ref.id,
-                                id_campania_ejecucion: idEjecucion,
-                                provider_call_id: null // Se actualiza via webhook call-entrada
-                            });
-                            enviadas++;
-                        } catch (dbError) {
-                            logger.warn(`[LlamadaService] Error al registrar llamada ${originalCall.destination}: ${dbError.message}`);
-                            fallidas++;
-                        }
-                    }
                     logger.info(`[LlamadaService] Batch encolado: ${result.encoladas} llamadas`);
                 } else {
-                    // Si el batch completo falló, contar todas como fallidas
-                    fallidas += bloque.length;
                     logger.error(`[LlamadaService] Batch falló: ${result?.mensaje || 'Sin detalle'}`);
                 }
             } catch (error) {
                 console.error(`[LlamadaService] Error en batch bloque ${numBloque}:`, error.message);
-                fallidas += bloque.length;
+                // Las llamadas ya están creadas en BD, el error es solo al encolar
             }
 
             if (i + BATCH_SIZE < totalNumeros) {
