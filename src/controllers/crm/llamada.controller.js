@@ -309,7 +309,7 @@ class LlamadaController {
 
             // Actualizar la llamada directamente por id: id_estado_llamada = 3 (Fallida)
             const [, result] = await llamadaModel.connection.execute(
-                `UPDATE llamada SET id_estado_llamada = 3, id_estado_llamada_asterisk = $1, fecha_inicio = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima') WHERE id = $2`,
+                `UPDATE llamada SET id_estado_llamada = 3, id_estado_llamada_asterisk = $1, id_tipificacion_llamada = 240, fecha_inicio = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima') WHERE id = $2`,
                 [estadoAsterisk.id, id_llamada]
             );
 
