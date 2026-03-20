@@ -43,7 +43,7 @@ class EnvioPersonaController {
     async create(req, res) {
         try {
             const { userId } = req.user || {};
-            const { id_envio_masivo, id_persona, estado, fecha_envio, id_campania_ejecucion } = req.body;
+            const { id_envio_masivo, id_persona, estado, fecha_envio } = req.body;
 
             if (!id_envio_masivo) {
                 return res.status(400).json({ msg: "El envío masivo es requerido" });
@@ -54,7 +54,6 @@ class EnvioPersonaController {
                 id_persona,
                 estado,
                 fecha_envio,
-                id_campania_ejecucion,
                 usuario_registro: userId
             });
 
