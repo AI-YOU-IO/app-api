@@ -73,6 +73,7 @@ class EnvioMasivoWhatsappController {
                 usuario_registro: userId
             });
 
+            logger.info(`[envioMasivoWhatsapp.controller.js] Envío masivo creado con id: ${id}`);
             return res.status(201).json({ data: { id }, msg: "Envío masivo creado correctamente" });
         } catch (error) {
             logger.error(`[envioMasivoWhatsapp.controller.js] Error al crear envío masivo: ${error.message}`);
