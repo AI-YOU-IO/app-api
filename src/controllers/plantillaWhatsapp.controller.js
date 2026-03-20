@@ -115,7 +115,7 @@ class PlantillaWhatsappController {
         components
       );
 
-      // 2. Si Meta fue exitoso, guardar en BD
+      // 2. Si Meta fue exitoso, guardar en BD (incluir meta_template_id)
       const plantilla = await plantillaWhatsappRepository.create({
         name: nombreFormateado,
         status: resultMeta.status || 'PENDING',
@@ -127,6 +127,7 @@ class PlantillaWhatsappController {
         footer,
         buttons: buttons || [],
         id_empresa,
+        meta_template_id: resultMeta.id ? String(resultMeta.id) : null,
         usuario_registro
       });
 
@@ -212,6 +213,7 @@ class PlantillaWhatsappController {
         body,
         footer,
         buttons: buttons || [],
+        meta_template_id: meta_template_id ? String(meta_template_id) : null,
         usuario_actualizacion
       });
 
