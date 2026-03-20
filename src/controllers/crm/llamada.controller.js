@@ -309,7 +309,7 @@ class LlamadaController {
 
             // Actualizar la llamada directamente por id: id_estado_llamada = 3 (Fallida)
             const [, result] = await llamadaModel.connection.execute(
-                `UPDATE llamada SET id_estado_llamada = 3, id_estado_llamada_asterisk = $1, fecha_inicio = CURRENT_TIMESTAMP WHERE id = $2`,
+                `UPDATE llamada SET id_estado_llamada = 3, id_estado_llamada_asterisk = $1, fecha_inicio = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima') WHERE id = $2`,
                 [estadoAsterisk.id, id_llamada]
             );
 
@@ -357,7 +357,7 @@ class LlamadaController {
             const [, result] = await llamadaModel.connection.execute(
                 `UPDATE llamada
                 SET id_estado_llamada = 2,
-                    fecha_inicio = CURRENT_TIMESTAMP,
+                    fecha_inicio = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima'),
                     provider_call_id = ?
                 WHERE id = ?`,
                 [provider_call_id, id_llamada]
@@ -417,7 +417,7 @@ class LlamadaController {
 
             // Actualizar estado a 4 (Completada) y fecha_fin directamente por id
             const [, result] = await llamadaModel.connection.execute(
-                `UPDATE llamada SET id_estado_llamada = 4, fecha_fin = CURRENT_TIMESTAMP WHERE id = $1`,
+                `UPDATE llamada SET id_estado_llamada = 4, fecha_fin = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima') WHERE id = $1`,
                 [llamada.id]
             );
 
