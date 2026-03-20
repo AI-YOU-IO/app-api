@@ -121,21 +121,27 @@ class WhatsappGraphService {
     };
 
     logger.info(`[WhatsappGraph] Creando plantilla en Meta: ${name}`);
+    logger.info(`[WhatsappGraph] Payload: ${JSON.stringify(payload)}`);
 
-    const response = await axios.post(url, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${credenciales.accessToken}`
-      },
-      timeout: 30000
-    });
+    try {
+      const response = await axios.post(url, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${credenciales.accessToken}`
+        },
+        timeout: 30000
+      });
 
-    return {
-      success: true,
-      id: response.data?.id || null,
-      status: response.data?.status || 'PENDING',
-      category: response.data?.category || category
-    };
+      return {
+        success: true,
+        id: response.data?.id || null,
+        status: response.data?.status || 'PENDING',
+        category: response.data?.category || category
+      };
+    } catch (error) {
+      logger.error(`[WhatsappGraph] Error Meta API: ${JSON.stringify(error.response?.data)}`);
+      throw error;
+    }
   }
 
   /**
