@@ -137,9 +137,13 @@ class EnvioMasivoWhatsappController {
                 return res.status(400).json({ msg: "La plantilla asociada no fue encontrada" });
             }
 
+            // Detectar parámetros en el body de la plantilla ({{1}}, {{2}}, etc.)
+            const bodyParams = plantilla.body ? (plantilla.body.match(/\{\{\d+\}\}/g) || []) : [];
+            const numBodyParams = new Set(bodyParams).size;
+
             // Obtener los envio_persona pendientes
             const envioPersonas = await EnvioPersonaModel.getByEnvioMasivo(id);
-            logger.info(`[envioMasivoWhatsapp.controller.js] Envio ${id}: encontradas ${envioPersonas.length} personas`);
+            logger.info(`[envioMasivoWhatsapp.controller.js] Envio ${id}: encontradas ${envioPersonas.length} personas, params plantilla: ${numBodyParams}`);
             if (envioPersonas.length === 0) {
                 return res.status(400).json({ msg: "No hay personas asociadas a este envío" });
             }
@@ -166,11 +170,24 @@ class EnvioMasivoWhatsappController {
                 }
 
                 try {
+                    // Construir components si la plantilla tiene parámetros
+                    const components = [];
+                    if (numBodyParams > 0) {
+                        const bodyParameters = [];
+                        for (let p = 0; p < numBodyParams; p++) {
+                            // Usar nombre de persona como fallback para {{1}}
+                            const valor = p === 0 ? (ep.persona_nombre || 'Cliente') : '';
+                            bodyParameters.push({ type: 'text', text: valor });
+                        }
+                        components.push({ type: 'body', parameters: bodyParameters });
+                    }
+
                     await whatsappGraphService.enviarPlantilla(
                         idEmpresa,
                         celular,
                         plantilla.name,
-                        plantilla.language || 'es'
+                        plantilla.language || 'es',
+                        components
                     );
 
                     await EnvioPersonaModel.updateEstado(ep.id, 'entregado', null, userId);
