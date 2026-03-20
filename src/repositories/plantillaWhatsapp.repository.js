@@ -60,7 +60,7 @@ class PlantillaWhatsappRepository {
 
     async create(data) {
         try {
-            const [result] = await pool.execute(
+            const [, result] = await pool.execute(
                 `INSERT INTO plantilla_whatsapp
                 (id_empresa, name, status, category, "language", header_type, header_text, body, footer, buttons, url_imagen, meta_template_id, estado_registro, usuario_registro)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
@@ -89,7 +89,7 @@ class PlantillaWhatsappRepository {
 
     async update(id, data) {
         try {
-            const [result] = await pool.execute(
+            const [, result] = await pool.execute(
                 `UPDATE plantilla_whatsapp
                 SET name = ?, status = ?, category = ?, "language" = ?,
                     header_type = ?, header_text = ?, body = ?, footer = ?,
@@ -121,7 +121,7 @@ class PlantillaWhatsappRepository {
 
     async delete(id, usuario_actualizacion = null) {
         try {
-            const [result] = await pool.execute(
+            const [, result] = await pool.execute(
                 `UPDATE plantilla_whatsapp SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`,
                 [usuario_actualizacion, id]
             );

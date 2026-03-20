@@ -138,6 +138,7 @@ class EnvioMasivoWhatsappController {
 
             // Obtener los envio_persona pendientes
             const envioPersonas = await EnvioPersonaModel.getByEnvioMasivo(id);
+            logger.info(`[envioMasivoWhatsapp.controller.js] Envio ${id}: encontradas ${envioPersonas.length} personas`);
             if (envioPersonas.length === 0) {
                 return res.status(400).json({ msg: "No hay personas asociadas a este envío" });
             }

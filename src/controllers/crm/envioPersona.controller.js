@@ -78,7 +78,12 @@ class EnvioPersonaController {
                 return res.status(400).json({ msg: "Debe proporcionar al menos una persona" });
             }
 
+            logger.info(`[envioPersona.controller.js] bulkCreate: id_envio_masivo=${id_envio_masivo}, personas=${personas.length}`);
             const result = await EnvioPersonaModel.bulkCreate(id_envio_masivo, personas, userId);
+            logger.info(`[envioPersona.controller.js] bulkCreate resultado: total=${result.total}, errores=${result.errores.length}`);
+            if (result.errores.length > 0) {
+                logger.error(`[envioPersona.controller.js] bulkCreate errores: ${JSON.stringify(result.errores)}`);
+            }
 
             return res.status(201).json({ data: result, msg: `${result.total} envíos persona creados correctamente` });
         } catch (error) {

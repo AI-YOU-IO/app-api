@@ -57,7 +57,7 @@ class EnvioMasivoWhatsappModel {
         usuario_registro
     }) {
         try {
-            const [result] = await this.connection.execute(
+            const [, result] = await this.connection.execute(
                 `INSERT INTO envio_masivo_whatsapp
                 (id_empresa, id_plantilla, titulo, descripcion, cantidad, fecha_envio, estado_envio, estado_registro, usuario_registro)
                 VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
@@ -90,7 +90,7 @@ class EnvioMasivoWhatsappModel {
         usuario_actualizacion
     }) {
         try {
-            const [result] = await this.connection.execute(
+            const [, result] = await this.connection.execute(
                 `UPDATE envio_masivo_whatsapp
                 SET id_plantilla = ?, titulo = ?, descripcion = ?, cantidad = ?,
                     cantidad_exitosos = ?, cantidad_fallidos = ?, fecha_envio = ?,
@@ -117,7 +117,7 @@ class EnvioMasivoWhatsappModel {
 
     async delete(id, usuario_actualizacion = null) {
         try {
-            const [result] = await this.connection.execute(
+            const [, result] = await this.connection.execute(
                 `UPDATE envio_masivo_whatsapp SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`,
                 [usuario_actualizacion, id]
             );
@@ -129,7 +129,7 @@ class EnvioMasivoWhatsappModel {
 
     async updateEstado(id, estado_envio, usuario_actualizacion = null) {
         try {
-            const [result] = await this.connection.execute(
+            const [, result] = await this.connection.execute(
                 `UPDATE envio_masivo_whatsapp SET estado_envio = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND estado_registro = 1`,
                 [estado_envio, usuario_actualizacion, id]
             );
@@ -141,7 +141,7 @@ class EnvioMasivoWhatsappModel {
 
     async updateContadores(id, cantidad_exitosos, cantidad_fallidos) {
         try {
-            const [result] = await this.connection.execute(
+            const [, result] = await this.connection.execute(
                 `UPDATE envio_masivo_whatsapp SET cantidad_exitosos = ?, cantidad_fallidos = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND estado_registro = 1`,
                 [cantidad_exitosos, cantidad_fallidos, id]
             );
