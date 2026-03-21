@@ -138,25 +138,25 @@ class LlamadaController {
 
     async uploadAudio(req, res) {
         try {
-            const { provider_call_id, duracion_seg, segundos } = req.body;
+            const { id_llamada, duracion_seg, segundos } = req.body;
             const duracion = duracion_seg || segundos || null;
 
             if (!req.file) {
                 return res.status(400).json({ msg: "No se proporcionó ningún archivo de audio" });
             }
 
-            if (!provider_call_id) {
-                return res.status(400).json({ msg: "El campo provider_call_id es requerido" });
+            if (!id_llamada) {
+                return res.status(400).json({ msg: "El campo id_llamada es requerido" });
             }
 
             const llamadaModel = new LlamadaModel();
             const estadoAsteriskModel = new EstadoLlamadaAsteriskModel();
 
-            // Buscar la llamada por provider_call_id
-            const llamada = await llamadaModel.getByProviderCallId(provider_call_id);
+            // Buscar la llamada por id_llamada
+            const llamada = await llamadaModel.getById(id_llamada);
 
             if (!llamada) {
-                return res.status(404).json({ msg: "No se encontró llamada con ese provider_call_id" });
+                return res.status(404).json({ msg: "No se encontró llamada con ese id_llamada" });
             }
 
             // Buscar el estado COMPLETED en estado_llamada_asterisk
@@ -165,23 +165,21 @@ class LlamadaController {
             // Subir audio a S3 con folder 'llamadas' usando id_empresa de la llamada
             const archivo_llamada = await s3Service.uploadFile(req.file, 'llamadas', llamada.id_empresa);
 
-            // Actualizar la llamada con el archivo de audio, estado COMPLETED y duración
-            const updated = await llamadaModel.actualizarAudioLlamadaPorProvider(provider_call_id, {
-                archivo_llamada,
-                id_estado_llamada_asterisk: estadoCompleted?.id || null,
-                duracion_seg: duracion ? parseInt(duracion) : null
-            });
+            // Actualizar la llamada con el archivo de audio, estado COMPLETED y duración directamente por id
+            const [, result] = await llamadaModel.connection.execute(
+                `UPDATE llamada SET archivo_llamada = $1, id_estado_llamada_asterisk = $2, duracion_seg = $3 WHERE id = $4`,
+                [archivo_llamada, estadoCompleted?.id || null, duracion ? parseInt(duracion) : null, id_llamada]
+            );
 
-            if (!updated) {
+            if (result.affectedRows === 0) {
                 return res.status(404).json({ msg: "No se pudo actualizar la llamada" });
             }
 
-            logger.info(`[llamada.controller.js] uploadAudio: Audio subido para ${provider_call_id}, duracion_seg=${duracion}`);
+            logger.info(`[llamada.controller.js] uploadAudio: Audio subido para id_llamada=${id_llamada}, duracion_seg=${duracion}`);
 
             return res.status(200).json({
                 msg: "Audio subido exitosamente",
                 data: {
-                    provider_call_id,
                     id_llamada: llamada.id,
                     archivo_llamada,
                     id_estado_llamada_asterisk: estadoCompleted?.id || null,
@@ -197,29 +195,28 @@ class LlamadaController {
     async guardarTranscripcion(req, res) {
         try {
             // Acepta tanto "metadata" como "metadata_ultravox_call"
-            const { provider_call_id, id_ultravox_call, metadata_ultravox_call, metadata, transcripcion } = req.body;
+            const { id_llamada, id_ultravox_call, metadata_ultravox_call, metadata, transcripcion } = req.body;
             const metadataInput = metadata_ultravox_call || metadata;
 
-            logger.info(`[llamada.controller.js] Guardando transcripción para provider_call_id: ${provider_call_id}`);
+            logger.info(`[llamada.controller.js] Guardando transcripción para id_llamada: ${id_llamada}`);
 
-            if (!provider_call_id) {
-                return res.status(400).json({ msg: "El campo provider_call_id es requerido" });
+            if (!id_llamada) {
+                return res.status(400).json({ msg: "El campo id_llamada es requerido" });
             }
 
             const llamadaModel = new LlamadaModel();
             const TranscripcionModel = require("../../models/transcripcion.model.js");
             const transcripcionModel = new TranscripcionModel();
 
-            // Obtener la llamada a partir del provider_call_id
-            const llamada = await llamadaModel.getByProviderCallId(provider_call_id);
+            // Obtener la llamada a partir del id_llamada
+            const llamada = await llamadaModel.getById(id_llamada);
 
             if (!llamada) {
-                logger.warn(`[llamada.controller.js] No se encontró llamada con provider_call_id: ${provider_call_id}`);
-                return res.status(404).json({ msg: "No se encontró llamada con ese provider_call_id" });
+                logger.warn(`[llamada.controller.js] No se encontró llamada con id_llamada: ${id_llamada}`);
+                return res.status(404).json({ msg: "No se encontró llamada con ese id_llamada" });
             }
 
-            const id_llamada = llamada.id;
-            logger.info(`[llamada.controller.js] Encontrada llamada con id: ${id_llamada}`);
+            logger.info(`[llamada.controller.js] Procesando transcripción para llamada id: ${id_llamada}`);
 
             // Convertir metadata a string JSON si viene como objeto
             let metadataString = null;
@@ -262,7 +259,6 @@ class LlamadaController {
             return res.status(200).json({
                 msg: "Transcripción guardada exitosamente",
                 data: {
-                    provider_call_id,
                     id_llamada,
                     id_ultravox_call,
                     transcripcion_count: transcripcion ? transcripcion.length : 0
