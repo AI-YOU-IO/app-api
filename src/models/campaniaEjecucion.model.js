@@ -98,7 +98,7 @@ class CampaniaEjecucionModel {
             const [rows, result] = await this.connection.execute(
                 `INSERT INTO campania_ejecucion
                 (id_empresa, id_campania, id_base_numero, fecha_programada, estado_registro, usuario_registro, fecha_registro)
-                VALUES (?, ?, ?, ?, 1, ?, (NOW() AT TIME ZONE 'America/Lima'))`,
+                VALUES (?, ?, ?, ?, 1, ?, NOW())`,
                 [
                     id_empresa,
                     id_campania,

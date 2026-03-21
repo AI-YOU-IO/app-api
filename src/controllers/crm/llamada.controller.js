@@ -296,24 +296,23 @@ class LlamadaController {
                 logger.info(`[llamada.controller.js] callNoContesta: Llamada ${id_llamada} vinculada con provider_call_id ${provider_call_id}`);
             }
 
-            // Buscar el estado de Asterisk por código
+            // Buscar el estado de Asterisk por código (opcional)
             const estadoAsterisk = await estadoAsteriskModel.getByCodigo(status);
             if (!estadoAsterisk) {
-                logger.warn(`[llamada.controller.js] callNoContesta: No se encontró estado Asterisk con código: ${status}`);
-                return res.status(404).json({ msg: `No se encontró estado Asterisk con código: ${status}` });
+                logger.warn(`[llamada.controller.js] callNoContesta: No se encontró estado Asterisk con código: ${status}, se actualizará sin id_estado_llamada_asterisk`);
             }
 
             // Actualizar la llamada directamente por id: id_estado_llamada = 3 (Fallida)
             const [, result] = await llamadaModel.connection.execute(
-                `UPDATE llamada SET id_estado_llamada = 3, id_estado_llamada_asterisk = $1, id_tipificacion_llamada = 240, fecha_inicio = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima') WHERE id = $2`,
-                [estadoAsterisk.id, id_llamada]
+                `UPDATE llamada SET id_estado_llamada = 3, id_estado_llamada_asterisk = $1, id_tipificacion_llamada = 240, fecha_inicio = CURRENT_TIMESTAMP WHERE id = $2`,
+                [estadoAsterisk ? estadoAsterisk.id : null, id_llamada]
             );
 
             if (result.affectedRows === 0) {
                 return res.status(500).json({ msg: "No se pudo actualizar el estado de la llamada" });
             }
 
-            logger.info(`[llamada.controller.js] callNoContesta: Llamada ${id_llamada} actualizada - estado_llamada=3, estado_asterisk=${status}(${estadoAsterisk.id})`);
+            logger.info(`[llamada.controller.js] callNoContesta: Llamada ${id_llamada} actualizada - estado_llamada=3, estado_asterisk=${status}(${estadoAsterisk ? estadoAsterisk.id : 'null'})`);
 
             return res.status(200).json({
                 msg: "Estado de llamada actualizado exitosamente",
@@ -321,7 +320,7 @@ class LlamadaController {
                     provider_call_id: provider_call_id || llamada.provider_call_id,
                     id_llamada: llamada.id,
                     id_estado_llamada: 3,
-                    id_estado_llamada_asterisk: estadoAsterisk.id,
+                    id_estado_llamada_asterisk: estadoAsterisk ? estadoAsterisk.id : null,
                     status
                 }
             });
@@ -353,7 +352,7 @@ class LlamadaController {
             const [, result] = await llamadaModel.connection.execute(
                 `UPDATE llamada
                 SET id_estado_llamada = 2,
-                    fecha_inicio = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima'),
+                    fecha_inicio = CURRENT_TIMESTAMP,
                     provider_call_id = ?
                 WHERE id = ?`,
                 [provider_call_id, id_llamada]
@@ -413,7 +412,7 @@ class LlamadaController {
 
             // Actualizar estado a 4 (Completada) y fecha_fin directamente por id
             const [, result] = await llamadaModel.connection.execute(
-                `UPDATE llamada SET id_estado_llamada = 4, fecha_fin = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima') WHERE id = $1`,
+                `UPDATE llamada SET id_estado_llamada = 4, fecha_fin = CURRENT_TIMESTAMP WHERE id = $1`,
                 [llamada.id]
             );
 
