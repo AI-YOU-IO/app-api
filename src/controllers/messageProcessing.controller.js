@@ -16,10 +16,6 @@ class MessageProcessingController {
      * @param {string} enlaceUrl - URL a enviar como parametro
      * @returns {Promise<{wid: string|null}>}
      */
-    async enviarPlantillaEnlace(empresaId, phone, enlaceUrl) {
-        const result = await WhatsappGraphService.enviarEnlaceLili(empresaId, phone, enlaceUrl);
-        return { wid: result.response?.messages?.[0]?.id || null };
-    }
 
     async processMessage(req, res) {
         try {
@@ -112,17 +108,9 @@ class MessageProcessingController {
             // Enviar respuesta por WhatsApp
             let widRespuesta = null;
             try {
-                if (enlaceUrl) {
-                    // Enviar plantilla enlace_lili con la URL generada por tools
-                    logger.info(`[messageProcessing.controller.js] Enviando plantilla enlace_lili con URL: ${enlaceUrl}`);
-                    const envioPlantilla = await this.enviarPlantillaEnlace(empresaId, phoneTrimmed, enlaceUrl);
-                    widRespuesta = envioPlantilla.wid;
-                    logger.info(`[messageProcessing.controller.js] Plantilla enlace_lili enviada, wid: ${widRespuesta}`);
-                } else {
                     const envio = await WhatsappGraphService.enviarMensajeTexto(empresaId, phoneTrimmed, respuestaTexto);
                     widRespuesta = envio.wid_mensaje;
                     logger.info(`[messageProcessing.controller.js] Mensaje enviado por WhatsApp, wid: ${widRespuesta}`);
-                }
             } catch (whatsappError) {
                 logger.error(`[messageProcessing.controller.js] Error enviando WhatsApp: ${whatsappError.message}`);
             }
