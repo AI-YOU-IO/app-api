@@ -85,9 +85,10 @@ class MessageProcessingController {
                 usuario_registro: null
             });
 
-            // Notificar al WebSocket sobre mensaje entrante
-            websocketNotifier.notificarMensajeEntrante(persona.id, {
-                id_contacto: persona.id,
+            // Notificar al WebSocket sobre mensaje entrante (usa chat.id como id_contacto)
+            const chatId = chat.id || chat;
+            websocketNotifier.notificarMensajeEntrante(chatId, {
+                id_contacto: chatId,
                 contenido: questionTrimmed,
                 direccion: "in",
                 wid_mensaje: widTrimmed,
