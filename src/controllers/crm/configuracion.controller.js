@@ -11,6 +11,7 @@ const ArgumentoVentaModel = require("../../models/argumentoVenta.model.js");
 const PeriodicidadRecordatorioModel = require("../../models/periodicidadRecordatorio.model.js");
 const FormatoModel = require("../../models/formato.model.js");
 const FormatoCampoModel = require("../../models/formatoCampo.model.js");
+const FormatoCampoPlantillaModel = require("../../models/formatoCampoPlantilla.model.js");
 const BaseNumeroModel = require("../../models/baseNumero.model.js");
 const BaseNumeroDetalleModel = require("../../models/baseNumeroDetalle.model.js");
 const PlantillaModel = require("../../models/plantilla.model.js");
@@ -3160,6 +3161,95 @@ class ConfiguracionController {
     } catch (error) {
       logger.error(`[ConfiguracionController] Error al obtener voces: ${error.message}`);
       return res.status(500).json({ msg: "Error al obtener voces" });
+    }
+  }
+
+  // ============ FORMATO CAMPO PLANTILLA ============
+
+  async getCamposPlantilla(req, res) {
+    try {
+      const { idPlantilla } = req.params;
+      const model = new FormatoCampoPlantillaModel();
+      const campos = await model.getAllByPlantilla(idPlantilla);
+      return res.status(200).json({ data: campos });
+    } catch (error) {
+      logger.error(`[configuracion.controller.js] Error al obtener campos de plantilla: ${error.message}`);
+      return res.status(500).json({ msg: "Error al obtener campos de plantilla" });
+    }
+  }
+
+  async getCampoPlantillaById(req, res) {
+    try {
+      const { id } = req.params;
+      const model = new FormatoCampoPlantillaModel();
+      const campo = await model.getById(id);
+
+      if (!campo) {
+        return res.status(404).json({ msg: "Campo de plantilla no encontrado" });
+      }
+
+      return res.status(200).json({ data: campo });
+    } catch (error) {
+      logger.error(`[configuracion.controller.js] Error al obtener campo de plantilla: ${error.message}`);
+      return res.status(500).json({ msg: "Error al obtener campo de plantilla" });
+    }
+  }
+
+  async createCampoPlantilla(req, res) {
+    try {
+      const { id_plantilla, id_formato_campo } = req.body;
+      const usuario_registro = req.user?.userId || null;
+
+      if (!id_plantilla || !id_formato_campo) {
+        return res.status(400).json({ msg: "id_plantilla e id_formato_campo son requeridos" });
+      }
+
+      const model = new FormatoCampoPlantillaModel();
+      const id = await model.create({ id_plantilla, id_formato_campo, usuario_registro });
+
+      return res.status(201).json({ msg: "Campo de plantilla creado exitosamente", data: { id } });
+    } catch (error) {
+      logger.error(`[configuracion.controller.js] Error al crear campo de plantilla: ${error.message}`);
+      return res.status(500).json({ msg: "Error al crear campo de plantilla" });
+    }
+  }
+
+  async syncCamposPlantilla(req, res) {
+    try {
+      const { idPlantilla } = req.params;
+      const { campo_ids } = req.body;
+      const usuario_registro = req.user?.userId || null;
+
+      if (!Array.isArray(campo_ids)) {
+        return res.status(400).json({ msg: "campo_ids debe ser un array" });
+      }
+
+      const model = new FormatoCampoPlantillaModel();
+      const ids = await model.syncByPlantilla(idPlantilla, campo_ids, usuario_registro);
+
+      return res.status(200).json({ msg: "Campos de plantilla sincronizados", data: { ids } });
+    } catch (error) {
+      logger.error(`[configuracion.controller.js] Error al sincronizar campos de plantilla: ${error.message}`);
+      return res.status(500).json({ msg: "Error al sincronizar campos de plantilla" });
+    }
+  }
+
+  async deleteCampoPlantilla(req, res) {
+    try {
+      const { id } = req.params;
+      const usuario_actualizacion = req.user?.userId || null;
+
+      const model = new FormatoCampoPlantillaModel();
+      const deleted = await model.delete(id, usuario_actualizacion);
+
+      if (!deleted) {
+        return res.status(404).json({ msg: "Campo de plantilla no encontrado" });
+      }
+
+      return res.status(200).json({ msg: "Campo de plantilla eliminado correctamente" });
+    } catch (error) {
+      logger.error(`[configuracion.controller.js] Error al eliminar campo de plantilla: ${error.message}`);
+      return res.status(500).json({ msg: "Error al eliminar campo de plantilla" });
     }
   }
 }

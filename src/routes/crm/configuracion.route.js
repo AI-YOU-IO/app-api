@@ -238,5 +238,11 @@ router.get("/tipos-persona", ConfiguracionController.getTiposPersona);
 // Rutas de Conversaciones
 router.get("/conversaciones", ConfiguracionController.getConversaciones);
 
+// Rutas de Formato Campo Plantilla
+router.get("/plantillas-whatsapp/:idPlantilla/campos", ConfiguracionController.getCamposPlantilla);
+router.get("/formato-campo-plantilla/:id", ConfiguracionController.getCampoPlantillaById);
+router.post("/formato-campo-plantilla", ConfiguracionController.createCampoPlantilla);
+router.put("/plantillas-whatsapp/:idPlantilla/campos/sync", ConfiguracionController.syncCamposPlantilla);
+router.delete("/formato-campo-plantilla/:id", ConfiguracionController.deleteCampoPlantilla);
 
 module.exports = router;
