@@ -284,17 +284,18 @@ class PlantillaWhatsappController {
    */
   async enviarPlantilla(req, res) {
     try {
-      const { phone, template_name, language, components, id_empresa } = req.body;
+      const { phone, template_name, language, components } = req.body;
+      const id_empresa = req.user?.idEmpresa || null;
 
-      // if (!id_empresa) {
-      //   return res.status(400).json({ msg: "ID de empresa requerido" });
-      // }
+      if (!id_empresa) {
+        return res.status(400).json({ msg: "ID de empresa requerido" });
+      }
 
       if (!phone || !template_name) {
         return res.status(400).json({ msg: "El teléfono y nombre de plantilla son requeridos" });
       }
 
-      const result = await whatsappGraphService.enviarEnlaceLili(
+      const result = await whatsappGraphService.enviarPlantilla(
         id_empresa,
         phone,
         template_name,

@@ -8,6 +8,9 @@ const EnvioPersonaModel = require("../../models/envioPersona.model.js");
 const PlantillaWhatsappModel = require("../../models/plantillaWhatsapp.model.js");
 const configuracionWhatsappRepository = require("../../repositories/configuracionWhatsapp.repository.js");
 const whatsappGraphService = require("../../services/whatsapp/whatsappGraph.service.js");
+const Persona = require("../../models/persona.model.js");
+const Chat = require("../../models/chat.model.js");
+const Mensaje = require("../../models/mensaje.model.js");
 const logger = require('../../config/logger/loggerClient.js');
 
 // Configuración
@@ -201,6 +204,41 @@ class N8nEnvioMasivoController {
                 persona.envio_persona_id,
                 'enviado'
               );
+            }
+
+            // Registrar chat y mensaje saliente en BD
+            try {
+              let personaBd = await Persona.selectByCelular(persona.telefono, id_empresa);
+              if (!personaBd) {
+                personaBd = await Persona.createPersona({
+                  id_estado: 1,
+                  celular: persona.telefono,
+                  nombre: persona.nombre || null,
+                  id_empresa: id_empresa,
+                  usuario_registro: null
+                });
+              }
+
+              let chat = await Chat.findByPersona(personaBd.id);
+              if (!chat) {
+                chat = await Chat.create({
+                  id_empresa,
+                  id_persona: personaBd.id,
+                  usuario_registro: null
+                });
+              }
+
+              await Mensaje.create({
+                id_chat: chat.id || chat,
+                contenido: `[Envío masivo] Plantilla: ${plantilla}`,
+                direccion: "out",
+                wid_mensaje: null,
+                tipo_mensaje: "plantilla",
+                fecha_hora: new Date(),
+                usuario_registro: null
+              });
+            } catch (chatError) {
+              logger.error(`[n8nEnvioMasivo] Error al registrar chat/mensaje para ${persona.telefono}: ${chatError.message}`);
             }
 
           } catch (error) {

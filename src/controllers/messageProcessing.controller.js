@@ -5,22 +5,15 @@ const Usuario = require("../models/usuario.model.js");
 const Chat = require("../models/chat.model.js");
 const Mensaje = require("../models/mensaje.model.js");
 const ConfiguracionWhatsapp = require("../models/configuracionWhatsapp.model.js");
+const websocketNotifier = require("../services/websocketNotifier.service.js");
 const logger = require("../config/logger/loggerClient");
 
 class MessageProcessingController {
 
     /**
-     * Envia la plantilla enlace_lili con la URL como parametro {{1}}
-     * @param {number} empresaId - ID de la empresa
-     * @param {string} phone - Numero de telefono del destinatario
-     * @param {string} enlaceUrl - URL a enviar como parametro
-     * @returns {Promise<{wid: string|null}>}
+     * Procesa un mensaje entrante de WhatsApp, genera respuesta con el asistente
+     * y envía la respuesta por WhatsApp. Notifica al WebSocket en ambos casos.
      */
-    async enviarPlantillaEnlace(empresaId, phone, enlaceUrl) {
-        const result = await WhatsappGraphService.enviarEnlaceLili(empresaId, phone, enlaceUrl);
-        return { wid: result.response?.messages?.[0]?.id || null };
-    }
-
     async processMessage(req, res) {
         try {
             const { phone, question, wid, phone_number_id, messageType, files } = req.body;
@@ -81,14 +74,25 @@ class MessageProcessingController {
             }
 
             // Guardar mensaje entrante
+            const fechaEntrante = new Date();
             await Mensaje.create({
                 id_chat: chat.id || chat,
                 contenido: questionTrimmed,
                 direccion: "in",
                 wid_mensaje: widTrimmed,
                 tipo_mensaje: tipoMensaje,
-                fecha_hora: new Date(),
+                fecha_hora: fechaEntrante,
                 usuario_registro: null
+            });
+
+            // Notificar al WebSocket sobre mensaje entrante
+            websocketNotifier.notificarMensajeEntrante(persona.id, {
+                id_contacto: persona.id,
+                contenido: questionTrimmed,
+                direccion: "in",
+                wid_mensaje: widTrimmed,
+                tipo: tipoMensaje,
+                fecha_hora: fechaEntrante.toISOString()
             });
 
             // Construir mensaje para el asistente incluyendo archivos si existen
@@ -107,35 +111,37 @@ class MessageProcessingController {
             });
 
             const respuestaTexto = resultado.content;
-            const enlaceUrl = resultado.enlaceUrl;
 
             // Enviar respuesta por WhatsApp
             let widRespuesta = null;
             try {
-                if (enlaceUrl) {
-                    // Enviar plantilla enlace_lili con la URL generada por tools
-                    logger.info(`[messageProcessing.controller.js] Enviando plantilla enlace_lili con URL: ${enlaceUrl}`);
-                    const envioPlantilla = await this.enviarPlantillaEnlace(empresaId, phoneTrimmed, enlaceUrl);
-                    widRespuesta = envioPlantilla.wid;
-                    logger.info(`[messageProcessing.controller.js] Plantilla enlace_lili enviada, wid: ${widRespuesta}`);
-                } else {
-                    const envio = await WhatsappGraphService.enviarMensajeTexto(empresaId, phoneTrimmed, respuestaTexto);
-                    widRespuesta = envio.wid_mensaje;
-                    logger.info(`[messageProcessing.controller.js] Mensaje enviado por WhatsApp, wid: ${widRespuesta}`);
-                }
+                const envio = await WhatsappGraphService.enviarMensajeTexto(empresaId, phoneTrimmed, respuestaTexto);
+                widRespuesta = envio.wid_mensaje;
+                logger.info(`[messageProcessing.controller.js] Mensaje enviado por WhatsApp, wid: ${widRespuesta}`);
             } catch (whatsappError) {
                 logger.error(`[messageProcessing.controller.js] Error enviando WhatsApp: ${whatsappError.message}`);
             }
 
             // Guardar mensaje saliente
+            const fechaSaliente = new Date();
             await Mensaje.create({
                 id_chat: chat.id || chat,
-                contenido: enlaceUrl ? `[Plantilla enlace_lili] ${enlaceUrl}` : respuestaTexto,
+                contenido: respuestaTexto,
                 direccion: "out",
                 wid_mensaje: widRespuesta || widTrimmed,
-                tipo_mensaje: enlaceUrl ? "plantilla" : "texto",
-                fecha_hora: new Date(),
+                tipo_mensaje: "texto",
+                fecha_hora: fechaSaliente,
                 usuario_registro: null
+            });
+
+            // Notificar al WebSocket sobre mensaje saliente
+            websocketNotifier.notificarMensajeSaliente(persona.id, {
+                id_contacto: persona.id,
+                contenido: respuestaTexto,
+                direccion: "out",
+                wid_mensaje: widRespuesta || widTrimmed,
+                tipo: "texto",
+                fecha_hora: fechaSaliente.toISOString()
             });
 
             // Retornar respuesta
