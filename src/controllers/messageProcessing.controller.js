@@ -124,6 +124,13 @@ class MessageProcessingController {
                 fecha_hora: fechaEntrante.toISOString()
             });
 
+            // Verificar si el bot esta activo para este chat
+            const chatData = await Chat.findById(chatId);
+            if (chatData && chatData.bot_activo === 0) {
+                logger.info(`[messageProcessing] Bot desactivado para chat ${chatId}, no se genera respuesta`);
+                return res.success(200, "Mensaje guardado (bot desactivado)", { bot_activo: false });
+            }
+
             // Construir mensaje para el asistente incluyendo archivos si existen
             let messageForAssistant = questionTrimmed;
             if (archivos.length > 0) {
