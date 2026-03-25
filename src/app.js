@@ -31,6 +31,7 @@ const asteriskRoutes = require("./routes/asterisk.route.js");
 const envioMasivoWhatsappRoutes = require("./routes/crm/envioMasivoWhatsapp.route.js");
 const envioPersonaRoutes = require("./routes/crm/envioBase.route.js");
 const n8nEnvioMasivoRoutes = require("./routes/crm/n8nEnvioMasivo.route.js");
+const webhookRoutes = require("./routes/webhook.route.js");
 
 const app = express();
 
@@ -59,6 +60,9 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Middleware para respuestas JSON consistentes
 app.use(responseHandler);
+
+// Webhook de WhatsApp (sin auth - Meta lo llama directamente)
+app.use("/webhook", webhookRoutes);
 
 // Rutas publicas (sin auth)
 app.use("/api/crm", usuarioRoutes);

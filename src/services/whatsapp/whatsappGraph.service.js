@@ -513,6 +513,41 @@ class WhatsappGraphService {
   /**
    * Formatea número de teléfono para WhatsApp Cloud API
    */
+  /**
+   * Descarga un archivo multimedia de WhatsApp usando su media_id
+   */
+  async descargarMedia(idEmpresa, mediaId) {
+    const credenciales = await this.obtenerCredenciales(idEmpresa);
+
+    const metaUrl = `${GRAPH_API_URL}/${mediaId}`;
+    const metaRes = await axios.get(metaUrl, {
+      headers: { Authorization: `Bearer ${credenciales.accessToken}` },
+      timeout: 30000
+    });
+
+    const mediaUrl = metaRes.data?.url;
+    if (!mediaUrl) {
+      throw new Error(`No se pudo obtener URL del media ${mediaId}`);
+    }
+
+    const fileRes = await axios.get(mediaUrl, {
+      headers: { Authorization: `Bearer ${credenciales.accessToken}` },
+      responseType: 'arraybuffer',
+      timeout: 60000
+    });
+
+    const contentType = fileRes.headers['content-type'] || 'application/octet-stream';
+    const extMap = {
+      'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp',
+      'video/mp4': '.mp4', 'video/3gpp': '.3gp',
+      'audio/ogg': '.ogg', 'audio/mpeg': '.mp3', 'audio/amr': '.amr',
+      'application/pdf': '.pdf',
+    };
+    const extension = extMap[contentType] || '.bin';
+
+    return { buffer: Buffer.from(fileRes.data), contentType, extension };
+  }
+
   formatearNumeroTelefono(phone) {
     let formatted = phone.replace(/[\s\-\(\)\+]/g, '');
     if (formatted.startsWith('0')) {

@@ -6,6 +6,7 @@ const Chat = require("../models/chat.model.js");
 const Mensaje = require("../models/mensaje.model.js");
 const ConfiguracionWhatsapp = require("../models/configuracionWhatsapp.model.js");
 const websocketNotifier = require("../services/websocketNotifier.service.js");
+const s3Service = require("../services/s3.service.js");
 const logger = require("../config/logger/loggerClient");
 
 class MessageProcessingController {
@@ -18,12 +19,12 @@ class MessageProcessingController {
         try {
             const { phone, question, wid, phone_number_id, messageType, files } = req.body;
 
-            if (!phone || !question || !phone_number_id) {
-                return res.serverError(400, "Campos requeridos: phone, question, phone_number_id");
+            if (!phone || !phone_number_id) {
+                return res.serverError(400, "Campos requeridos: phone, phone_number_id");
             }
 
             const phoneTrimmed = phone.trim();
-            const questionTrimmed = question.trim();
+            const questionTrimmed = (question || '').trim();
             const widTrimmed = wid ? wid.trim() : null;
             const tipoMensaje = messageType || "texto";
             const archivos = Array.isArray(files) ? files : [];
@@ -75,11 +76,35 @@ class MessageProcessingController {
                 });
             }
 
+            // Procesar archivos entrantes (descargar media de WhatsApp y subir a S3)
+            let contenidoArchivo = null;
+            if (archivos.length > 0) {
+                const archivo = archivos[0];
+                if (archivo.url) {
+                    contenidoArchivo = archivo.url;
+                } else if (archivo.media_id || archivo.id) {
+                    try {
+                        const mediaId = archivo.media_id || archivo.id;
+                        const media = await WhatsappGraphService.descargarMedia(empresaId, mediaId);
+                        const fakeFile = {
+                            buffer: media.buffer,
+                            mimetype: media.contentType,
+                            originalname: `whatsapp_${Date.now()}${media.extension}`
+                        };
+                        contenidoArchivo = await s3Service.uploadFile(fakeFile, 'chat-incoming', empresaId);
+                        logger.info(`[messageProcessing] Media ${mediaId} subido a S3: ${contenidoArchivo}`);
+                    } catch (mediaError) {
+                        logger.error(`[messageProcessing] Error descargando media: ${mediaError.message}`);
+                    }
+                }
+            }
+
             // Guardar mensaje entrante
             const fechaEntrante = new Date();
             await Mensaje.create({
                 id_chat: chat.id || chat,
-                contenido: questionTrimmed,
+                contenido: questionTrimmed || (contenidoArchivo ? `[${tipoMensaje}]` : null),
+                contenido_archivo: contenidoArchivo,
                 direccion: "in",
                 wid_mensaje: widTrimmed,
                 tipo_mensaje: tipoMensaje,
@@ -92,6 +117,7 @@ class MessageProcessingController {
             websocketNotifier.notificarMensajeEntrante(chatId, {
                 id_contacto: chatId,
                 contenido: questionTrimmed,
+                contenido_archivo: contenidoArchivo,
                 direccion: "in",
                 wid_mensaje: widTrimmed,
                 tipo: tipoMensaje,
@@ -101,8 +127,11 @@ class MessageProcessingController {
             // Construir mensaje para el asistente incluyendo archivos si existen
             let messageForAssistant = questionTrimmed;
             if (archivos.length > 0) {
-                const fileDescriptions = archivos.map(f => `[Archivo: ${f.type || 'archivo'} - ${f.url || ''}]`).join('\n');
-                messageForAssistant = `${fileDescriptions}\n${questionTrimmed}`;
+                const fileDescriptions = archivos.map(f => `[Archivo: ${f.type || 'archivo'} - ${f.url || contenidoArchivo || ''}]`).join('\n');
+                messageForAssistant = `${fileDescriptions}\n${questionTrimmed}`.trim();
+            }
+            if (!messageForAssistant) {
+                messageForAssistant = `[El usuario envio un archivo de tipo ${tipoMensaje}]`;
             }
 
             // Procesar con el asistente
