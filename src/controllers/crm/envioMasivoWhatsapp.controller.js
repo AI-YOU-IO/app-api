@@ -5,6 +5,8 @@ const FormatoCampoPlantillaModel = require("../../models/formatoCampoPlantilla.m
 const BaseNumeroDetalleModel = require("../../models/baseNumeroDetalle.model.js");
 const whatsappGraphService = require("../../services/whatsapp/whatsappGraph.service.js");
 const Persona = require("../../models/persona.model.js");
+const Chat = require("../../models/chat.model.js");
+const Mensaje = require("../../models/mensaje.model.js");
 const logger = require('../../config/logger/loggerClient.js');
 
 const DELAY_BETWEEN_MESSAGES = 500;
@@ -228,17 +230,50 @@ class EnvioMasivoWhatsappController {
 
                             cantidadExitosos++;
 
-                            // Actualizar persona.id_ref_base_num_detalle buscando por celular
+                            // Actualizar persona y registrar mensaje en BD
                             try {
-                                const personaBd = await Persona.selectByCelular(celular, idEmpresa);
-                                if (personaBd) {
+                                let personaBd = await Persona.selectByCelular(celular, idEmpresa);
+                                if (!personaBd) {
+                                    personaBd = await Persona.createPersona({
+                                        id_estado: 1,
+                                        celular: celular,
+                                        nombre_completo: detalle.nombre || null,
+                                        id_empresa: idEmpresa,
+                                        usuario_registro: userId
+                                    });
+                                    if (!personaBd || !personaBd.id) {
+                                        personaBd = await Persona.selectByCelular(celular, idEmpresa);
+                                    }
+                                }
+
+                                if (personaBd && personaBd.id) {
                                     await Persona.updatePersona(personaBd.id, {
                                         id_ref_base_num_detalle: detalle.id,
                                         usuario_actualizacion: userId
                                     });
+
+                                    let chat = await Chat.findByPersona(personaBd.id);
+                                    if (!chat) {
+                                        const chatId = await Chat.create({
+                                            id_empresa: idEmpresa,
+                                            id_persona: personaBd.id,
+                                            usuario_registro: userId
+                                        });
+                                        chat = { id: chatId };
+                                    }
+
+                                    await Mensaje.create({
+                                        id_chat: chat.id,
+                                        contenido: `[Envío masivo] Plantilla: ${plantilla.name}`,
+                                        direccion: "in",
+                                        wid_mensaje: null,
+                                        tipo_mensaje: "plantilla",
+                                        fecha_hora: new Date(),
+                                        usuario_registro: userId
+                                    });
                                 }
                             } catch (personaError) {
-                                logger.error(`[envioMasivoWhatsapp.controller.js] Error actualizando id_ref_base_num_detalle para ${celular}: ${personaError.message}`);
+                                logger.error(`[envioMasivoWhatsapp.controller.js] Error actualizando persona/mensaje para ${celular}: ${personaError.message}`);
                             }
                         } catch (sendError) {
                             const errorMsg = sendError.response?.data?.error?.message || sendError.message || 'Error desconocido';

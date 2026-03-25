@@ -300,7 +300,7 @@ class N8nEnvioMasivoController {
                   await Mensaje.create({
                     id_chat: chat.id,
                     contenido: `[Envío masivo] Plantilla: ${plantilla.name}`,
-                    direccion: "out",
+                    direccion: "in",
                     wid_mensaje: null,
                     tipo_mensaje: "plantilla",
                     fecha_hora: new Date(),
