@@ -29,7 +29,7 @@ const configuracionWhatsappRoutes = require("./routes/configuracionWhatsapp.rout
 const toolRoutes = require("./routes/tool.route.js");
 const asteriskRoutes = require("./routes/asterisk.route.js");
 const envioMasivoWhatsappRoutes = require("./routes/crm/envioMasivoWhatsapp.route.js");
-const envioPersonaRoutes = require("./routes/crm/envioPersona.route.js");
+const envioPersonaRoutes = require("./routes/crm/envioBase.route.js");
 const n8nEnvioMasivoRoutes = require("./routes/crm/n8nEnvioMasivo.route.js");
 
 const app = express();

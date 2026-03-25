@@ -5,7 +5,7 @@
  */
 
 const EnvioMasivoWhatsappModel = require("../../models/envioMasivoWhatsapp.model.js");
-const EnvioPersonaModel = require("../../models/envioPersona.model.js");
+const EnvioPersonaModel = require("../../models/envioBase.model.js");
 const PlantillaWhatsappModel = require("../../models/plantillaWhatsapp.model.js");
 const FormatoCampoPlantillaModel = require("../../models/formatoCampoPlantilla.model.js");
 const BaseNumeroDetalleModel = require("../../models/baseNumeroDetalle.model.js");
