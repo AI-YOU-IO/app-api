@@ -264,23 +264,33 @@ class N8nEnvioMasivoController {
                     personaBd = await Persona.createPersona({
                       id_estado: 1,
                       celular: celular,
-                      nombre: detalle.nombre || null,
+                      nombre_completo: detalle.nombre || null,
                       id_empresa: id_empresa,
                       usuario_registro: null
                     });
+                    // Si createPersona no retornó objeto válido, buscar de nuevo
+                    if (!personaBd || !personaBd.id) {
+                      personaBd = await Persona.selectByCelular(celular, id_empresa);
+                    }
+                  }
+
+                  if (!personaBd || !personaBd.id) {
+                    logger.error(`[n8nEnvioMasivo] No se pudo obtener persona para ${celular}`);
+                    continue;
                   }
 
                   let chat = await Chat.findByPersona(personaBd.id);
                   if (!chat) {
-                    chat = await Chat.create({
+                    const chatId = await Chat.create({
                       id_empresa,
                       id_persona: personaBd.id,
                       usuario_registro: null
                     });
+                    chat = { id: chatId };
                   }
 
                   await Mensaje.create({
-                    id_chat: chat.id || chat,
+                    id_chat: chat.id,
                     contenido: `[Envío masivo] Plantilla: ${plantilla.name}`,
                     direccion: "out",
                     wid_mensaje: null,
