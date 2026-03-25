@@ -279,6 +279,14 @@ class N8nEnvioMasivoController {
                     continue;
                   }
 
+                  // Actualizar persona.id_ref_base_num_detalle
+                  if (detalle.id_persona) {
+                    await Persona.updatePersona(detalle.id_persona, {
+                      id_ref_base_num_detalle: detalle.id,
+                      usuario_actualizacion: null
+                    });
+                  }
+
                   let chat = await Chat.findByPersona(personaBd.id);
                   if (!chat) {
                     const chatId = await Chat.create({
