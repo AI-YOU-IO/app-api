@@ -175,6 +175,18 @@ class EnvioBaseModel {
         }
     }
 
+    async deleteByEnvioMasivo(id_envio_masivo, usuario_actualizacion = null) {
+        try {
+            const [, result] = await this.connection.execute(
+                `UPDATE envio_base SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id_envio_masivo = ? AND estado_registro = 1`,
+                [usuario_actualizacion, id_envio_masivo]
+            );
+            return result.affectedRows;
+        } catch (error) {
+            throw new Error(`Error al eliminar envíos base por envío masivo: ${error.message}`);
+        }
+    }
+
     async delete(id, usuario_actualizacion = null) {
         try {
             const [, result] = await this.connection.execute(

@@ -135,6 +135,32 @@ class EnvioBaseController {
         }
     }
 
+    async syncByEnvioMasivo(req, res) {
+        try {
+            const { id_envio_masivo } = req.params;
+            const { bases } = req.body;
+            const { userId } = req.user || {};
+
+            if (!bases || !Array.isArray(bases)) {
+                return res.status(400).json({ msg: "Debe proporcionar las bases" });
+            }
+
+            // Desactivar bases actuales
+            await EnvioBaseModel.deleteByEnvioMasivo(id_envio_masivo, userId);
+
+            // Crear las nuevas
+            if (bases.length > 0) {
+                const result = await EnvioBaseModel.bulkCreate(id_envio_masivo, bases, userId);
+                return res.status(200).json({ data: result, msg: "Bases sincronizadas correctamente" });
+            }
+
+            return res.status(200).json({ data: { total: 0, errores: [] }, msg: "Bases sincronizadas correctamente" });
+        } catch (error) {
+            logger.error(`[envioBase.controller.js] Error al sincronizar bases: ${error.message}`);
+            return res.status(500).json({ msg: "Error al sincronizar bases" });
+        }
+    }
+
     async delete(req, res) {
         try {
             const { id } = req.params;
