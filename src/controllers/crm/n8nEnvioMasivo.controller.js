@@ -280,8 +280,8 @@ class N8nEnvioMasivoController {
                   }
 
                   // Actualizar persona.id_ref_base_num_detalle
-                  if (detalle.id_persona) {
-                    await Persona.updatePersona(detalle.id_persona, {
+                  if (personaBd) {
+                    await Persona.updatePersona(personaBd.id, {
                       id_ref_base_num_detalle: detalle.id,
                       usuario_actualizacion: null
                     });
