@@ -21,12 +21,15 @@ class PersonaModel {
 
     async selectByCelular(phone, id_empresa = null) {
         try {
-            let query = `SELECT * FROM persona WHERE celular = ? AND estado_registro = 1`;
+            let query = `SELECT p.id, p.nombre_completo, p.dni, p.celular, p.id_tipificacion, p.id_tipificacion_llamada, p.id_estado, bnd.json_adicional
+                FROM persona p
+                LEFT JOIN base_numero_detalle bnd ON bnd.id = p.id_ref_base_num_detalle
+                WHERE p.celular = ? AND p.estado_registro = 1`;
 
             const params = [phone];
 
             if (id_empresa) {
-                query += ` AND id_empresa = ?`;
+                query += ` AND p.id_empresa = ?`;
                 params.push(id_empresa);
             }
 
