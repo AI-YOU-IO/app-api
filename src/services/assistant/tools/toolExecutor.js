@@ -25,15 +25,15 @@ class ToolExecutor {
 
     async _obtenerLinkPago({grupo_familiar}) {
         logger.info("[ToolExecutor] obtenerLinkPago");
-        const enlace = await PagoService.generarLinkPago(grupo_familiar);
-        if (!enlace) return JSON.stringify({ error: "No se pudo generar el enlace de pago" });
+        const enlace = await PagoService.generarLinkPago(grupo_familiar, this.persona.celular);
+        if (!enlace) return JSON.stringify({ error: "No se pudo generar el grupo_familiarenlace de pago" });
         this.lastEnlaceUrl = enlace;
         return JSON.stringify({ enlace });
     }
 
     async _obtenerLinkCambio({grupo_familiar}) {
         logger.info("[ToolExecutor] obtenerLinkCambio");
-        const enlace = await PagoService.generarLinkCambio(grupo_familiar);
+        const enlace = await PagoService.generarLinkCambio(grupo_familiar, this.persona.celular);
         if (!enlace) return JSON.stringify({ error: "No se pudo generar el enlace de cambio de tarjeta" });
         this.lastEnlaceUrl = enlace;
         return JSON.stringify({ enlace });
