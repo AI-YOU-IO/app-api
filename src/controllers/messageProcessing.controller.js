@@ -64,6 +64,8 @@ class MessageProcessingController {
                 });
             }
 
+            persona = {...persona, ...persona.json_adicional}
+
             let chat = await Chat.findByPersona(persona.id);
             if (!chat) {
                 chat = await Chat.create({
