@@ -45,12 +45,12 @@ class PersonaModel {
     /**
      * Crea un nuevo registro de persona
      */
-    async createPersona({ id_estado, celular, id_usuario, id_empresa, usuario_registro, id_tipo_persona = 1, nombre_completo, dni, direccion, id_tipificacion, id_catalogo }) {
+    async createPersona({ id_estado, celular, id_usuario, id_empresa, usuario_registro, id_tipo_persona = 1, nombre_completo, dni, direccion, id_tipificacion, id_catalogo, id_ref_base_num_detalle }) {
         try {
             const [result] = await this.connection.execute(
-                `INSERT INTO persona (id_estado, celular, id_usuario, id_empresa, id_tipo_persona, usuario_registro, usuario_actualizacion, nombre_completo, dni, direccion, id_tipificacion, id_catalogo)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [id_estado, celular, id_usuario || null, id_empresa, id_tipo_persona, usuario_registro, usuario_registro, nombre_completo || null, dni || null, direccion || null, id_tipificacion || null, id_catalogo || null]
+                `INSERT INTO persona (id_estado, celular, id_usuario, id_empresa, id_tipo_persona, usuario_registro, usuario_actualizacion, nombre_completo, dni, direccion, id_tipificacion, id_catalogo, id_ref_base_num_detalle)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [id_estado, celular, id_usuario || null, id_empresa, id_tipo_persona, usuario_registro, usuario_registro, nombre_completo || null, dni || null, direccion || null, id_tipificacion || null, id_catalogo || null, id_ref_base_num_detalle || null]
             );
 
             const [rows] = await this.connection.execute(
@@ -67,7 +67,7 @@ class PersonaModel {
     static UPDATABLE_FIELDS = [
         'id_estado', 'id_usuario', 'nombre_completo', 'dni', 'direccion',
         'celular', 'id_tipificacion', 'id_empresa', 'id_tipo_persona',
-        'id_catalogo', 'fue_prospecto', 'usuario_actualizacion'
+        'id_catalogo', 'fue_prospecto', 'usuario_actualizacion', 'id_ref_base_num_detalle'
     ];
 
     // Campos que no pueden ser null en la BD

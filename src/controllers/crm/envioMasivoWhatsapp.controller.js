@@ -1,9 +1,10 @@
 const EnvioMasivoWhatsappModel = require("../../models/envioMasivoWhatsapp.model.js");
-const EnvioPersonaModel = require("../../models/envioPersona.model.js");
+const EnvioPersonaModel = require("../../models/envioBase.model.js");
 const PlantillaWhatsappModel = require("../../models/plantillaWhatsapp.model.js");
 const FormatoCampoPlantillaModel = require("../../models/formatoCampoPlantilla.model.js");
 const BaseNumeroDetalleModel = require("../../models/baseNumeroDetalle.model.js");
 const whatsappGraphService = require("../../services/whatsapp/whatsappGraph.service.js");
+const Persona = require("../../models/persona.model.js");
 const logger = require('../../config/logger/loggerClient.js');
 
 const DELAY_BETWEEN_MESSAGES = 500;
@@ -226,6 +227,18 @@ class EnvioMasivoWhatsappController {
                             );
 
                             cantidadExitosos++;
+
+                            // Actualizar persona.id_ref_base_num_detalle usando el id_persona de base_numero_detalle
+                            try {
+                                if (detalle.id_persona) {
+                                    await Persona.updatePersona(detalle.id_persona, {
+                                        id_ref_base_num_detalle: detalle.id,
+                                        usuario_actualizacion: userId
+                                    });
+                                }
+                            } catch (personaError) {
+                                logger.error(`[envioMasivoWhatsapp.controller.js] Error actualizando id_ref_base_num_detalle para persona ${detalle.id_persona}: ${personaError.message}`);
+                            }
                         } catch (sendError) {
                             const errorMsg = sendError.response?.data?.error?.message || sendError.message || 'Error desconocido';
                             cantidadFallidos++;

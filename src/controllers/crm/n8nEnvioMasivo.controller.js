@@ -5,7 +5,7 @@
  */
 
 const EnvioMasivoWhatsappModel = require("../../models/envioMasivoWhatsapp.model.js");
-const EnvioPersonaModel = require("../../models/envioPersona.model.js");
+const EnvioPersonaModel = require("../../models/envioBase.model.js");
 const PlantillaWhatsappModel = require("../../models/plantillaWhatsapp.model.js");
 const FormatoCampoPlantillaModel = require("../../models/formatoCampoPlantilla.model.js");
 const BaseNumeroDetalleModel = require("../../models/baseNumeroDetalle.model.js");
@@ -169,7 +169,7 @@ class N8nEnvioMasivoController {
       }
 
       // Actualizar estado a enviado (en proceso)
-      await EnvioMasivoWhatsappModel.updateEstado(id, 'enviado');
+      await EnvioMasivoWhatsappModel.updateEstado(id, 'entregado');
 
       const resultados = {
         envio_id: parseInt(id),
@@ -254,7 +254,7 @@ class N8nEnvioMasivoController {
                 resultados.detalles.push({
                   telefono: celular,
                   nombre: detalle.nombre || '',
-                  status: 'enviado'
+                  status: 'entregado'
                 });
 
                 // Registrar chat y mensaje saliente en BD
@@ -264,23 +264,41 @@ class N8nEnvioMasivoController {
                     personaBd = await Persona.createPersona({
                       id_estado: 1,
                       celular: celular,
-                      nombre: detalle.nombre || null,
+                      nombre_completo: detalle.nombre || null,
                       id_empresa: id_empresa,
                       usuario_registro: null
+                    });
+                    // Si createPersona no retornó objeto válido, buscar de nuevo
+                    if (!personaBd || !personaBd.id) {
+                      personaBd = await Persona.selectByCelular(celular, id_empresa);
+                    }
+                  }
+
+                  if (!personaBd || !personaBd.id) {
+                    logger.error(`[n8nEnvioMasivo] No se pudo obtener persona para ${celular}`);
+                    continue;
+                  }
+
+                  // Actualizar persona.id_ref_base_num_detalle
+                  if (detalle.id_persona) {
+                    await Persona.updatePersona(detalle.id_persona, {
+                      id_ref_base_num_detalle: detalle.id,
+                      usuario_actualizacion: null
                     });
                   }
 
                   let chat = await Chat.findByPersona(personaBd.id);
                   if (!chat) {
-                    chat = await Chat.create({
+                    const chatId = await Chat.create({
                       id_empresa,
                       id_persona: personaBd.id,
                       usuario_registro: null
                     });
+                    chat = { id: chatId };
                   }
 
                   await Mensaje.create({
-                    id_chat: chat.id || chat,
+                    id_chat: chat.id,
                     contenido: `[Envío masivo] Plantilla: ${plantilla.name}`,
                     direccion: "out",
                     wid_mensaje: null,

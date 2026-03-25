@@ -1891,7 +1891,6 @@ class ConfiguracionController {
     try {
       const { id } = req.params;
       const { id_formato, nombre, descripcion, prompt } = req.body;
-      const idEmpresa = req.user?.idEmpresa || null;
       const usuario_actualizacion = req.user?.userId || null;
 
       if (!id_formato || !nombre || !prompt) {
@@ -1904,8 +1903,7 @@ class ConfiguracionController {
         nombre,
         descripcion,
         prompt,
-        usuario_actualizacion,
-        id_empresa: idEmpresa
+        usuario_actualizacion
       });
 
       if (!updated) {
@@ -3211,7 +3209,7 @@ class ConfiguracionController {
 
   async createCampoPlantilla(req, res) {
     try {
-      const { id_plantilla, id_formato_campo, id_campo_sistema } = req.body;
+      const { id_plantilla, id_formato_campo, id_campo_sistema, orden } = req.body;
       const usuario_registro = req.user?.userId || null;
 
       if (!id_plantilla || (!id_formato_campo && !id_campo_sistema)) {
@@ -3219,7 +3217,7 @@ class ConfiguracionController {
       }
 
       const model = new FormatoCampoPlantillaModel();
-      const id = await model.create({ id_plantilla, id_formato_campo, id_campo_sistema, usuario_registro });
+      const id = await model.create({ id_plantilla, id_formato_campo, id_campo_sistema, orden, usuario_registro });
 
       return res.status(201).json({ msg: "Campo de plantilla creado exitosamente", data: { id } });
     } catch (error) {
@@ -3244,11 +3242,12 @@ class ConfiguracionController {
       }
 
       // Normalizar: si recibimos números planos, convertir al formato de objetos
-      const campoItems = campo_ids.map((item) => {
+      // Asignar orden basado en la posición si no viene explícito
+      const campoItems = campo_ids.map((item, index) => {
         if (typeof item === 'number' || typeof item === 'string') {
-          return { id_formato_campo: Number(item) };
+          return { id_formato_campo: Number(item), orden: index + 1 };
         }
-        return item;
+        return { ...item, orden: item.orden || (index + 1) };
       });
 
       const model = new FormatoCampoPlantillaModel();
