@@ -19,6 +19,7 @@ async function getPromptByEmpresa(id_empresa) {
 
 async function buildSystemPrompt({ persona, timestamp, id_empresa }) {
     const template = await getPromptByEmpresa(id_empresa);
+    logger.info(`[promptCache] Datos persona ${JSON.stringify(persona)}`);
 
     return template
         .replace("{{datos}}", JSON.stringify(persona))
