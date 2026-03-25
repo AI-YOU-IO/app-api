@@ -196,6 +196,20 @@ class BaseNumeroDetalleModel {
         }
     }
 
+    async getAllByBaseNumeroSinPaginar(id_base_numero) {
+        try {
+            const [rows] = await this.connection.execute(
+                `SELECT * FROM base_numero_detalle
+                WHERE id_base_numero = ? AND estado_registro = 1
+                ORDER BY id ASC`,
+                [id_base_numero]
+            );
+            return rows;
+        } catch (error) {
+            throw new Error(`Error al obtener detalles sin paginar: ${error.message}`);
+        }
+    }
+
     async deleteByBaseNumero(id_base_numero) {
         try {
             const [result] = await this.connection.execute(

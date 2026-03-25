@@ -30,7 +30,9 @@ class PlantillaWhatsappController {
         mapaLocal[p.name] = {
           id_local: p.id,
           url: p.url,
-          tipo: p.tipo
+          tipo: p.tipo,
+          id_formato: p.id_formato,
+          formato_nombre: p.formato_nombre
         };
       }
 
@@ -42,7 +44,9 @@ class PlantillaWhatsappController {
             ...template,
             id_local: local.id_local,
             media_url: local.url,
-            media_tipo: local.tipo
+            media_tipo: local.tipo,
+            id_formato: local.id_formato,
+            formato_nombre: local.formato_nombre
           };
         }
         return template;
@@ -83,7 +87,7 @@ class PlantillaWhatsappController {
    */
   async createPlantilla(req, res) {
     try {
-      const { name, category, language, header_type, header_text, body, footer, buttons } = req.body;
+      const { name, category, language, header_type, header_text, body, footer, buttons, id_formato } = req.body;
       const id_empresa = req.user?.idEmpresa || null;
       const usuario_registro = req.user?.userId || null;
 
@@ -128,6 +132,7 @@ class PlantillaWhatsappController {
         buttons: buttons || [],
         id_empresa,
         meta_template_id: resultMeta.id ? String(resultMeta.id) : null,
+        id_formato: id_formato || null,
         usuario_registro
       });
 
@@ -159,7 +164,7 @@ class PlantillaWhatsappController {
   async updatePlantilla(req, res) {
     try {
       const { id } = req.params;
-      const { name, category, language, header_type, header_text, body, footer, buttons, meta_template_id } = req.body;
+      const { name, category, language, header_type, header_text, body, footer, buttons, meta_template_id, id_formato } = req.body;
       const id_empresa = req.user?.idEmpresa || null;
       const usuario_actualizacion = req.user?.userId || null;
 
@@ -214,6 +219,7 @@ class PlantillaWhatsappController {
         footer,
         buttons: buttons || [],
         meta_template_id: meta_template_id ? String(meta_template_id) : null,
+        id_formato: id_formato || null,
         usuario_actualizacion
       });
 

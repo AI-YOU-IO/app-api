@@ -1,6 +1,6 @@
 const { pool } = require("../config/dbConnection.js");
 
-class EnvioPersonaModel {
+class EnvioBaseModel {
     constructor(dbConnection = null) {
         this.connection = dbConnection || pool;
     }
@@ -8,50 +8,47 @@ class EnvioPersonaModel {
     async getAll(id_envio_masivo = null) {
         try {
             let query = `
-                SELECT ep.*, p.nombre_completo as persona_nombre, p.celular as persona_celular
-                FROM envio_persona ep
-                LEFT JOIN persona p ON ep.id_persona = p.id
-                WHERE ep.estado_registro = 1
+                SELECT eb.*, bn.nombre as base_nombre, bn.descripcion as base_descripcion, bn.total_registros as base_total_registros
+                FROM envio_base eb
+                LEFT JOIN base_numero bn ON eb.id_base = bn.id
+                WHERE eb.estado_registro = 1
             `;
             const params = [];
 
             if (id_envio_masivo) {
-                query += ` AND ep.id_envio_masivo = ?`;
+                query += ` AND eb.id_envio_masivo = ?`;
                 params.push(id_envio_masivo);
             }
 
-            query += ` ORDER BY ep.fecha_registro DESC`;
+            query += ` ORDER BY eb.fecha_registro DESC`;
 
             const [rows] = await this.connection.execute(query, params);
             return rows;
         } catch (error) {
-            throw new Error(`Error al obtener envíos persona: ${error.message}`);
+            throw new Error(`Error al obtener envíos base: ${error.message}`);
         }
     }
 
     async getById(id) {
         try {
             const [rows] = await this.connection.execute(
-                `SELECT ep.*, p.nombre_completo as persona_nombre, p.celular as persona_celular
-                FROM envio_persona ep
-                LEFT JOIN persona p ON ep.id_persona = p.id
-                WHERE ep.id = ? AND ep.estado_registro = 1`,
+                `SELECT * FROM envio_base WHERE id = ? AND estado_registro = 1`,
                 [id]
             );
             return rows.length > 0 ? rows[0] : null;
         } catch (error) {
-            throw new Error(`Error al obtener envío persona por ID: ${error.message}`);
+            throw new Error(`Error al obtener envío base por ID: ${error.message}`);
         }
     }
 
     async getByEnvioMasivo(id_envio_masivo) {
         try {
             const [rows] = await this.connection.execute(
-                `SELECT ep.*, p.nombre_completo as persona_nombre, p.celular as persona_celular
-                FROM envio_persona ep
-                LEFT JOIN persona p ON ep.id_persona = p.id
-                WHERE ep.id_envio_masivo = ? AND ep.estado_registro = 1
-                ORDER BY ep.fecha_registro DESC`,
+                `SELECT eb.*, bn.nombre as base_nombre, bn.descripcion as base_descripcion, bn.total_registros as base_total_registros
+                FROM envio_base eb
+                LEFT JOIN base_numero bn ON eb.id_base = bn.id
+                WHERE eb.id_envio_masivo = ? AND eb.estado_registro = 1
+                ORDER BY eb.fecha_registro DESC`,
                 [id_envio_masivo]
             );
             return rows;
@@ -61,20 +58,20 @@ class EnvioPersonaModel {
     }
 
     async create({
+        id_base,
         id_envio_masivo,
-        id_persona,
         estado,
         fecha_envio,
         usuario_registro
     }) {
         try {
             const [, result] = await this.connection.execute(
-                `INSERT INTO envio_persona
-                (id_envio_masivo, id_persona, estado, fecha_envio, estado_registro, usuario_registro)
+                `INSERT INTO envio_base
+                (id_base, id_envio_masivo, estado, fecha_envio, estado_registro, usuario_registro)
                 VALUES (?, ?, ?, ?, 1, ?)`,
                 [
+                    id_base || null,
                     id_envio_masivo,
-                    id_persona || null,
                     estado || 'pendiente',
                     fecha_envio || null,
                     usuario_registro || null
@@ -82,11 +79,11 @@ class EnvioPersonaModel {
             );
             return result.insertId;
         } catch (error) {
-            throw new Error(`Error al crear envío persona: ${error.message}`);
+            throw new Error(`Error al crear envío base: ${error.message}`);
         }
     }
 
-    async bulkCreate(id_envio_masivo, personas, usuario_registro) {
+    async bulkCreate(id_envio_masivo, bases, usuario_registro) {
         const client = await this.connection.connect();
         try {
             await client.query('BEGIN');
@@ -95,31 +92,31 @@ class EnvioPersonaModel {
             let totalInsertados = 0;
             const errores = [];
 
-            for (let i = 0; i < personas.length; i += BATCH_SIZE) {
-                const batch = personas.slice(i, i + BATCH_SIZE);
+            for (let i = 0; i < bases.length; i += BATCH_SIZE) {
+                const batch = bases.slice(i, i + BATCH_SIZE);
 
                 const values = [];
                 const params = [];
                 let paramIndex = 0;
 
-                for (const persona of batch) {
+                for (const base of batch) {
                     const placeholders = [];
                     for (let j = 0; j < 6; j++) {
                         placeholders.push(`$${++paramIndex}`);
                     }
                     values.push(`(${placeholders.join(', ')})`);
                     params.push(
+                        base.id_base || null,
                         id_envio_masivo,
-                        persona.id_persona || null,
-                        persona.estado || 'pendiente',
-                        persona.fecha_envio || null,
+                        base.estado || 'pendiente',
+                        base.fecha_envio || null,
                         1,
                         usuario_registro || null
                     );
                 }
 
-                const sql = `INSERT INTO envio_persona
-                    (id_envio_masivo, id_persona, estado, fecha_envio, estado_registro, usuario_registro)
+                const sql = `INSERT INTO envio_base
+                    (id_base, id_envio_masivo, estado, fecha_envio, estado_registro, usuario_registro)
                     VALUES ${values.join(', ')}`;
 
                 try {
@@ -134,7 +131,7 @@ class EnvioPersonaModel {
             return { total: totalInsertados, errores };
         } catch (error) {
             await client.query('ROLLBACK');
-            throw new Error(`Error en carga masiva de envío persona: ${error.message}`);
+            throw new Error(`Error en carga masiva de envío base: ${error.message}`);
         } finally {
             client.release();
         }
@@ -148,7 +145,7 @@ class EnvioPersonaModel {
     }) {
         try {
             const [, result] = await this.connection.execute(
-                `UPDATE envio_persona
+                `UPDATE envio_base
                 SET estado = ?, fecha_envio = ?, error_mensaje = ?,
                     usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ? AND estado_registro = 1`,
@@ -162,33 +159,33 @@ class EnvioPersonaModel {
             );
             return result.affectedRows > 0;
         } catch (error) {
-            throw new Error(`Error al actualizar envío persona: ${error.message}`);
+            throw new Error(`Error al actualizar envío base: ${error.message}`);
         }
     }
 
     async updateEstado(id, estado, error_mensaje = null, usuario_actualizacion = null) {
         try {
             const [, result] = await this.connection.execute(
-                `UPDATE envio_persona SET estado = ?, error_mensaje = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND estado_registro = 1`,
+                `UPDATE envio_base SET estado = ?, error_mensaje = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND estado_registro = 1`,
                 [estado, error_mensaje, usuario_actualizacion, id]
             );
             return result.affectedRows > 0;
         } catch (error) {
-            throw new Error(`Error al actualizar estado de envío persona: ${error.message}`);
+            throw new Error(`Error al actualizar estado de envío base: ${error.message}`);
         }
     }
 
     async delete(id, usuario_actualizacion = null) {
         try {
             const [, result] = await this.connection.execute(
-                `UPDATE envio_persona SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`,
+                `UPDATE envio_base SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`,
                 [usuario_actualizacion, id]
             );
             return result.affectedRows > 0;
         } catch (error) {
-            throw new Error(`Error al eliminar envío persona: ${error.message}`);
+            throw new Error(`Error al eliminar envío base: ${error.message}`);
         }
     }
 }
 
-module.exports = new EnvioPersonaModel();
+module.exports = new EnvioBaseModel();

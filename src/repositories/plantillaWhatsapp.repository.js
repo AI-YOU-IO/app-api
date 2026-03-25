@@ -5,9 +5,11 @@ class PlantillaWhatsappRepository {
     async findAll(id_empresa = null) {
         try {
             let query = `
-                SELECT pw.*, e.nombre_comercial as empresa_nombre
+                SELECT pw.*, e.nombre_comercial as empresa_nombre,
+                    f.nombre as formato_nombre
                 FROM plantilla_whatsapp pw
                 LEFT JOIN empresa e ON pw.id_empresa = e.id
+                LEFT JOIN formato f ON pw.id_formato = f.id
                 WHERE pw.estado_registro = 1
             `;
             const params = [];
@@ -62,8 +64,8 @@ class PlantillaWhatsappRepository {
         try {
             const [, result] = await pool.execute(
                 `INSERT INTO plantilla_whatsapp
-                (id_empresa, name, status, category, "language", header_type, header_text, body, footer, buttons, url_imagen, meta_template_id, estado_registro, usuario_registro)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+                (id_empresa, name, status, category, "language", header_type, header_text, body, footer, buttons, url_imagen, meta_template_id, id_formato, estado_registro, usuario_registro)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
                 [
                     data.id_empresa,
                     data.name,
@@ -77,6 +79,7 @@ class PlantillaWhatsappRepository {
                     data.buttons ? JSON.stringify(data.buttons) : null,
                     data.url_imagen || null,
                     data.meta_template_id || null,
+                    data.id_formato || null,
                     data.usuario_registro || null
                 ]
             );
@@ -93,7 +96,7 @@ class PlantillaWhatsappRepository {
                 `UPDATE plantilla_whatsapp
                 SET name = ?, status = ?, category = ?, "language" = ?,
                     header_type = ?, header_text = ?, body = ?, footer = ?,
-                    buttons = ?, url_imagen = ?, meta_template_id = ?,
+                    buttons = ?, url_imagen = ?, meta_template_id = ?, id_formato = ?,
                     usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ? AND estado_registro = 1`,
                 [
@@ -108,6 +111,7 @@ class PlantillaWhatsappRepository {
                     data.buttons ? JSON.stringify(data.buttons) : null,
                     data.url_imagen || null,
                     data.meta_template_id || null,
+                    data.id_formato || null,
                     data.usuario_actualizacion || null,
                     id
                 ]

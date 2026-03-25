@@ -1,6 +1,8 @@
 const EnvioMasivoWhatsappModel = require("../../models/envioMasivoWhatsapp.model.js");
 const EnvioPersonaModel = require("../../models/envioPersona.model.js");
 const PlantillaWhatsappModel = require("../../models/plantillaWhatsapp.model.js");
+const FormatoCampoPlantillaModel = require("../../models/formatoCampoPlantilla.model.js");
+const BaseNumeroDetalleModel = require("../../models/baseNumeroDetalle.model.js");
 const whatsappGraphService = require("../../services/whatsapp/whatsappGraph.service.js");
 const logger = require('../../config/logger/loggerClient.js');
 
@@ -137,71 +139,110 @@ class EnvioMasivoWhatsappController {
                 return res.status(400).json({ msg: "La plantilla asociada no fue encontrada" });
             }
 
+            // Obtener mapeo de campos de la plantilla (variables → campos)
+            const formatoCampoPlantillaModel = new FormatoCampoPlantillaModel();
+            const camposPlantilla = await formatoCampoPlantillaModel.getAllByPlantilla(plantilla.id);
+
             // Detectar parámetros en el body de la plantilla ({{1}}, {{2}}, etc.)
             const bodyParams = plantilla.body ? (plantilla.body.match(/\{\{\d+\}\}/g) || []) : [];
             const numBodyParams = new Set(bodyParams).size;
 
-            // Obtener los envio_persona pendientes
-            const envioPersonas = await EnvioPersonaModel.getByEnvioMasivo(id);
-            logger.info(`[envioMasivoWhatsapp.controller.js] Envio ${id}: encontradas ${envioPersonas.length} personas, params plantilla: ${numBodyParams}`);
-            if (envioPersonas.length === 0) {
-                return res.status(400).json({ msg: "No hay personas asociadas a este envío" });
+            // Columnas directas de base_numero_detalle
+            const DIRECT_COLUMNS = ['telefono', 'nombre', 'correo', 'tipo_documento', 'numero_documento'];
+
+            // Obtener las bases asociadas al envío
+            const envioBaseRecords = await EnvioPersonaModel.getByEnvioMasivo(id);
+            logger.info(`[envioMasivoWhatsapp.controller.js] Envio ${id}: ${envioBaseRecords.length} bases, ${camposPlantilla.length} campos mapeados, ${numBodyParams} params en plantilla`);
+
+            if (envioBaseRecords.length === 0) {
+                return res.status(400).json({ msg: "No hay bases asociadas a este envío" });
             }
 
-            // Actualizar estado del envio masivo a enviado (en proceso de envio)
+            // Actualizar estado del envio masivo (en proceso de envio)
             await EnvioMasivoWhatsappModel.updateEstado(id, 'entregado', userId);
 
             let cantidadExitosos = 0;
             let cantidadFallidos = 0;
+            const baseNumeroDetalleModel = new BaseNumeroDetalleModel();
 
-            for (const ep of envioPersonas) {
-                // Solo procesar los que estan pendientes
-                if (ep.estado !== 'pendiente') {
-                    if (ep.estado === 'enviado' || ep.estado === 'entregado') cantidadExitosos++;
-                    if (ep.estado === 'cancelado') cantidadFallidos++;
-                    continue;
-                }
-
-                const celular = ep.persona_celular;
-                if (!celular) {
-                    await EnvioPersonaModel.updateEstado(ep.id, 'cancelado', 'Sin número de celular', userId);
-                    cantidadFallidos++;
+            for (const eb of envioBaseRecords) {
+                // Solo procesar bases pendientes
+                if (eb.estado !== 'pendiente') {
                     continue;
                 }
 
                 try {
-                    // Construir components si la plantilla tiene parámetros
-                    const components = [];
-                    if (numBodyParams > 0) {
-                        const bodyParameters = [];
-                        for (let p = 0; p < numBodyParams; p++) {
-                            // Usar nombre de persona como fallback para {{1}}
-                            const valor = p === 0 ? (ep.persona_nombre || 'Cliente') : '';
-                            bodyParameters.push({ type: 'text', text: valor });
+                    // Obtener todos los registros de base_numero_detalle de esta base
+                    const detalles = await baseNumeroDetalleModel.getAllByBaseNumeroSinPaginar(eb.id_base);
+                    logger.info(`[envioMasivoWhatsapp.controller.js] Base ${eb.id_base}: ${detalles.length} registros`);
+
+                    for (const detalle of detalles) {
+                        const celular = detalle.telefono;
+                        if (!celular) {
+                            cantidadFallidos++;
+                            continue;
                         }
-                        components.push({ type: 'body', parameters: bodyParameters });
+
+                        try {
+                            // Construir components resolviendo variables desde los campos mapeados
+                            const components = [];
+
+                            if (camposPlantilla.length > 0 && numBodyParams > 0) {
+                                // Resolver variables usando el mapeo de campos
+                                const bodyParameters = camposPlantilla.map((campo) => {
+                                    const nombreCampo = campo.nombre_campo;
+                                    let valor = '';
+
+                                    if (DIRECT_COLUMNS.includes(nombreCampo)) {
+                                        // Campo es una columna directa de base_numero_detalle
+                                        valor = detalle[nombreCampo] || '';
+                                    } else if (detalle.json_adicional) {
+                                        // Buscar en json_adicional
+                                        const jsonData = typeof detalle.json_adicional === 'string'
+                                            ? JSON.parse(detalle.json_adicional)
+                                            : detalle.json_adicional;
+                                        valor = jsonData?.[nombreCampo] || '';
+                                    }
+
+                                    return { type: 'text', text: String(valor) || '' };
+                                });
+                                components.push({ type: 'body', parameters: bodyParameters });
+                            } else if (numBodyParams > 0) {
+                                // Sin mapeo de campos, fallback: usar nombre para {{1}}
+                                const bodyParameters = [];
+                                for (let p = 0; p < numBodyParams; p++) {
+                                    const valor = p === 0 ? (detalle.nombre || 'Cliente') : '';
+                                    bodyParameters.push({ type: 'text', text: valor });
+                                }
+                                components.push({ type: 'body', parameters: bodyParameters });
+                            }
+
+                            await whatsappGraphService.enviarPlantilla(
+                                idEmpresa,
+                                celular,
+                                plantilla.name,
+                                plantilla.language || 'es',
+                                components
+                            );
+
+                            cantidadExitosos++;
+                        } catch (sendError) {
+                            const errorMsg = sendError.response?.data?.error?.message || sendError.message || 'Error desconocido';
+                            cantidadFallidos++;
+                            logger.error(`[envioMasivoWhatsapp.controller.js] Error enviando a ${celular}: ${errorMsg}`);
+                        }
+
+                        // Delay entre mensajes para evitar rate limiting
+                        if (DELAY_BETWEEN_MESSAGES > 0) {
+                            await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_MESSAGES));
+                        }
                     }
 
-                    await whatsappGraphService.enviarPlantilla(
-                        idEmpresa,
-                        celular,
-                        plantilla.name,
-                        plantilla.language || 'es',
-                        components
-                    );
-
-                    await EnvioPersonaModel.updateEstado(ep.id, 'entregado', null, userId);
-                    cantidadExitosos++;
-                } catch (error) {
-                    const errorMsg = error.response?.data?.error?.message || error.message || 'Error desconocido';
-                    await EnvioPersonaModel.updateEstado(ep.id, 'cancelado', errorMsg, userId);
-                    cantidadFallidos++;
-                    logger.error(`[envioMasivoWhatsapp.controller.js] Error enviando a ${celular}: ${errorMsg}`);
-                }
-
-                // Delay entre mensajes para evitar rate limiting
-                if (DELAY_BETWEEN_MESSAGES > 0) {
-                    await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_MESSAGES));
+                    // Marcar la base como entregada
+                    await EnvioPersonaModel.updateEstado(eb.id, 'entregado', null, userId);
+                } catch (baseError) {
+                    await EnvioPersonaModel.updateEstado(eb.id, 'cancelado', baseError.message, userId);
+                    logger.error(`[envioMasivoWhatsapp.controller.js] Error procesando base ${eb.id_base}: ${baseError.message}`);
                 }
             }
 
