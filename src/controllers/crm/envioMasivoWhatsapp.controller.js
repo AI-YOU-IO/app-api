@@ -228,16 +228,17 @@ class EnvioMasivoWhatsappController {
 
                             cantidadExitosos++;
 
-                            // Actualizar persona.id_ref_base_num_detalle usando el id_persona de base_numero_detalle
+                            // Actualizar persona.id_ref_base_num_detalle buscando por celular
                             try {
-                                if (detalle.id_persona) {
-                                    await Persona.updatePersona(detalle.id_persona, {
+                                const personaBd = await Persona.selectByCelular(celular, idEmpresa);
+                                if (personaBd) {
+                                    await Persona.updatePersona(personaBd.id, {
                                         id_ref_base_num_detalle: detalle.id,
                                         usuario_actualizacion: userId
                                     });
                                 }
                             } catch (personaError) {
-                                logger.error(`[envioMasivoWhatsapp.controller.js] Error actualizando id_ref_base_num_detalle para persona ${detalle.id_persona}: ${personaError.message}`);
+                                logger.error(`[envioMasivoWhatsapp.controller.js] Error actualizando id_ref_base_num_detalle para ${celular}: ${personaError.message}`);
                             }
                         } catch (sendError) {
                             const errorMsg = sendError.response?.data?.error?.message || sendError.message || 'Error desconocido';
