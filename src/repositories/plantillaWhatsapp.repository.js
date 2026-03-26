@@ -123,6 +123,37 @@ class PlantillaWhatsappRepository {
         }
     }
 
+    async updateByName(name, id_empresa, data) {
+        try {
+            const [, result] = await pool.execute(
+                `UPDATE plantilla_whatsapp
+                SET status = ?, category = ?, "language" = ?,
+                    header_type = ?, header_text = ?, body = ?, footer = ?,
+                    buttons = ?, meta_template_id = ?,
+                    usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
+                WHERE name = ? AND id_empresa = ? AND estado_registro = 1`,
+                [
+                    data.status || null,
+                    data.category || null,
+                    data.language || null,
+                    data.header_type || null,
+                    data.header_text || null,
+                    data.body || null,
+                    data.footer || null,
+                    data.buttons ? JSON.stringify(data.buttons) : null,
+                    data.meta_template_id || null,
+                    data.usuario_actualizacion || null,
+                    name,
+                    id_empresa
+                ]
+            );
+            return [result.affectedRows > 0];
+        } catch (error) {
+            logger.error(`[PlantillaWhatsappRepository] Error updateByName: ${error.message}`);
+            throw error;
+        }
+    }
+
     async delete(id, usuario_actualizacion = null) {
         try {
             const [, result] = await pool.execute(

@@ -8,8 +8,62 @@ const Mensaje = require("../models/mensaje.model.js");
 
 class PlantillaWhatsappController {
   /**
-   * Obtiene plantillas desde Meta Graph API
-   * El listado siempre viene de Meta para tener datos actualizados (status, quality_score, etc)
+   * Extrae campos planos (body, header, footer, buttons) desde el array de components de Meta
+   */
+  _extraerCamposDeComponents(components) {
+    const campos = { header_type: null, header_text: null, body: null, footer: null, buttons: null };
+
+    for (const comp of (components || [])) {
+      const type = (comp.type || '').toUpperCase();
+      switch (type) {
+        case 'HEADER':
+          campos.header_type = (comp.format || 'TEXT').toUpperCase();
+          campos.header_text = comp.text || null;
+          break;
+        case 'BODY':
+          campos.body = comp.text || null;
+          break;
+        case 'FOOTER':
+          campos.footer = comp.text || null;
+          break;
+        case 'BUTTONS':
+          campos.buttons = comp.buttons || null;
+          break;
+      }
+    }
+
+    return campos;
+  }
+
+  /**
+   * Compara los campos relevantes de Meta con los de BD para detectar diferencias
+   */
+  _tienenDiferencias(metaFields, local) {
+    if (metaFields.status !== (local.status || null)) return true;
+    if (metaFields.category !== (local.category || null)) return true;
+    if (metaFields.language !== (local.language || null)) return true;
+    if (metaFields.body !== (local.body || null)) return true;
+    if (metaFields.header_type !== (local.header_type || null)) return true;
+    if (metaFields.header_text !== (local.header_text || null)) return true;
+    if (metaFields.footer !== (local.footer || null)) return true;
+
+    const metaButtons = metaFields.buttons ? JSON.stringify(metaFields.buttons) : null;
+    let localButtons = local.buttons || null;
+    if (localButtons && typeof localButtons === 'string') {
+      // ya es string, ok
+    } else if (localButtons) {
+      localButtons = JSON.stringify(localButtons);
+    }
+    if (metaButtons !== localButtons) return true;
+
+    return false;
+  }
+
+  /**
+   * Obtiene plantillas desde Meta Graph API y sincroniza la BD local.
+   * 1. Llama a Meta para obtener plantillas actualizadas
+   * 2. Compara con BD: si hay diferencias actualiza, si no existe inserta
+   * 3. Retorna plantillas enriquecidas con datos locales
    */
   async getPlantillas(req, res) {
     try {
@@ -20,42 +74,74 @@ class PlantillaWhatsappController {
         return res.status(400).json({ msg: "ID de empresa requerido" });
       }
 
-      // Obtener plantillas desde Meta
+      // 1. Obtener plantillas desde Meta (fuente de verdad)
       const result = await whatsappGraphService.listarPlantillas(idEmpresa, { status, limit });
 
-      // Obtener datos locales para enriquecer (id local, url media, etc)
+      // 2. Obtener plantillas locales indexadas por name
       const plantillasLocales = await plantillaWhatsappRepository.findAll(idEmpresa);
       const mapaLocal = {};
       for (const p of plantillasLocales) {
-        mapaLocal[p.name] = {
-          id_local: p.id,
-          url: p.url,
-          tipo: p.tipo,
-          id_formato: p.id_formato,
-          formato_nombre: p.formato_nombre
-        };
+        mapaLocal[p.name] = p;
       }
 
-      // Enriquecer plantillas de Meta con datos locales
-      const templatesEnriquecidos = result.templates.map(template => {
-        const local = mapaLocal[template.name];
-        if (local) {
-          return {
-            ...template,
-            id_local: local.id_local,
-            media_url: local.url,
-            media_tipo: local.tipo,
-            id_formato: local.id_formato,
-            formato_nombre: local.formato_nombre
-          };
+      // 3. Sincronizar BD con Meta
+      for (const metaTemplate of result.templates) {
+        const campos = this._extraerCamposDeComponents(metaTemplate.components);
+        const local = mapaLocal[metaTemplate.name];
+
+        const datosSync = {
+          status: metaTemplate.status || null,
+          category: metaTemplate.category || null,
+          language: metaTemplate.language || null,
+          header_type: campos.header_type,
+          header_text: campos.header_text,
+          body: campos.body,
+          footer: campos.footer,
+          buttons: campos.buttons,
+          meta_template_id: metaTemplate.id ? String(metaTemplate.id) : null
+        };
+
+        if (!local) {
+          // Plantilla no existe en BD → insertar
+          try {
+            const inserted = await plantillaWhatsappRepository.create({
+              ...datosSync,
+              name: metaTemplate.name,
+              id_empresa: idEmpresa,
+              usuario_registro: 'sync_meta'
+            });
+            mapaLocal[metaTemplate.name] = {
+              id: inserted.id,
+              name: metaTemplate.name,
+              ...datosSync
+            };
+            logger.info(`[plantillaWhatsapp.controller.js] Plantilla sincronizada (INSERT): ${metaTemplate.name}`);
+          } catch (syncError) {
+            logger.error(`[plantillaWhatsapp.controller.js] Error al insertar plantilla ${metaTemplate.name}: ${syncError.message}`);
+          }
+        } else {
+          // Plantilla existe → comparar y actualizar si hay diferencias
+          const metaFieldsParaComparar = { ...datosSync };
+          if (this._tienenDiferencias(metaFieldsParaComparar, local)) {
+            try {
+              await plantillaWhatsappRepository.updateByName(metaTemplate.name, idEmpresa, {
+                ...datosSync,
+                usuario_actualizacion: 'sync_meta'
+              });
+              // Actualizar mapa local con los nuevos datos
+              Object.assign(mapaLocal[metaTemplate.name], datosSync);
+              logger.info(`[plantillaWhatsapp.controller.js] Plantilla sincronizada (UPDATE): ${metaTemplate.name}`);
+            } catch (syncError) {
+              logger.error(`[plantillaWhatsapp.controller.js] Error al actualizar plantilla ${metaTemplate.name}: ${syncError.message}`);
+            }
+          }
         }
-        return template;
-      });
+      }
 
       return res.status(200).json({
         success: true,
         data: {
-          templates: templatesEnriquecidos,
+          templates: result.templates,
           total: result.total,
           waba_id: result.waba_id
         }
