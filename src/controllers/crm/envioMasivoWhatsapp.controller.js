@@ -262,9 +262,18 @@ class EnvioMasivoWhatsappController {
                                         chat = { id: chatId };
                                     }
 
+                                    // Reemplazar {{1}}, {{2}}, etc. con los valores reales enviados
+                                    let contenidoMensaje = plantilla.body || `[Envío masivo] Plantilla: ${plantilla.name}`;
+                                    const bodyComp = components.find(c => c.type === 'body');
+                                    if (bodyComp && bodyComp.parameters) {
+                                        bodyComp.parameters.forEach((param, i) => {
+                                            contenidoMensaje = contenidoMensaje.replace(`{{${i + 1}}}`, param.text);
+                                        });
+                                    }
+
                                     await Mensaje.create({
                                         id_chat: chat.id,
-                                        contenido: `[Envío masivo] Plantilla: ${plantilla.name}`,
+                                        contenido: contenidoMensaje,
                                         direccion: "out",
                                         wid_mensaje: null,
                                         tipo_mensaje: "plantilla",
