@@ -11,12 +11,12 @@ class ChatModel {
         try {
             const { id_empresa, id_persona = null, id_cliente = null, usuario_registro } = data;
 
-            const [rows, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 'INSERT INTO chat (id_empresa, id_persona, id_cliente, usuario_registro) VALUES (?, ?, ?, ?)',
                 [id_empresa, id_persona, id_cliente, usuario_registro]
             );
 
-            return result.insertId || (rows[0] && rows[0].id) || null;
+            return result.insertId;
         } catch (error) {
             logger.error(`[chat.model.js] Error al crear chat: ${error.message}`);
             throw new Error(`Error al crear chat: ${error.message}`);
