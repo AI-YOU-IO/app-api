@@ -108,7 +108,7 @@ class PlantillaWhatsappController {
               ...datosSync,
               name: metaTemplate.name,
               id_empresa: idEmpresa,
-              usuario_registro: 'sync_meta'
+              usuario_registro: null
             });
             mapaLocal[metaTemplate.name] = {
               id: inserted.id,
@@ -126,7 +126,7 @@ class PlantillaWhatsappController {
             try {
               await plantillaWhatsappRepository.updateByName(metaTemplate.name, idEmpresa, {
                 ...datosSync,
-                usuario_actualizacion: 'sync_meta'
+                usuario_actualizacion: null
               });
               // Actualizar mapa local con los nuevos datos
               Object.assign(mapaLocal[metaTemplate.name], datosSync);
