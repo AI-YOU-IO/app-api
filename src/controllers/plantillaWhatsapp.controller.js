@@ -6,59 +6,59 @@ const Persona = require("../models/persona.model.js");
 const Chat = require("../models/chat.model.js");
 const Mensaje = require("../models/mensaje.model.js");
 
+/**
+ * Extrae campos planos (body, header, footer, buttons) desde el array de components de Meta
+ */
+function extraerCamposDeComponents(components) {
+  const campos = { header_type: null, header_text: null, body: null, footer: null, buttons: null };
+
+  for (const comp of (components || [])) {
+    const type = (comp.type || '').toUpperCase();
+    switch (type) {
+      case 'HEADER':
+        campos.header_type = (comp.format || 'TEXT').toUpperCase();
+        campos.header_text = comp.text || null;
+        break;
+      case 'BODY':
+        campos.body = comp.text || null;
+        break;
+      case 'FOOTER':
+        campos.footer = comp.text || null;
+        break;
+      case 'BUTTONS':
+        campos.buttons = comp.buttons || null;
+        break;
+    }
+  }
+
+  return campos;
+}
+
+/**
+ * Compara los campos relevantes de Meta con los de BD para detectar diferencias
+ */
+function tienenDiferencias(metaFields, local) {
+  if (metaFields.status !== (local.status || null)) return true;
+  if (metaFields.category !== (local.category || null)) return true;
+  if (metaFields.language !== (local.language || null)) return true;
+  if (metaFields.body !== (local.body || null)) return true;
+  if (metaFields.header_type !== (local.header_type || null)) return true;
+  if (metaFields.header_text !== (local.header_text || null)) return true;
+  if (metaFields.footer !== (local.footer || null)) return true;
+
+  const metaButtons = metaFields.buttons ? JSON.stringify(metaFields.buttons) : null;
+  let localButtons = local.buttons || null;
+  if (localButtons && typeof localButtons === 'string') {
+    // ya es string, ok
+  } else if (localButtons) {
+    localButtons = JSON.stringify(localButtons);
+  }
+  if (metaButtons !== localButtons) return true;
+
+  return false;
+}
+
 class PlantillaWhatsappController {
-  /**
-   * Extrae campos planos (body, header, footer, buttons) desde el array de components de Meta
-   */
-  _extraerCamposDeComponents(components) {
-    const campos = { header_type: null, header_text: null, body: null, footer: null, buttons: null };
-
-    for (const comp of (components || [])) {
-      const type = (comp.type || '').toUpperCase();
-      switch (type) {
-        case 'HEADER':
-          campos.header_type = (comp.format || 'TEXT').toUpperCase();
-          campos.header_text = comp.text || null;
-          break;
-        case 'BODY':
-          campos.body = comp.text || null;
-          break;
-        case 'FOOTER':
-          campos.footer = comp.text || null;
-          break;
-        case 'BUTTONS':
-          campos.buttons = comp.buttons || null;
-          break;
-      }
-    }
-
-    return campos;
-  }
-
-  /**
-   * Compara los campos relevantes de Meta con los de BD para detectar diferencias
-   */
-  _tienenDiferencias(metaFields, local) {
-    if (metaFields.status !== (local.status || null)) return true;
-    if (metaFields.category !== (local.category || null)) return true;
-    if (metaFields.language !== (local.language || null)) return true;
-    if (metaFields.body !== (local.body || null)) return true;
-    if (metaFields.header_type !== (local.header_type || null)) return true;
-    if (metaFields.header_text !== (local.header_text || null)) return true;
-    if (metaFields.footer !== (local.footer || null)) return true;
-
-    const metaButtons = metaFields.buttons ? JSON.stringify(metaFields.buttons) : null;
-    let localButtons = local.buttons || null;
-    if (localButtons && typeof localButtons === 'string') {
-      // ya es string, ok
-    } else if (localButtons) {
-      localButtons = JSON.stringify(localButtons);
-    }
-    if (metaButtons !== localButtons) return true;
-
-    return false;
-  }
-
   /**
    * Obtiene plantillas desde Meta Graph API y sincroniza la BD local.
    * 1. Llama a Meta para obtener plantillas actualizadas
@@ -86,7 +86,7 @@ class PlantillaWhatsappController {
 
       // 3. Sincronizar BD con Meta
       for (const metaTemplate of result.templates) {
-        const campos = this._extraerCamposDeComponents(metaTemplate.components);
+        const campos = extraerCamposDeComponents(metaTemplate.components);
         const local = mapaLocal[metaTemplate.name];
 
         const datosSync = {
@@ -122,7 +122,7 @@ class PlantillaWhatsappController {
         } else {
           // Plantilla existe → comparar y actualizar si hay diferencias
           const metaFieldsParaComparar = { ...datosSync };
-          if (this._tienenDiferencias(metaFieldsParaComparar, local)) {
+          if (tienenDiferencias(metaFieldsParaComparar, local)) {
             try {
               await plantillaWhatsappRepository.updateByName(metaTemplate.name, idEmpresa, {
                 ...datosSync,
