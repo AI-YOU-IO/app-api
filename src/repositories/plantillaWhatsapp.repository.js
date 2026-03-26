@@ -125,7 +125,7 @@ class PlantillaWhatsappRepository {
 
     async updateByName(name, id_empresa, data) {
         try {
-            const [, result] = await pool.execute(
+            const [result] = await pool.execute(
                 `UPDATE plantilla_whatsapp
                 SET status = ?, category = ?, "language" = ?,
                     header_type = ?, header_text = ?, body = ?, footer = ?,
