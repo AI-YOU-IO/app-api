@@ -425,12 +425,17 @@ class PlantillaWhatsappController {
         return res.status(400).json({ msg: "El teléfono y nombre de plantilla son requeridos" });
       }
 
+      // Normalizar celular con prefijo 51
+      let celularNorm = phone.trim().replace(/[\s\-\(\)\+]/g, '');
+      if (celularNorm.startsWith('0')) celularNorm = celularNorm.substring(1);
+      if (celularNorm.length <= 9) celularNorm = '51' + celularNorm;
+
       // Obtener plantilla de BD para registrar el body real
       const plantillaBd = await plantillaWhatsappRepository.findByName(template_name, id_empresa);
 
       const result = await whatsappGraphService.enviarPlantilla(
         id_empresa,
-        phone,
+        celularNorm,
         template_name,
         language || 'es',
         components || []
@@ -444,7 +449,7 @@ class PlantillaWhatsappController {
 
       // Crear chat si no existe y guardar mensaje saliente
       try {
-        let persona = await Persona.selectByCelular(phone, id_empresa);
+        let persona = await Persona.selectByCelular(celularNorm, id_empresa);
         if (!persona) {
           const usuarioInstance = new Usuario();
           const asesores = await usuarioInstance.getByRol(3);
@@ -464,7 +469,7 @@ class PlantillaWhatsappController {
 
           persona = await Persona.createPersona({
               id_estado: 1,
-              celular: phone,
+              celular: celularNorm,
               id_usuario: id_asesor,
               id_empresa: id_empresa,
               usuario_registro: null

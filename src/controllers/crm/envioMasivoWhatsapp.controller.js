@@ -180,7 +180,9 @@ class EnvioMasivoWhatsappController {
                     logger.info(`[envioMasivoWhatsapp.controller.js] Base ${eb.id_base}: ${detalles.length} registros`);
 
                     for (const detalle of detalles) {
-                        const celular = detalle.telefono;
+                        let celular = (detalle.telefono || '').trim().replace(/[\s\-\(\)\+]/g, '');
+                        if (celular.startsWith('0')) celular = celular.substring(1);
+                        if (celular.length <= 9 && celular.length > 0) celular = '51' + celular;
                         if (!celular) {
                             cantidadFallidos++;
                             continue;

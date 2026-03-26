@@ -23,7 +23,9 @@ class MessageProcessingController {
                 return res.serverError(400, "Campos requeridos: phone, phone_number_id");
             }
 
-            const phoneTrimmed = phone.trim();
+            let phoneTrimmed = phone.trim().replace(/[\s\-\(\)\+]/g, '');
+            if (phoneTrimmed.startsWith('0')) phoneTrimmed = phoneTrimmed.substring(1);
+            if (phoneTrimmed.length <= 9) phoneTrimmed = '51' + phoneTrimmed;
             const questionTrimmed = (question || '').trim();
             const widTrimmed = wid ? wid.trim() : null;
             const tipoMensaje = messageType || "texto";

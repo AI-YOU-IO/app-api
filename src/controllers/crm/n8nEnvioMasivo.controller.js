@@ -198,7 +198,9 @@ class N8nEnvioMasivoController {
             const batch = detalles.slice(i, i + BATCH_SIZE);
 
             for (const detalle of batch) {
-              const celular = detalle.telefono;
+              let celular = (detalle.telefono || '').trim().replace(/[\s\-\(\)\+]/g, '');
+              if (celular.startsWith('0')) celular = celular.substring(1);
+              if (celular.length <= 9 && celular.length > 0) celular = '51' + celular;
               if (!celular) {
                 resultados.fallidos++;
                 resultados.detalles.push({
