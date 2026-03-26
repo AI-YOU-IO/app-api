@@ -1,5 +1,4 @@
 const { pool } = require("../../config/dbConnection.js");
-const TblMensajeVistoUsuarioModel = require("../../models/tblMensajeVistoUsuario.model.js");
 const logger = require('../../config/logger/loggerClient.js');
 
 const LIMIT = 20;
@@ -19,7 +18,8 @@ class ContactosController {
                t.nombre as tipificacion_nombre,
                (SELECT contenido FROM mensaje WHERE id_chat = c.id AND estado_registro = 1 ORDER BY id DESC LIMIT 1) as ultimo_mensaje,
                (SELECT fecha_hora FROM mensaje WHERE id_chat = c.id AND estado_registro = 1 ORDER BY id DESC LIMIT 1) as fecha_ultimo_mensaje,
-               (SELECT COUNT(*) FROM mensaje WHERE id_chat = c.id AND estado_registro = 1) as total_mensajes
+               (SELECT COUNT(*) FROM mensaje WHERE id_chat = c.id AND estado_registro = 1) as total_mensajes,
+               (SELECT COUNT(*) FROM mensaje WHERE id_chat = c.id AND estado_registro = 1 AND leido = false) as mensajes_no_leidos
         FROM chat c
         LEFT JOIN persona p ON p.id = c.id_persona
         LEFT JOIN estado e ON e.id = p.id_estado
@@ -85,7 +85,8 @@ class ContactosController {
                e.nombre as estado_nombre, e.color as estado_color,
                t.nombre as tipificacion_nombre,
                (SELECT contenido FROM mensaje WHERE id_chat = c.id AND estado_registro = 1 ORDER BY id DESC LIMIT 1) as ultimo_mensaje,
-               (SELECT fecha_hora FROM mensaje WHERE id_chat = c.id AND estado_registro = 1 ORDER BY id DESC LIMIT 1) as fecha_ultimo_mensaje
+               (SELECT fecha_hora FROM mensaje WHERE id_chat = c.id AND estado_registro = 1 ORDER BY id DESC LIMIT 1) as fecha_ultimo_mensaje,
+               (SELECT COUNT(*) FROM mensaje WHERE id_chat = c.id AND estado_registro = 1 AND leido = false) as mensajes_no_leidos
         FROM chat c
         LEFT JOIN persona p ON p.id = c.id_persona
         LEFT JOIN estado e ON e.id = p.id_estado
@@ -140,14 +141,67 @@ class ContactosController {
     try {
       const { userId, rolId, idEmpresa } = req.user || {};
 
-      const mensajeVistoModel = new TblMensajeVistoUsuarioModel();
-      const idAsesor = (rolId && rolId >= 3) ? userId : null;
-      const unreadCount = await mensajeVistoModel.getUnreadContactsCount(userId, idAsesor, idEmpresa);
+      let query = `
+        SELECT COUNT(DISTINCT c.id) as "unreadCount"
+        FROM chat c
+        JOIN persona p ON p.id = c.id_persona
+        JOIN mensaje m ON m.id_chat = c.id AND m.estado_registro = 1 AND m.leido = false
+        WHERE c.estado_registro = 1`;
+
+      const params = [];
+
+      if (idEmpresa) {
+        query += ' AND p.id_empresa = ?';
+        params.push(idEmpresa);
+      }
+
+      if (rolId && rolId >= 3 && userId) {
+        query += ' AND p.id_usuario = ?';
+        params.push(userId);
+      }
+
+      const [rows] = await pool.execute(query, params);
+      const unreadCount = rows[0]?.unreadCount || 0;
 
       return res.status(200).json({ data: { unreadCount } });
     } catch (error) {
       logger.error(`[contactos.controller.js] Error al obtener conteo de no leidos: ${error.message}`);
       return res.status(500).json({ msg: "Error al obtener conteo de no leidos" });
+    }
+  }
+
+  async markAllRead(req, res) {
+    try {
+      const { userId, rolId, idEmpresa } = req.user || {};
+
+      let query = `
+        UPDATE mensaje SET leido = true
+        WHERE leido = false AND estado_registro = 1
+          AND id_chat IN (
+            SELECT c.id FROM chat c
+            JOIN persona p ON p.id = c.id_persona
+            WHERE c.estado_registro = 1`;
+
+      const params = [];
+
+      if (idEmpresa) {
+        query += ' AND p.id_empresa = ?';
+        params.push(idEmpresa);
+      }
+
+      if (rolId && rolId >= 3 && userId) {
+        query += ' AND p.id_usuario = ?';
+        params.push(userId);
+      }
+
+      query += ')';
+
+      await pool.execute(query, params);
+
+      return res.status(200).json({ msg: "Todos los mensajes marcados como leídos" });
+    } catch (error) {
+      logger.error(`[contactos.controller.js] Error al marcar todos como leídos: ${error.message}`);
+      return res.status(500).json({ msg: "Error al marcar todos como leídos" });
     }
   }
 }

@@ -1,5 +1,4 @@
 const { pool } = require("../../config/dbConnection.js");
-const TblMensajeVistoUsuarioModel = require("../../models/tblMensajeVistoUsuario.model.js");
 const WhatsappGraphService = require("../../services/whatsapp/whatsappGraph.service.js");
 const websocketNotifier = require("../../services/websocketNotifier.service.js");
 const s3Service = require("../../services/s3.service.js");
@@ -28,16 +27,12 @@ class ContactoController {
 
   async markRead(req, res) {
     try {
-      const { id } = req.params;
-      const { idMensaje } = req.body;
-      const { userId } = req.user || {};
+      const { id } = req.params; // id del chat
 
-      if (!userId || !idMensaje) {
-        return res.status(400).json({ msg: "userId e idMensaje son requeridos" });
-      }
-
-      const mensajeVistoModel = new TblMensajeVistoUsuarioModel();
-      await mensajeVistoModel.saveLastSeenMessage(userId, id, idMensaje);
+      await pool.execute(
+        `UPDATE mensaje SET leido = true WHERE id_chat = ? AND leido = false AND estado_registro = 1`,
+        [id]
+      );
 
       return res.status(200).json({ msg: "Mensajes marcados como leídos" });
     } catch (error) {
