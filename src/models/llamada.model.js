@@ -122,7 +122,7 @@ class LlamadaModel {
      */
     async actualizarProviderCallId(id, provider_call_id) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE llamada SET provider_call_id = ? WHERE id = ?`,
                 [provider_call_id, id]
             );
@@ -271,7 +271,7 @@ class LlamadaModel {
 
     async iniciarLlamada(provider_call_id) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE llamada
                 SET id_estado_llamada = 2,
                     fecha_inicio = CURRENT_TIMESTAMP
@@ -299,7 +299,7 @@ class LlamadaModel {
 
     async actualizarEstadoLlamada(provider_call_id, id_estado_llamada, fecha_fin = null) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE llamada
                 SET id_estado_llamada = ?,
                     fecha_fin = COALESCE(?, fecha_fin)
@@ -314,7 +314,7 @@ class LlamadaModel {
 
     async actualizarEstadoLlamadaDirecto(provider_call_id, id_estado_llamada) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE llamada
                 SET id_estado_llamada = ?
                 WHERE provider_call_id = ?`,
@@ -328,7 +328,7 @@ class LlamadaModel {
 
     async actualizarEstadoNoContesta(provider_call_id, id_estado_llamada_asterisk) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE llamada
                 SET id_estado_llamada = 3,
                     id_estado_llamada_asterisk = ?
@@ -343,7 +343,7 @@ class LlamadaModel {
 
     async actualizarEstadoTerminada(provider_call_id) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE llamada
                 SET id_estado_llamada = 4,
                     fecha_fin = CURRENT_TIMESTAMP
@@ -358,7 +358,7 @@ class LlamadaModel {
 
     async actualizarArchivoLlamada(id, archivo_llamada) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE llamada
                 SET archivo_llamada = ?,
                     id_estado_llamada = 3,
@@ -374,7 +374,7 @@ class LlamadaModel {
 
     async actualizarMetadataUltravox(id, { id_ultravox_call, metadata_ultravox_call }) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE llamada
                 SET id_ultravox_call = COALESCE(?, id_ultravox_call),
                     metadata_ultravox_call = COALESCE(?, metadata_ultravox_call)
@@ -393,7 +393,7 @@ class LlamadaModel {
 
     async actualizarEstadoAsterisk(provider_call_id, { id_estado_llamada_asterisk, id_estado_llamada, duracion_seg, fecha_fin }) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE llamada
                 SET id_estado_llamada_asterisk = ?,
                     id_estado_llamada = ?,
@@ -417,7 +417,7 @@ class LlamadaModel {
 
     async actualizarAudioLlamadaPorProvider(provider_call_id, { archivo_llamada, id_ultravox_call, metadata_ultravox_call, id_estado_llamada_asterisk, duracion_seg }) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE llamada
                 SET archivo_llamada = COALESCE(?, archivo_llamada),
                     id_ultravox_call = COALESCE(?, id_ultravox_call),

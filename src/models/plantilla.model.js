@@ -138,7 +138,7 @@ class PlantillaModel {
                 params.push(id_empresa);
             }
 
-            const [rows, result] = await this.connection.execute(query, params);
+            const [result] = await this.connection.execute(query, params);
             return result.affectedRows > 0;
         } catch (error) {
             if (error.code === '23505') {
@@ -158,7 +158,7 @@ class PlantillaModel {
                 params.push(id_empresa);
             }
 
-            const [rows, result] = await this.connection.execute(query, params);
+            const [result] = await this.connection.execute(query, params);
             return result.affectedRows > 0;
         } catch (error) {
             throw new Error(`Error al eliminar plantilla: ${error.message}`);
@@ -220,7 +220,7 @@ class PlantillaModel {
 
     async addTool(id_plantilla, id_tool, orden = 0) {
         try {
-            const [rows, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `INSERT INTO plantilla_tool (id_plantilla, id_tool, orden, estado_registro)
                  VALUES (?, ?, ?, 1)
                  ON CONFLICT (id_plantilla, id_tool) DO UPDATE SET estado_registro = 1, orden = EXCLUDED.orden`,
@@ -234,7 +234,7 @@ class PlantillaModel {
 
     async removeTool(id_plantilla, id_tool) {
         try {
-            const [rows, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE plantilla_tool SET estado_registro = 0 WHERE id_plantilla = ? AND id_tool = ?`,
                 [id_plantilla, id_tool]
             );

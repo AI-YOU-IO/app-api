@@ -99,7 +99,7 @@ class CampaniaModel {
     async create({ id_empresa, nombre, descripcion, id_tipo_campania, id_formato, id_plantilla, id_voz, usuario_registro }) {
         try {
             logger.info(`[CampaniaModel.create] Parámetros: id_plantilla=${id_plantilla}, id_voz=${id_voz}`);
-            const [rows, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `INSERT INTO campania
                 (id_empresa, nombre, descripcion, id_tipo_campania, id_formato, id_plantilla, id_voz, estado_registro, usuario_registro)
                 VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,

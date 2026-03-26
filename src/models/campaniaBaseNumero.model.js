@@ -28,7 +28,7 @@ class CampaniaBaseNumeroModel {
 
     async add({ id_empresa, id_campania, id_base_numero, usuario_registro }) {
         try {
-            const [rows, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `INSERT INTO campania_base_numero
                 (id_empresa, id_campania, id_base_numero, activo, estado_registro, usuario_registro)
                 VALUES (?, ?, ?, 1, 1, ?)`,
@@ -50,7 +50,7 @@ class CampaniaBaseNumeroModel {
 
     async remove(id, usuario_actualizacion = null) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 'UPDATE campania_base_numero SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?',
                 [usuario_actualizacion, id]
             );
@@ -62,7 +62,7 @@ class CampaniaBaseNumeroModel {
 
     async removeByCampaniaAndBase(id_campania, id_base_numero) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 'UPDATE campania_base_numero SET estado_registro = 0, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id_campania = ? AND id_base_numero = ?',
                 [id_campania, id_base_numero]
             );
@@ -74,7 +74,7 @@ class CampaniaBaseNumeroModel {
 
     async removeByFormatoMismatch(id_campania, id_formato) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE campania_base_numero
                 SET estado_registro = 0, fecha_actualizacion = CURRENT_TIMESTAMP
                 FROM base_numero bn
@@ -106,7 +106,7 @@ class CampaniaBaseNumeroModel {
     async toggleActivo(id, usuario_actualizacion = null) {
         try {
             console.log(`[toggleActivo] id=${id}, usuario=${usuario_actualizacion}`);
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE campania_base_numero
                 SET activo = CASE WHEN activo = 1 THEN 0 ELSE 1 END,
                     usuario_actualizacion = ?,

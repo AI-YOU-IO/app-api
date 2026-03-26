@@ -65,7 +65,7 @@ class EnvioBaseModel {
         usuario_registro
     }) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `INSERT INTO envio_base
                 (id_base, id_envio_masivo, estado, fecha_envio, estado_registro, usuario_registro)
                 VALUES (?, ?, ?, ?, 1, ?)`,
@@ -144,7 +144,7 @@ class EnvioBaseModel {
         usuario_actualizacion
     }) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE envio_base
                 SET estado = ?, fecha_envio = ?, error_mensaje = ?,
                     usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
@@ -165,7 +165,7 @@ class EnvioBaseModel {
 
     async updateEstado(id, estado, error_mensaje = null, usuario_actualizacion = null) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE envio_base SET estado = ?, error_mensaje = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND estado_registro = 1`,
                 [estado, error_mensaje, usuario_actualizacion, id]
             );
@@ -177,7 +177,7 @@ class EnvioBaseModel {
 
     async deleteByEnvioMasivo(id_envio_masivo, usuario_actualizacion = null) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE envio_base SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id_envio_masivo = ? AND estado_registro = 1`,
                 [usuario_actualizacion, id_envio_masivo]
             );
@@ -189,7 +189,7 @@ class EnvioBaseModel {
 
     async delete(id, usuario_actualizacion = null) {
         try {
-            const [, result] = await this.connection.execute(
+            const [result] = await this.connection.execute(
                 `UPDATE envio_base SET estado_registro = 0, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`,
                 [usuario_actualizacion, id]
             );

@@ -67,7 +67,15 @@ const executeQuery = async (sql, params = []) => {
         insertId: result.rows && result.rows.length > 0 ? result.rows[0].id : null
     };
 
-    return [result.rows, mysqlCompatResult];
+    // mysql2 retorna [rows, fields] para SELECTs, pero [ResultSetHeader, undefined] para INSERT/UPDATE/DELETE.
+    // Los models hacen `const [result] = ...` y esperan:
+    //   - SELECTs: result = rows
+    //   - INSERT/UPDATE/DELETE: result = { insertId, affectedRows }
+    const isSelect = /^\s*SELECT/i.test(sql);
+    if (isSelect) {
+        return [result.rows, mysqlCompatResult];
+    }
+    return [mysqlCompatResult, undefined];
 };
 
 // Wrapper del pool con métodos execute y query compatibles
