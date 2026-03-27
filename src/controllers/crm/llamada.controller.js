@@ -3,6 +3,7 @@ const EstadoLlamadaAsteriskModel = require("../../models/estadoLlamadaAsterisk.m
 const logger = require('../../config/logger/loggerClient.js');
 const llamadaService = require('../../services/llamada/llamada.service.js');
 const s3Service = require('../../services/s3.service.js');
+const sentimientoService = require('../../services/analisis/sentimiento.service.js');
 
 class LlamadaController {
     async getAll(req, res) {
@@ -254,6 +255,13 @@ class LlamadaController {
                         ordinal
                     });
                 }
+            }
+
+            // Disparar análisis de sentimiento de forma asíncrona (no bloquea la respuesta)
+            if (transcripcion && transcripcion.length > 0) {
+                const transcripcionParaAnalisis = await transcripcionModel.getByLlamada(id_llamada);
+                sentimientoService.analizarLlamada(id_llamada, transcripcionParaAnalisis, llamada.id_empresa)
+                    .catch(err => logger.error(`[llamada.controller.js] Error en análisis de sentimiento async: ${err.message}`));
             }
 
             return res.status(200).json({

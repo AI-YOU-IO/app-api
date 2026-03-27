@@ -6,6 +6,7 @@ const connectDB = require('./config/dbConnection');
 const { connectRedis } = require('./config/redis');
 
 const logger = require('./config/logger/loggerClient');
+const { iniciarCronSentimiento } = require('./cron/analisisSentimiento.cron.js');
 
 const PORT = process.env.PORT || 3000;
 
@@ -35,6 +36,9 @@ const startServer = async () => {
   server.timeout = 1800000;
   server.keepAliveTimeout = 1800000;
   server.headersTimeout = 1805000;
+
+  // Iniciar cron de análisis de sentimiento
+  iniciarCronSentimiento();
 };
 
 startServer();
