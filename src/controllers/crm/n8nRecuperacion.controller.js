@@ -221,13 +221,13 @@ class N8nRecuperacionController {
    * - id_mensaje_visto (required): ID del registro en mensaje_visto
    */
   async enviarRecuperacion(req, res) {
+    const { id_mensaje_visto } = req.body;
+
+    if (!id_mensaje_visto) {
+      return res.json({ success: false, enviado: false, error: 'id_mensaje_visto es requerido' });
+    }
+
     try {
-      const { id_mensaje_visto } = req.body;
-
-      if (!id_mensaje_visto) {
-        return res.status(400).json({ success: false, error: 'id_mensaje_visto es requerido' });
-      }
-
       // Buscar el candidato con todos los datos necesarios
       const [rows] = await pool.execute(`
         SELECT
@@ -249,19 +249,18 @@ class N8nRecuperacionController {
       `, [id_mensaje_visto]);
 
       if (rows.length === 0) {
-        return res.status(404).json({ success: false, error: 'Registro de mensaje_visto no encontrado' });
+        return res.json({ success: false, enviado: false, id_mensaje_visto, error: 'registro no encontrado' });
       }
 
       const candidato = rows[0];
 
       if (candidato.mensaje_enviado) {
-        return res.status(400).json({ success: false, error: 'Este mensaje ya fue enviado' });
+        return res.json({ success: true, enviado: false, id_mensaje_visto, error: 'ya fue enviado previamente' });
       }
 
       // Extraer grupo_familiar
       let grupoFamiliar = null;
       const jsonRaw = candidato.json_adicional;
-      logger.info(`[n8nRecuperacion] enviar-recuperacion mv.id=${id_mensaje_visto}: json_adicional tipo=${typeof jsonRaw}, valor=${JSON.stringify(jsonRaw)?.substring(0, 500)}`);
 
       if (jsonRaw) {
         try {
@@ -272,31 +271,44 @@ class N8nRecuperacionController {
         }
       }
 
-      logger.info(`[n8nRecuperacion] enviar-recuperacion mv.id=${id_mensaje_visto}: grupo_familiar=${grupoFamiliar}, celular=${candidato.celular}`);
-
       if (!grupoFamiliar) {
         await mensajeVistoModel.actualizarEstadoEnvio(id_mensaje_visto, false, 'sin grupo_familiar');
-        return res.status(400).json({ success: false, error: 'No se encontró grupo_familiar para esta persona' });
+        return res.json({ success: false, enviado: false, id_mensaje_visto, celular: candidato.celular, error: 'sin grupo_familiar' });
       }
 
       // Generar nuevo link de pago
-      logger.info(`[n8nRecuperacion] enviar-recuperacion mv.id=${id_mensaje_visto}: llamando PagoService.generarLinkPago(${grupoFamiliar}, ${candidato.celular})`);
-      const enlace = await PagoService.generarLinkPago(grupoFamiliar, candidato.celular);
+      let enlace = null;
+      try {
+        enlace = await PagoService.generarLinkPago(grupoFamiliar, candidato.celular);
+      } catch (e) {
+        logger.error(`[n8nRecuperacion] enviar-recuperacion mv.id=${id_mensaje_visto}: error generando link: ${e.message}`);
+        await mensajeVistoModel.actualizarEstadoEnvio(id_mensaje_visto, false, `error link pago: ${e.message}`);
+        return res.json({ success: false, enviado: false, id_mensaje_visto, celular: candidato.celular, error: `error generando link: ${e.message}` });
+      }
+
       if (!enlace) {
-        await mensajeVistoModel.actualizarEstadoEnvio(id_mensaje_visto, false, 'no se pudo generar link de pago');
-        return res.status(500).json({ success: false, error: 'No se pudo generar el link de pago' });
+        await mensajeVistoModel.actualizarEstadoEnvio(id_mensaje_visto, false, 'link de pago retornó vacío');
+        return res.json({ success: false, enviado: false, id_mensaje_visto, celular: candidato.celular, error: 'link de pago retornó vacío' });
       }
 
       // Construir y enviar mensaje por WhatsApp
       const textoMensaje = MENSAJE_RECUPERACION(candidato.nombre_completo, enlace);
-      const envio = await WhatsappGraphService.enviarMensajeTexto(candidato.id_empresa, candidato.celular, textoMensaje);
+      let wid = null;
+      try {
+        const envio = await WhatsappGraphService.enviarMensajeTexto(candidato.id_empresa, candidato.celular, textoMensaje);
+        wid = envio.wid_mensaje || null;
+      } catch (e) {
+        logger.error(`[n8nRecuperacion] enviar-recuperacion mv.id=${id_mensaje_visto}: error enviando WhatsApp: ${e.message}`);
+        await mensajeVistoModel.actualizarEstadoEnvio(id_mensaje_visto, false, `error whatsapp: ${e.message}`);
+        return res.json({ success: false, enviado: false, id_mensaje_visto, celular: candidato.celular, enlace, error: `error enviando WhatsApp: ${e.message}` });
+      }
 
       // Guardar mensaje saliente en BD
       await MensajeModel.create({
         id_chat: candidato.id_chat,
         contenido: textoMensaje,
         direccion: 'out',
-        wid_mensaje: envio.wid_mensaje || null,
+        wid_mensaje: wid,
         tipo_mensaje: 'recuperacion',
         fecha_hora: new Date(),
         usuario_registro: null
@@ -309,6 +321,7 @@ class N8nRecuperacionController {
 
       return res.json({
         success: true,
+        enviado: true,
         id_mensaje_visto,
         celular: candidato.celular,
         nombre_completo: candidato.nombre_completo,
@@ -316,8 +329,9 @@ class N8nRecuperacionController {
       });
 
     } catch (error) {
-      logger.error(`[n8nRecuperacion] Error enviar-recuperacion: ${error.message}`);
-      return res.status(500).json({ success: false, error: error.message });
+      logger.error(`[n8nRecuperacion] Error enviar-recuperacion mv.id=${id_mensaje_visto}: ${error.message}`);
+      try { await mensajeVistoModel.actualizarEstadoEnvio(id_mensaje_visto, false, error.message); } catch (e) { /* ignore */ }
+      return res.json({ success: false, enviado: false, id_mensaje_visto, error: error.message });
     }
   }
 }
