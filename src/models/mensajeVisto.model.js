@@ -105,11 +105,14 @@ class MensajeVistoModel {
             FROM mensaje m
             INNER JOIN chat c ON c.id = m.id_chat
             INNER JOIN persona p ON p.id = c.id_persona
+            LEFT JOIN base_numero_detalle bnd ON bnd.id = p.id_ref_base_num_detalle
             WHERE c.estado_registro = 1
               AND m.estado_registro = 1
               AND p.id_empresa = ?
               AND m.contenido LIKE ?
               AND m.tipo_mensaje NOT IN ('recuperacion')
+              AND bnd.json_adicional IS NOT NULL
+              AND bnd.json_adicional::text LIKE '%grupo_familiar%'
               AND m.id IN (
                   SELECT sub.id FROM (
                       SELECT m2.id,

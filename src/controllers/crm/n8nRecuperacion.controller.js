@@ -125,6 +125,8 @@ class N8nRecuperacionController {
           AND p.estado_registro = 1
           AND c.estado_registro = 1
           AND e.estado_registro = 1
+          AND bnd.json_adicional IS NOT NULL
+          AND bnd.json_adicional::text LIKE '%grupo_familiar%'
       `;
 
       const params = [];
