@@ -109,7 +109,7 @@ class MensajeVistoModel {
               AND m.estado_registro = 1
               AND p.id_empresa = ?
               AND m.contenido LIKE ?
-              AND m.tipo_mensaje NOT IN ('plantilla', 'recuperacion')
+              AND m.tipo_mensaje NOT IN ('recuperacion')
               AND m.id IN (
                   SELECT sub.id FROM (
                       SELECT m2.id,
