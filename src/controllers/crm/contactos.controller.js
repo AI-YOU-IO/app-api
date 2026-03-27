@@ -12,7 +12,7 @@ class ContactosController {
       const { id_estado, id_tipificacion, id_tipificacion_asesor } = req.query;
 
       let query = `
-        SELECT c.id, c.id_persona, c.fecha_registro, c.estado_registro,
+        SELECT c.id, c.id_persona, c.fecha_registro, c.estado_registro, c.bot_activo,
                p.celular, p.nombre_completo, p.id_estado, p.id_tipificacion, p.id_usuario, p.id_empresa,
                e.nombre as estado_nombre, e.color as estado_color,
                t.nombre as tipificacion_nombre,
@@ -58,7 +58,7 @@ class ContactosController {
       const [countResult] = await pool.execute(countQuery, params);
       const total = countResult[0]?.total || 0;
 
-      query += ' ORDER BY fecha_ultimo_mensaje DESC LIMIT ? OFFSET ?';
+      query += ' ORDER BY fecha_ultimo_mensaje DESC NULLS LAST LIMIT ? OFFSET ?';
       params.push(LIMIT, offset);
 
       const [rows] = await pool.query(query, params);
@@ -80,7 +80,7 @@ class ContactosController {
       const searchTerm = `%${searchQuery}%`;
 
       let query = `
-        SELECT c.id, c.id_persona, c.fecha_registro, c.estado_registro,
+        SELECT c.id, c.id_persona, c.fecha_registro, c.estado_registro, c.bot_activo,
                p.celular, p.nombre_completo, p.id_estado, p.id_tipificacion, p.id_usuario, p.id_empresa,
                e.nombre as estado_nombre, e.color as estado_color,
                t.nombre as tipificacion_nombre,
@@ -125,7 +125,7 @@ class ContactosController {
       const [countResult] = await pool.execute(countQuery, params);
       const total = countResult[0]?.total || 0;
 
-      query += ' ORDER BY fecha_ultimo_mensaje DESC LIMIT ? OFFSET ?';
+      query += ' ORDER BY fecha_ultimo_mensaje DESC NULLS LAST LIMIT ? OFFSET ?';
       params.push(LIMIT, offset);
 
       const [rows] = await pool.query(query, params);
