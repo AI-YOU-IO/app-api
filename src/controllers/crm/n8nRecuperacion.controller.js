@@ -258,14 +258,19 @@ class N8nRecuperacionController {
 
       // Extraer grupo_familiar
       let grupoFamiliar = null;
-      if (candidato.json_adicional) {
+      const jsonRaw = candidato.json_adicional;
+      logger.info(`[n8nRecuperacion] enviar-recuperacion mv.id=${id_mensaje_visto}: json_adicional tipo=${typeof jsonRaw}, valor=${JSON.stringify(jsonRaw)?.substring(0, 500)}`);
+
+      if (jsonRaw) {
         try {
-          const jsonData = typeof candidato.json_adicional === 'string'
-            ? JSON.parse(candidato.json_adicional)
-            : candidato.json_adicional;
+          const jsonData = typeof jsonRaw === 'string' ? JSON.parse(jsonRaw) : jsonRaw;
           grupoFamiliar = jsonData.grupo_familiar || null;
-        } catch (e) { /* json inválido */ }
+        } catch (e) {
+          logger.error(`[n8nRecuperacion] enviar-recuperacion mv.id=${id_mensaje_visto}: error parseando json_adicional: ${e.message}`);
+        }
       }
+
+      logger.info(`[n8nRecuperacion] enviar-recuperacion mv.id=${id_mensaje_visto}: grupo_familiar=${grupoFamiliar}, celular=${candidato.celular}`);
 
       if (!grupoFamiliar) {
         await mensajeVistoModel.actualizarEstadoEnvio(id_mensaje_visto, false, 'sin grupo_familiar');
@@ -273,6 +278,7 @@ class N8nRecuperacionController {
       }
 
       // Generar nuevo link de pago
+      logger.info(`[n8nRecuperacion] enviar-recuperacion mv.id=${id_mensaje_visto}: llamando PagoService.generarLinkPago(${grupoFamiliar}, ${candidato.celular})`);
       const enlace = await PagoService.generarLinkPago(grupoFamiliar, candidato.celular);
       if (!enlace) {
         await mensajeVistoModel.actualizarEstadoEnvio(id_mensaje_visto, false, 'no se pudo generar link de pago');
