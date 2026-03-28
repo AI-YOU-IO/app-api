@@ -2287,7 +2287,8 @@ class ConfiguracionController {
         numerosQuery = `
           SELECT DISTINCT bnd.id as id_base_numero_detalle
           FROM base_numero_detalle bnd
-          INNER JOIN campania_base_numero cbn ON cbn.id_base_numero = bnd.id_base_numero
+          INNER JOIN base_numero bn ON bn.id = bnd.id_base_numero
+          INNER JOIN campania_base_numero cbn ON cbn.id_base_numero = bn.id
           WHERE cbn.id_campania = $1
           AND cbn.estado_registro = 1
           AND cbn.activo = 1

@@ -259,13 +259,94 @@ class LlamadaModel {
                     usuario_registro
                 ]
             );
-            console.log(`[llamada.create] INSERT result - rows:`, rows);
-            return rows[0]?.id;
+            const id_llamada = rows[0]?.id;
+            console.log(`[llamada.create] INSERT result - id_llamada: ${id_llamada}, codigo_llamada: ${codigo_llamada}`);
+            return id_llamada;
         } catch (error) {
             if (error.code === '23505') {
                 throw new Error('Ya existe una llamada con ese provider_call_id');
             }
             throw new Error(`Error al crear llamada: ${error.message}`);
+        }
+    }
+
+    /**
+     * Crea múltiples llamadas en una sola operación (bulk insert)
+     * Luego hace SELECT para obtener los IDs generados
+     * @param {Array} llamadas - Array de objetos con datos de llamada
+     * @param {number} idEjecucion - ID de la ejecución para filtrar el SELECT
+     * @returns {Array} Array de objetos { id_llamada, id_base_numero_detalle }
+     */
+    async bulkCreate(llamadas, idEjecucion) {
+        if (!llamadas || llamadas.length === 0) return [];
+
+        try {
+            const id_empresa = llamadas[0].id_empresa;
+
+            // Obtener el siguiente código base
+            const [codigoRows] = await this.connection.execute(
+                `SELECT COALESCE(MAX(codigo_llamada), 0) as max_codigo FROM llamada WHERE id_empresa = ?`,
+                [id_empresa]
+            );
+            let nextCodigo = (codigoRows[0]?.max_codigo || 0) + 1;
+
+            // Construir INSERT múltiple con placeholders PostgreSQL
+            const values = [];
+            const params = [];
+            let paramIndex = 0;
+            const detalleIds = [];
+
+            for (const llamada of llamadas) {
+                const placeholders = [];
+                for (let j = 0; j < 8; j++) {
+                    placeholders.push(`$${++paramIndex}`);
+                }
+                values.push(`(${placeholders.join(', ')})`);
+                params.push(
+                    llamada.id_empresa,
+                    llamada.id_campania,
+                    llamada.id_base_numero,
+                    llamada.id_base_numero_detalle || null,
+                    llamada.id_campania_ejecucion || null,
+                    nextCodigo++,
+                    1, // id_estado_llamada = Pendiente
+                    llamada.usuario_registro || null
+                );
+                detalleIds.push(llamada.id_base_numero_detalle);
+            }
+
+            // 1. INSERT masivo sin RETURNING
+            const sqlInsert = `
+                INSERT INTO llamada
+                (id_empresa, id_campania, id_base_numero, id_base_numero_detalle, id_campania_ejecucion, codigo_llamada, id_estado_llamada, usuario_registro)
+                VALUES ${values.join(', ')}
+            `;
+
+            await this.connection.query(sqlInsert, params);
+
+            // 2. SELECT para obtener los IDs de las llamadas recién creadas
+            const placeholdersSelect = detalleIds.map((_, i) => `$${i + 2}`).join(',');
+            const sqlSelect = `
+                SELECT id, id_base_numero_detalle
+                FROM llamada
+                WHERE id_campania_ejecucion = $1
+                AND id_estado_llamada = 1
+                AND estado_registro = 1
+                AND id_base_numero_detalle IN (${placeholdersSelect})
+            `;
+
+            const [rows] = await this.connection.query(sqlSelect, [idEjecucion, ...detalleIds]);
+
+            console.log(`[llamada.bulkCreate] Insertadas y recuperadas ${rows.length} llamadas`);
+
+            // Retornar array con id_llamada y id_base_numero_detalle para mapear
+            return rows.map(row => ({
+                id_llamada: row.id,
+                id_base_numero_detalle: row.id_base_numero_detalle
+            }));
+        } catch (error) {
+            console.error(`[llamada.bulkCreate] Error:`, error.message);
+            throw new Error(`Error en bulk create de llamadas: ${error.message}`);
         }
     }
 

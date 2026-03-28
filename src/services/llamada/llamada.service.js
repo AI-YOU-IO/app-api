@@ -157,44 +157,69 @@ class LlamadaService {
 
             logger.info(`[LlamadaService] Ronda ${ronda} - Bloque ${numBloque}/${totalBloques} (${bloque.length} números)`);
 
-            // 1. Primero crear los registros en llamada para obtener los id_llamada
+            // 1. Preparar datos para bulk insert
+            const llamadasParaInsertar = bloque.map(num => ({
+                id_empresa: idEmpresa,
+                id_campania: idCampania,
+                id_base_numero: num.id_base_numero,
+                id_base_numero_detalle: num.id,
+                id_campania_ejecucion: idEjecucion
+            }));
+
+            // 2. Insertar todas las llamadas del bloque y luego SELECT para obtener IDs
+            let llamadasCreadas = [];
+            try {
+                llamadasCreadas = await llamadaModel.bulkCreate(llamadasParaInsertar, idEjecucion);
+                logger.info(`[LlamadaService] Bloque ${numBloque}: ${llamadasCreadas.length} llamadas insertadas y recuperadas de BD`);
+            } catch (dbError) {
+                logger.error(`[LlamadaService] Error en bulk insert bloque ${numBloque}: ${dbError.message}`);
+                fallidas += bloque.length;
+                continue;
+            }
+
+            // 3. Crear mapa de id_base_numero_detalle -> id_llamada para lookup rápido
+            const mapaIdLlamada = new Map();
+            for (const ll of llamadasCreadas) {
+                mapaIdLlamada.set(ll.id_base_numero_detalle, ll.id_llamada);
+            }
+
+            // 4. Armar array de calls con los id_llamada ya disponibles
             const calls = [];
             for (const num of bloque) {
                 const telefono = this.formatearTelefono(num.telefono);
-                try {
-                    const idLlamada = await llamadaModel.create({
-                        id_empresa: idEmpresa,
-                        id_campania: idCampania,
-                        id_base_numero: num.id_base_numero,
-                        id_base_numero_detalle: num.id,
-                        id_campania_ejecucion: idEjecucion,
-                        provider_call_id: null // Se actualiza via webhook call-entrada
-                    });
+                const idLlamada = mapaIdLlamada.get(num.id);
 
-                    calls.push({
-                        destination: telefono,
-                        data: {
-                            nombre_completo: num.nombre,
-                            celular: telefono,
-                            id_empresa: num.id_empresa,
-                            id_llamada: idLlamada, // Incluimos el id_llamada para que Ultravox lo devuelva en webhooks
-                            ...(num.json_adicional || {})
-                        }
-                    });
-                    enviadas++;
-                } catch (dbError) {
-                    logger.warn(`[LlamadaService] Error al crear registro llamada para ${telefono}: ${dbError.message}`);
+                if (!idLlamada) {
+                    logger.warn(`[LlamadaService] No se encontró id_llamada para detalle ${num.id}`);
                     fallidas++;
+                    continue;
                 }
+
+                calls.push({
+                    destination: telefono,
+                    data: {
+                        nombre_completo: num.nombre,
+                        celular: telefono,
+                        id_empresa: num.id_empresa,
+                        id_llamada: idLlamada,
+                        ...(num.json_adicional || {})
+                    }
+                });
+                enviadas++;
+            }
+
+            // Log del primer call para verificar estructura
+            if (calls.length > 0) {
+                console.log(`[LlamadaService] Primer call del batch:`, JSON.stringify(calls[0]));
             }
 
             // Si no hay llamadas creadas, continuar con el siguiente bloque
             if (calls.length === 0) {
-                logger.warn(`[LlamadaService] Bloque ${numBloque} sin llamadas creadas, saltando...`);
+                logger.warn(`[LlamadaService] Bloque ${numBloque} sin llamadas válidas, saltando...`);
                 continue;
             }
 
-            // 2. Enviar el batch a Ultravox con los id_llamada incluidos
+            // 5. Enviar el batch a Ultravox con los id_llamada incluidos
             const batchBody = {
                 calls: calls,
                 extras: {
