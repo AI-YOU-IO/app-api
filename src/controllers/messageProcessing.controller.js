@@ -7,6 +7,7 @@ const Mensaje = require("../models/mensaje.model.js");
 const ConfiguracionWhatsapp = require("../models/configuracionWhatsapp.model.js");
 const websocketNotifier = require("../services/websocketNotifier.service.js");
 const s3Service = require("../services/s3.service.js");
+const transcriptionService = require("../services/transcription/transcription.service.js");
 const logger = require("../config/logger/loggerClient");
 
 class MessageProcessingController {
@@ -85,6 +86,8 @@ class MessageProcessingController {
 
             // Procesar archivos entrantes (descargar media de WhatsApp y subir a S3)
             let contenidoArchivo = null;
+            let mediaBuffer = null;
+            let mediaExtension = null;
             if (archivos.length > 0) {
                 const archivo = archivos[0];
                 if (archivo.url) {
@@ -93,6 +96,8 @@ class MessageProcessingController {
                     try {
                         const mediaId = archivo.media_id || archivo.id;
                         const media = await WhatsappGraphService.descargarMedia(empresaId, mediaId);
+                        mediaBuffer = media.buffer;
+                        mediaExtension = media.extension;
                         const fakeFile = {
                             buffer: media.buffer,
                             mimetype: media.contentType,
@@ -106,11 +111,37 @@ class MessageProcessingController {
                 }
             }
 
-            // Guardar mensaje entrante
+            // Transcribir audio a texto si el mensaje es de tipo audio/voz
+            let textoTranscrito = null;
+            const esAudio = ['audio', 'voice', 'ptt'].includes(tipoMensaje);
+            if (esAudio && mediaBuffer && transcriptionService.isAudioSupported(mediaExtension)) {
+                try {
+                    textoTranscrito = await transcriptionService.transcribe(
+                        mediaBuffer,
+                        `audio_${Date.now()}${mediaExtension}`
+                    );
+                    logger.info(`[messageProcessing] Audio transcrito: "${textoTranscrito.substring(0, 100)}"`);
+                } catch (transcriptionError) {
+                    logger.error(`[messageProcessing] Error transcribiendo audio: ${transcriptionError.message}`);
+                }
+            } else if (esAudio && contenidoArchivo && !mediaBuffer) {
+                // Audio llegó como URL (sin buffer local), transcribir desde URL
+                try {
+                    textoTranscrito = await transcriptionService.transcribeFromUrl(contenidoArchivo);
+                    logger.info(`[messageProcessing] Audio transcrito desde URL: "${textoTranscrito.substring(0, 100)}"`);
+                } catch (transcriptionError) {
+                    logger.error(`[messageProcessing] Error transcribiendo audio desde URL: ${transcriptionError.message}`);
+                }
+            }
+
+            // El contenido del mensaje es: texto transcrito > texto enviado > placeholder
+            const contenidoMensaje = textoTranscrito || questionTrimmed || (contenidoArchivo ? `[${tipoMensaje}]` : null);
+
+            // Guardar mensaje entrante con el texto transcrito
             const fechaEntrante = new Date();
             await Mensaje.create({
                 id_chat: chat.id || chat,
-                contenido: questionTrimmed || (contenidoArchivo ? `[${tipoMensaje}]` : null),
+                contenido: contenidoMensaje,
                 contenido_archivo: contenidoArchivo,
                 direccion: "in",
                 wid_mensaje: widTrimmed,
@@ -123,7 +154,7 @@ class MessageProcessingController {
             const chatId = chat.id || chat;
             websocketNotifier.notificarMensajeEntrante(chatId, {
                 id_contacto: chatId,
-                contenido: questionTrimmed,
+                contenido: contenidoMensaje,
                 contenido_archivo: contenidoArchivo,
                 direccion: "in",
                 wid_mensaje: widTrimmed,
@@ -138,9 +169,9 @@ class MessageProcessingController {
                 return res.success(200, "Mensaje guardado (bot desactivado)", { bot_activo: false });
             }
 
-            // Construir mensaje para el asistente incluyendo archivos si existen
-            let messageForAssistant = questionTrimmed;
-            if (archivos.length > 0) {
+            // Construir mensaje para el asistente: si fue audio transcrito, usar el texto transcrito
+            let messageForAssistant = textoTranscrito || questionTrimmed;
+            if (!textoTranscrito && archivos.length > 0) {
                 const fileDescriptions = archivos.map(f => `[Archivo: ${f.type || 'archivo'} - ${f.url || contenidoArchivo || ''}]`).join('\n');
                 messageForAssistant = `${fileDescriptions}\n${questionTrimmed}`.trim();
             }
