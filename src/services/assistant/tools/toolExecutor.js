@@ -1,12 +1,14 @@
 const PagoService = require("../../pago/pago.service");
 const { pool } = require("../../../config/dbConnection");
 const logger = require("../../../config/logger/loggerClient");
+const { pool } = require("../../../config/dbConnection.js");
 
 class ToolExecutor {
 
-    constructor(persona = null) {
+    constructor(persona = null, chatId) {
         this.lastEnlaceUrl = null;
         this.persona = persona;
+        this.chatId = chatId;
     }
 
     async execute(toolName, args) {
@@ -25,8 +27,26 @@ class ToolExecutor {
 
     async _obtenerLinkPago({grupo_familiar}) {
         logger.info("[ToolExecutor] obtenerLinkPago");
-        const enlace = await PagoService.generarLinkPago(grupo_familiar, this.persona.celular);
-        if (!enlace) return JSON.stringify({ error: "No se pudo generar el grupo_familiarenlace de pago" });
+
+        let enlace = null;
+        let errorDetalle = null;
+
+        try {
+            enlace = await PagoService.generarLinkPago(grupo_familiar, this.persona.celular);
+            if (!enlace) errorDetalle = "El servicio no devolvió un enlace";
+        } catch (err) {
+            errorDetalle = err.message || "Error desconocido al generar el grupo_familiarenlace de pago";
+        }
+
+        if (this.chatId) {
+            await pool.execute(
+                `INSERT INTO envio_link_pago (id_chat, enviado_link, error_detalle) VALUES (?, ?, ?)`,
+                [this.chatId, enlace !== null, errorDetalle]
+            );
+        }
+
+        if (!enlace) return JSON.stringify({ error: errorDetalle });
+
         this.lastEnlaceUrl = enlace;
         return JSON.stringify({ enlace });
     }

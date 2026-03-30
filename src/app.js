@@ -35,6 +35,8 @@ const n8nEmpresaRoutes = require("./routes/crm/n8nEmpresa.route.js");
 const n8nMensajeVistoRoutes = require("./routes/crm/n8nMensajeVisto.route.js");
 const n8nRecuperacionRoutes = require("./routes/crm/n8nRecuperacion.route.js");
 const analisisSentimientoRoutes = require("./routes/crm/analisisSentimiento.route.js");
+const kpiRoutes = require("./routes/kpi.route.js");
+
 const app = express();
 
 // CORS - permitir todas las peticiones (debe ir primero)
@@ -84,6 +86,7 @@ app.use("/api/crm/admin/tools", authMiddleware, toolRoutes);
 app.use("/api/crm", authMiddleware, whatsappEmbeddedRoutes);
 app.use("/api/crm", authMiddleware, envioMasivoWhatsappRoutes, envioPersonaRoutes);
 app.use('/api/assistant', messageProcessingRoutes);
+app.use('/api/kpi', authMiddleware, kpiRoutes);
 
 
 // Ruta de health check
