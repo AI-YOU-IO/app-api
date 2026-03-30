@@ -1,7 +1,6 @@
 const PagoService = require("../../pago/pago.service");
 const { pool } = require("../../../config/dbConnection");
 const logger = require("../../../config/logger/loggerClient");
-const { pool } = require("../../../config/dbConnection.js");
 
 class ToolExecutor {
 

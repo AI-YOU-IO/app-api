@@ -71,7 +71,7 @@ const executeQuery = async (sql, params = []) => {
     // Los models hacen `const [result] = ...` y esperan:
     //   - SELECTs: result = rows
     //   - INSERT/UPDATE/DELETE: result = { insertId, affectedRows }
-    const isSelect = /^\s*SELECT/i.test(sql);
+    const isSelect = /^\s*(SELECT|WITH)\b/i.test(sql);
     if (isSelect) {
         return [result.rows, mysqlCompatResult];
     }
