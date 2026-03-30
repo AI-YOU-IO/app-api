@@ -173,9 +173,10 @@ class EnvioBaseModel {
 
     async updateEstado(id, estado, error_mensaje = null, usuario_actualizacion = null) {
         try {
+            const fechaEnvio = (estado === 'entregado') ? new Date() : null;
             const [result] = await this.connection.execute(
-                `UPDATE envio_base SET estado = ?, error_mensaje = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND estado_registro = 1`,
-                [estado, error_mensaje, usuario_actualizacion, id]
+                `UPDATE envio_base SET estado = ?, error_mensaje = ?, fecha_envio = COALESCE(?, fecha_envio), usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ? AND estado_registro = 1`,
+                [estado, error_mensaje, fechaEnvio, usuario_actualizacion, id]
             );
             return result.affectedRows > 0;
         } catch (error) {
