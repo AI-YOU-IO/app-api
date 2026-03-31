@@ -4,9 +4,98 @@ const url_token = "https://cobranzas-auna.oncosalud.pe/api/Autorizacion/CrearTok
 const url_cambio = "https://cobranzas-auna.oncosalud.pe/api/CambioTarjeta/CrearEnlace"
 const url_pago = "https://cobranzas-auna.oncosalud.pe/api/PagoLinea/CrearEnlace"
 
+// Rate limiter: máximo 50 requests por 60 segundos (margen de seguridad sobre el límite de 60)
+const RATE_LIMIT = 50;
+const RATE_WINDOW_MS = 60_000;
+
 class PagoService {
+  constructor() {
+    // Cache de tokens: { alcance: { token, expiresAt } }
+    this.tokenCache = new Map();
+    // Cola de requests pendientes
+    this.queue = [];
+    this.processing = false;
+    // Timestamps de requests realizadas en la ventana actual
+    this.requestTimestamps = [];
+  }
+
+  // --- Rate Limiter con cola ---
+
+  _cleanOldTimestamps() {
+    const now = Date.now();
+    this.requestTimestamps = this.requestTimestamps.filter(t => now - t < RATE_WINDOW_MS);
+  }
+
+  _enqueue(fn) {
+    return new Promise((resolve, reject) => {
+      this.queue.push({ fn, resolve, reject });
+      this._processQueue();
+    });
+  }
+
+  async _processQueue() {
+    if (this.processing) return;
+    this.processing = true;
+
+    while (this.queue.length > 0) {
+      this._cleanOldTimestamps();
+
+      if (this.requestTimestamps.length >= RATE_LIMIT) {
+        // Esperar hasta que el request más antiguo salga de la ventana
+        const oldest = this.requestTimestamps[0];
+        const waitMs = RATE_WINDOW_MS - (Date.now() - oldest) + 100;
+        logger.info(`[pago.service.js] Rate limit alcanzado, esperando ${waitMs}ms`);
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
+      }
+
+      const { fn, resolve, reject } = this.queue.shift();
+      this.requestTimestamps.push(Date.now());
+
+      try {
+        const result = await fn();
+        resolve(result);
+      } catch (err) {
+        reject(err);
+      }
+    }
+
+    this.processing = false;
+  }
+
+  // --- Fetch con retry en 429 ---
+
+  async _fetchWithRetry(url, options, maxRetries = 3) {
+    return this._enqueue(async () => {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const response = await fetch(url, options);
+
+        if (response.status === 429) {
+          const retryAfter = response.headers.get("Retry-After");
+          const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(2000 * Math.pow(2, attempt), 30_000);
+          logger.warn(`[pago.service.js] 429 recibido (intento ${attempt}/${maxRetries}), esperando ${waitMs}ms`);
+          if (attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, waitMs));
+            // Registrar el retry como nueva request en la ventana
+            this.requestTimestamps.push(Date.now());
+            continue;
+          }
+        }
+
+        return response;
+      }
+    });
+  }
+
+  // --- Cache de token ---
+
   async obtenerToken(alcance) {
-    const response = await fetch(url_token, {
+    const cached = this.tokenCache.get(alcance);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.token;
+    }
+
+    const response = await this._fetchWithRetry(url_token, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -24,7 +113,15 @@ class PagoService {
     }
     try {
       const result = JSON.parse(text);
-      return result?.tipo_token + " " + result?.token_acceso;
+      const token = result?.tipo_token + " " + result?.token_acceso;
+
+      // Cachear con margen de 5 segundos antes de expirar
+      this.tokenCache.set(alcance, {
+        token,
+        expiresAt: Date.now() + 55_000 // 55s (token dura 60s, 5s de margen)
+      });
+
+      return token;
     } catch (e) {
       logger.error(`[pago.service.js] obtenerToken: JSON inválido - status=${response.status}, body=${text.substring(0, 300)}`);
       throw new Error(`API token JSON inválido (status ${response.status})`);
@@ -35,7 +132,7 @@ class PagoService {
   async generarLinkPago(grupo_familiar, telefono) {
     const token = await this.obtenerToken("PagoCuota/CrearEnlace");
 
-    const response = await fetch(url_pago, {
+    const response = await this._fetchWithRetry(url_pago, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -66,7 +163,7 @@ class PagoService {
   async generarLinkCambio(grupo_familiar, telefono) {
     const token = await this.obtenerToken("CambioTarjeta/CrearEnlace");
 
-    const response = await fetch(url_cambio, {
+    const response = await this._fetchWithRetry(url_cambio, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

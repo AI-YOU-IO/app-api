@@ -38,12 +38,12 @@ class ToolExecutor {
             errorDetalle = err.message || "Error desconocido al generar el grupo_familiarenlace de pago";
         }
 
-        if (this.chatId) {
-            await pool.execute(
-                `INSERT INTO envio_link_pago (id_chat, enviado_link, error_detalle) VALUES (?, ?, ?)`,
-                [this.chatId, enlace !== null, errorDetalle]
-            );
-        }
+        // if (this.chatId) {
+        //     await pool.execute(
+        //         `INSERT INTO envio_link_pago (id_chat, enviado_link, error_detalle) VALUES (?, ?, ?)`,
+        //         [this.chatId, enlace !== null, errorDetalle]
+        //     );
+        // }
 
         if (!enlace) return JSON.stringify({ error: errorDetalle });
 
