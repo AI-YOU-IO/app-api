@@ -1,4 +1,5 @@
 const logger = require("../../config/logger/loggerClient");
+const { pool } = require("../../config/dbConnection");
 
 const url_token = "https://cobranzas-auna.oncosalud.pe/api/Autorizacion/CrearToken"
 const url_cambio = "https://cobranzas-auna.oncosalud.pe/api/CambioTarjeta/CrearEnlace"
@@ -116,10 +117,18 @@ class PagoService {
       const token = result?.tipo_token + " " + result?.token_acceso;
 
       // Cachear con margen de 5 segundos antes de expirar
-      this.tokenCache.set(alcance, {
-        token,
-        expiresAt: Date.now() + 55_000 // 55s (token dura 60s, 5s de margen)
-      });
+      const expiresAt = new Date(Date.now() + 55_000);
+      this.tokenCache.set(alcance, { token, expiresAt: expiresAt.getTime() });
+
+      // Guardar en BD
+      try {
+        await pool.execute(
+          `INSERT INTO token (token, tipo, fecha_expiracion, id_empresa) VALUES ($1, $2, $3, $4)`,
+          [token, alcance, expiresAt, 4]
+        );
+      } catch (dbErr) {
+        logger.error(`[pago.service.js] Error al guardar token en BD: ${dbErr.message}`);
+      }
 
       return token;
     } catch (e) {
@@ -129,7 +138,7 @@ class PagoService {
   }
 
 
-  async generarLinkPago(grupo_familiar, telefono) {
+  async generarLinkPago(grupo_familiar, telefono,  chatId = null, idPersona = null) {
     const token = await this.obtenerToken("PagoCuota/CrearEnlace");
 
     const response = await this._fetchWithRetry(url_pago, {
@@ -153,14 +162,27 @@ class PagoService {
     }
     try {
       const result = JSON.parse(textPago);
-      return result.enlace;
+      const enlace = result.enlace;
+
+      if (enlace && chatId) {
+        try {
+          await pool.execute(
+            `INSERT INTO link_pago (id_chat, id_persona, id_empresa, link) VALUES ($1, $2, $3, $4)`,
+            [chatId, idPersona, 4, enlace]
+          );
+        } catch (dbErr) {
+          logger.error(`[pago.service.js] Error al guardar link_pago en BD: ${dbErr.message}`);
+        }
+      }
+
+      return enlace;
     } catch (e) {
       logger.error(`[pago.service.js] generarLinkPago: JSON inválido - status=${response.status}, grupo_familiar=${grupo_familiar}, body=${textPago.substring(0, 300)}`);
       return null;
     }
   }
 
-  async generarLinkCambio(grupo_familiar, telefono) {
+  async generarLinkCambio(grupo_familiar, telefono, chatId = null, idPersona = null) {
     const token = await this.obtenerToken("CambioTarjeta/CrearEnlace");
 
     const response = await this._fetchWithRetry(url_cambio, {
@@ -184,7 +206,20 @@ class PagoService {
     }
     try {
       const result = JSON.parse(textCambio);
-      return result.enlace;
+      const enlace = result.enlace;
+
+      if (enlace && chatId) {
+        try {
+          await pool.execute(
+            `INSERT INTO link_pago (id_chat, id_persona, id_empresa, link) VALUES ($1, $2, $3, $4)`,
+            [chatId, idPersona, 4, enlace]
+          );
+        } catch (dbErr) {
+          logger.error(`[pago.service.js] Error al guardar link_pago en BD: ${dbErr.message}`);
+        }
+      }
+
+      return enlace;
     } catch (e) {
       logger.error(`[pago.service.js] generarLinkCambio: JSON inválido - status=${response.status}, grupo_familiar=${grupo_familiar}, body=${textCambio.substring(0, 300)}`);
       return null;

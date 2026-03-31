@@ -32,7 +32,7 @@ class ToolExecutor {
         let errorDetalle = null;
 
         try {
-            enlace = await PagoService.generarLinkPago(grupo_familiar, this.persona.celular);
+            enlace = await PagoService.generarLinkPago(grupo_familiar, this.persona.celular, this.chatId, this.persona?.id);
             if (!enlace) errorDetalle = "El servicio no devolvió un enlace";
         } catch (err) {
             errorDetalle = err.message || "Error desconocido al generar el grupo_familiarenlace de pago";
@@ -53,7 +53,7 @@ class ToolExecutor {
 
     async _obtenerLinkCambio({grupo_familiar}) {
         logger.info("[ToolExecutor] obtenerLinkCambio");
-        const enlace = await PagoService.generarLinkCambio(grupo_familiar, this.persona.celular);
+        const enlace = await PagoService.generarLinkCambio(grupo_familiar, this.persona.celular, this.chatId, this.persona?.id);
         if (!enlace) return JSON.stringify({ error: "No se pudo generar el enlace de cambio de tarjeta" });
         this.lastEnlaceUrl = enlace;
         return JSON.stringify({ enlace });
