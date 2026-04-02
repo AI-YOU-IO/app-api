@@ -12,6 +12,7 @@ router.put("/empresas/:id/estado", AdminController.updateEmpresaEstado);
 
 // Tools
 router.get("/tools", AdminController.getTools);
+router.get("/tools/tipo/:tipo", AdminController.getToolsByTipo);
 
 // Usuarios (admin-level, con info de empresa)
 router.get("/usuarios", AdminController.getUsuarios);

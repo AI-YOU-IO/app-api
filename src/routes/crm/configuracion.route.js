@@ -182,6 +182,7 @@ router.post("/campanias/:id_campania/config-llamadas", ConfiguracionController.s
 // Rutas de Prompt Asistente (Bot WhatsApp)
 router.get("/prompt-asistente", ConfiguracionController.getPromptAsistente);
 router.post("/prompt-asistente", ConfiguracionController.savePromptAsistente);
+router.get("/tool-definitions", ConfiguracionController.getToolDefinitions);
 
 // Rutas de Proyectos
 router.get("/proyectos", ConfiguracionController.getProyectos);

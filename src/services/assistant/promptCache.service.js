@@ -21,8 +21,8 @@ async function buildSystemPrompt({ persona, timestamp, id_empresa }) {
     const template = await getPromptByEmpresa(id_empresa);
 
     return template
-        .replace("{{datos}}", JSON.stringify(persona))
-        .replace("{{timestamp}}", timestamp);
+        .replace("{{datos_cliente}}", JSON.stringify(persona))
+        .replace("{{fecha_hora_actual}}", timestamp);
 }
 
 function clearCache(id_empresa) {

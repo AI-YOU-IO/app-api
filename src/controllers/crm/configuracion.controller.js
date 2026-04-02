@@ -2589,6 +2589,57 @@ class ConfiguracionController {
       return res.status(500).json({ msg: "Error al guardar prompt asistente" });
     }
   }
+
+  async getToolDefinitions(req, res) {
+    try {
+      const idEmpresa = req.user?.idEmpresa || null;
+
+      if (!idEmpresa) {
+        return res.status(400).json({ msg: "ID de empresa requerido" });
+      }
+
+      // Obtener la ruta del tool desde la empresa
+      const [rows] = await pool.execute(
+        `SELECT t.ruta, t.nombre as tool_nombre FROM empresa e
+         INNER JOIN tool t ON e.id_tool_chatbot = t.id
+         WHERE e.id = ? AND t.estado_registro = 1`,
+        [idEmpresa]
+      );
+
+      if (rows.length === 0) {
+        return res.status(200).json({ data: { tools: [], tool_nombre: null, ruta: null } });
+      }
+
+      const { ruta, tool_nombre } = rows[0];
+
+      // Cargar las definiciones de tools dinámicamente
+      try {
+        const { toolDefinitions } = require(`../../services/assistant/tools/${ruta}`);
+
+        // Extraer solo nombre y descripción de cada función
+        const tools = toolDefinitions.map(tool => ({
+          name: tool.function.name,
+          description: tool.function.description,
+          parameters: tool.function.parameters?.properties || {}
+        }));
+
+        return res.status(200).json({
+          data: {
+            tools,
+            tool_nombre,
+            ruta
+          }
+        });
+      } catch (loadError) {
+        logger.error(`[configuracion.controller.js] Error al cargar archivo de tools ${ruta}: ${loadError.message}`);
+        return res.status(200).json({ data: { tools: [], tool_nombre, ruta, error: 'Archivo no encontrado' } });
+      }
+    } catch (error) {
+      logger.error(`[configuracion.controller.js] Error al obtener tool definitions: ${error.message}`);
+      return res.status(500).json({ msg: "Error al obtener tool definitions" });
+    }
+  }
+
   // ==================== PROYECTOS ====================
   async getProyectos(req, res) {
     try {

@@ -22,12 +22,12 @@ Eres un asesor  de la empresa AUNA ONCOSALUD, especializado en cobranza. Tu nomb
 
 ## Datos del cliente (en formato JSON)
 ```
-{{datos}}
+{{datos_cliente}}
 ```
 
-## Fecha actual
+## Fecha y hora actual
 ```
-{{timestamp}}
+{{fecha_hora_actual}}
 ```
 
 ## Variables a Configurar

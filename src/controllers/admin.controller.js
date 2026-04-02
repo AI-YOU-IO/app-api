@@ -156,6 +156,18 @@ class AdminController {
       return res.serverError(500, 'Error al obtener tools');
     }
   }
+
+  async getToolsByTipo(req, res) {
+    try {
+      const { tipo } = req.params;
+      const toolModel = new ToolModel();
+      const tools = await toolModel.getByTipo(tipo);
+      return res.success(200, 'Tools obtenidos correctamente', tools);
+    } catch (error) {
+      logger.error(`[admin.controller.js] Error al obtener tools por tipo: ${error.message}`);
+      return res.serverError(500, 'Error al obtener tools por tipo');
+    }
+  }
 }
 
 module.exports = new AdminController();

@@ -28,6 +28,18 @@ class ToolModel {
         }
     }
 
+    async getByTipo(tipo) {
+        try {
+            const [rows] = await this.connection.execute(
+                `SELECT * FROM tool WHERE tipo = ? AND estado_registro = 1 ORDER BY nombre ASC`,
+                [tipo]
+            );
+            return rows;
+        } catch (error) {
+            throw new Error(`Error al obtener tools por tipo: ${error.message}`);
+        }
+    }
+
     async getById(id) {
         try {
             const [rows] = await this.connection.execute(
