@@ -70,7 +70,7 @@ class MessageProcessingController {
             if (question === "No contactar") {
                 await Persona.updatePersona(persona.id, { lista_negra: true });
                 logger.info(`[messageProcessing.controller.js] Persona con numero ${phone} actualizado en lista negra`);
-                return;
+                return res.success(200, "Persona marcada en lista negra", { lista_negra: true });
             }
 
 
