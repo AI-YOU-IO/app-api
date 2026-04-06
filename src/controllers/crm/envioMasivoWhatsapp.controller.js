@@ -160,9 +160,16 @@ class EnvioMasivoWhatsappController {
                 return res.status(400).json({ msg: "No hay registros asociados a este envío" });
             }
 
-            // Actualizar estado del envio masivo (en proceso de envio)
-            await EnvioMasivoWhatsappModel.updateEstado(id, 'entregado', userId);
+            // Actualizar estado del envio masivo (en proceso)
+            await EnvioMasivoWhatsappModel.updateEstado(id, 'en_proceso', userId);
 
+            // Responder inmediatamente al frontend
+            res.status(200).json({
+                msg: "Envío masivo iniciado",
+                data: { id, estado: 'en_proceso' }
+            });
+
+            // Procesar envío en background
             let cantidadExitosos = 0;
             let cantidadFallidos = 0;
 
@@ -295,6 +302,9 @@ class EnvioMasivoWhatsappController {
                         logger.error(`[envioMasivoWhatsapp.controller.js] Error enviando a ${celular}: ${errorMsg}`);
                     }
 
+                    // Actualizar contadores en BD progresivamente
+                    await EnvioMasivoWhatsappModel.updateContadores(id, cantidadExitosos, cantidadFallidos);
+
                     // Delay entre mensajes para evitar rate limiting
                     if (DELAY_BETWEEN_MESSAGES > 0) {
                         await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_MESSAGES));
@@ -305,19 +315,18 @@ class EnvioMasivoWhatsappController {
                 }
             }
 
-            // Actualizar contadores y estado final
+            // Actualizar estado final
             await EnvioMasivoWhatsappModel.updateContadores(id, cantidadExitosos, cantidadFallidos);
             await EnvioMasivoWhatsappModel.updateEstado(id, 'entregado', userId);
 
             logger.info(`[envioMasivoWhatsapp.controller.js] Envío masivo ${id} completado: ${cantidadExitosos} exitosos, ${cantidadFallidos} fallidos`);
 
-            return res.status(200).json({
-                msg: "Envío masivo ejecutado",
-                data: { cantidadExitosos, cantidadFallidos }
-            });
         } catch (error) {
             logger.error(`[envioMasivoWhatsapp.controller.js] Error al ejecutar envío masivo: ${error.message}`);
-            return res.status(500).json({ msg: "Error al ejecutar envío masivo" });
+            // Marcar como cancelado si falla el proceso
+            try {
+                await EnvioMasivoWhatsappModel.updateEstado(req.params.id, 'cancelado', req.user?.userId);
+            } catch (_) {}
         }
     }
 
