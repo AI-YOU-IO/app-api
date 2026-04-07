@@ -20,7 +20,7 @@ class KpiController {
                             WHEN json_mensajes IS NULL OR json_mensajes::text = '[]' THEN NULL
                             ELSE json_mensajes::jsonb
                         END AS mensajes
-                    FROM vw_chat_resumen
+                    FROM vw_chat_resumen_final
                     WHERE fecha_registro::date BETWEEN ? AND ?
                       AND id_empresa = ?
                 )
@@ -61,7 +61,7 @@ class KpiController {
                             PARTITION BY v.id
                             ORDER BY (elem->>'fecha_registro')
                         ) AS rn
-                    FROM vw_chat_resumen v,
+                    FROM vw_chat_resumen_final v,
                          jsonb_array_elements(v.json_mensajes::jsonb) AS elem
                     WHERE v.fecha_registro::date BETWEEN ? AND ?
                       AND v.id_empresa = ?
@@ -97,16 +97,39 @@ class KpiController {
             // ── 3. Links de pago enviados ─────────────────────────────────────────
             const [linksPagoRows] = await pool.execute(`
                 SELECT COUNT(*) AS links_pago_enviados
-                FROM envio_link_pago elp
-                INNER JOIN chat c ON c.id = elp.id_chat
-                INNER JOIN persona p ON p.id = c.id_persona
-                WHERE elp.enviado_link = true
-                  AND p.id_empresa = ?
-            `, [id_empresa]);
+                FROM vw_chat_resumen_final
+                WHERE fecha_registro::date BETWEEN ? AND ?
+                  AND id_empresa = ?
+                  AND enviado_link = true
+            `, [start_date, end_date, id_empresa]);
 
             const links_pago_enviados = Number(linksPagoRows[0]?.links_pago_enviados ?? 0);
 
-            // ── 4. Actividad por usuario y hora ──────────────────────────────────
+            // ── 4. Tipificaciones (donut) ─────────────────────────────────────────
+            const [tipificacionRows] = await pool.execute(`
+                SELECT
+                    COALESCE(nombre_tipificacion_bot_whasap, 'Sin tipificar') AS name,
+                    COUNT(*) AS value
+                FROM vw_chat_resumen_final
+                WHERE fecha_registro::date BETWEEN ? AND ?
+                  AND id_empresa = ?
+                GROUP BY nombre_tipificacion_bot_whasap
+                ORDER BY value DESC
+            `, [start_date, end_date, id_empresa]);
+
+            // ── 5. Equivalencias tipificación ────────────────────────────────────
+            const [equivalenciaRows] = await pool.execute(`
+                SELECT
+                    COALESCE(equivalencia_tipificacion_bot_whasap, 'ULTIMO_MENSAJE_MENOR_A_24_HORAS') AS equivalencia,
+                    COUNT(*) AS value
+                FROM vw_chat_resumen_final
+                WHERE fecha_registro::date BETWEEN ? AND ?
+                  AND id_empresa = ?
+                GROUP BY equivalencia_tipificacion_bot_whasap
+                ORDER BY value DESC
+            `, [start_date, end_date, id_empresa]);
+
+            // ── 6. Actividad por usuario y hora ──────────────────────────────────
             const [porUsuarioHoraRows] = await pool.execute(`
                 SELECT
                     username,
@@ -117,7 +140,7 @@ class KpiController {
                         LIMIT 1
                     )::timestamptz) AS hora,
                     COUNT(*) AS chats
-                FROM vw_chat_resumen
+                FROM vw_chat_resumen_final
                 WHERE fecha_registro::date BETWEEN ? AND ?
                   AND id_empresa = ?
                   AND json_mensajes IS NOT NULL
@@ -143,6 +166,8 @@ class KpiController {
                         links_pago_enviados,
                     },
                     por_usuario_hora: porUsuarioHoraRows,
+                    tipificaciones: tipificacionRows,
+                    equivalencias: equivalenciaRows,
                 }
             });
 
