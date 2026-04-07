@@ -4,6 +4,7 @@ const PlantillaWhatsappController = require("../controllers/plantillaWhatsapp.co
 const router = Router();
 
 router.get("/plantillas-whatsapp", /* #swagger.tags = ['Plantilla WhatsApp'] */ PlantillaWhatsappController.getPlantillas);
+router.post("/plantillas-whatsapp/sync", /* #swagger.tags = ['Plantilla WhatsApp'] */ PlantillaWhatsappController.syncPlantillas);
 router.get("/plantillas-whatsapp/:id", /* #swagger.tags = ['Plantilla WhatsApp'] */ PlantillaWhatsappController.getPlantillaById);
 router.post("/plantillas-whatsapp", /* #swagger.tags = ['Plantilla WhatsApp'] */ PlantillaWhatsappController.createPlantilla);
 router.put("/plantillas-whatsapp/:id", /* #swagger.tags = ['Plantilla WhatsApp'] */ PlantillaWhatsappController.updatePlantilla);

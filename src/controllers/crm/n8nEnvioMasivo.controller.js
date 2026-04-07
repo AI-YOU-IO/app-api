@@ -15,6 +15,19 @@ const Chat = require("../../models/chat.model.js");
 const Mensaje = require("../../models/mensaje.model.js");
 const logger = require('../../config/logger/loggerClient.js');
 
+/**
+ * Extrae el texto del body desde el array/string de components
+ */
+function extraerBodyDeComponents(components) {
+    let comps = components;
+    if (typeof comps === 'string') {
+        try { comps = JSON.parse(comps); } catch { return ''; }
+    }
+    if (!Array.isArray(comps)) return '';
+    const bodyComp = comps.find(c => (c.type || '').toUpperCase() === 'BODY');
+    return bodyComp?.text || '';
+}
+
 // Configuración
 const BATCH_SIZE = 50;
 const DELAY_BETWEEN_MESSAGES = 500;
@@ -143,7 +156,8 @@ class N8nEnvioMasivoController {
         return res.status(400).json({ error: 'La plantilla asociada no fue encontrada' });
       }
 
-      const bodyParams = plantilla.body ? (plantilla.body.match(/\{\{\d+\}\}/g) || []) : [];
+      const plantillaBody = extraerBodyDeComponents(plantilla.components);
+      const bodyParams = plantillaBody ? (plantillaBody.match(/\{\{\d+\}\}/g) || []) : [];
       const numBodyParams = new Set(bodyParams).size;
 
       // Obtener mapeo de campos de la plantilla (variables → campos)
@@ -292,7 +306,7 @@ class N8nEnvioMasivoController {
                   chat = { id: chatId };
                 }
 
-                let contenidoMensaje = plantilla.body || `[Envío masivo] Plantilla: ${plantilla.name}`;
+                let contenidoMensaje = plantillaBody || `[Envío masivo] Plantilla: ${plantilla.name}`;
                 const bodyComp = components.find(c => c.type === 'body');
                 if (bodyComp && bodyComp.parameters) {
                     bodyComp.parameters.forEach((param, i) => {

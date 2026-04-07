@@ -64,8 +64,8 @@ class PlantillaWhatsappRepository {
         try {
             const [result] = await pool.execute(
                 `INSERT INTO plantilla_whatsapp
-                (id_empresa, name, status, category, "language", header_type, header_text, body, footer, buttons, url_imagen, meta_template_id, id_formato, estado_registro, usuario_registro)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+                (id_empresa, name, status, category, "language", header_type, header_text, footer, components, url_imagen, meta_template_id, id_formato, estado_registro, usuario_registro)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
                 [
                     data.id_empresa,
                     data.name,
@@ -74,9 +74,8 @@ class PlantillaWhatsappRepository {
                     data.language || 'es',
                     data.header_type || null,
                     data.header_text || null,
-                    data.body || null,
                     data.footer || null,
-                    data.buttons ? JSON.stringify(data.buttons) : null,
+                    data.components ? JSON.stringify(data.components) : null,
                     data.url_imagen || null,
                     data.meta_template_id || null,
                     data.id_formato || null,
@@ -95,8 +94,8 @@ class PlantillaWhatsappRepository {
             const [result] = await pool.execute(
                 `UPDATE plantilla_whatsapp
                 SET name = ?, status = ?, category = ?, "language" = ?,
-                    header_type = ?, header_text = ?, body = ?, footer = ?,
-                    buttons = ?, url_imagen = ?, meta_template_id = ?, id_formato = ?,
+                    header_type = ?, header_text = ?, footer = ?,
+                    components = ?, url_imagen = ?, meta_template_id = ?, id_formato = ?,
                     usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE id = ? AND estado_registro = 1`,
                 [
@@ -106,9 +105,8 @@ class PlantillaWhatsappRepository {
                     data.language || null,
                     data.header_type || null,
                     data.header_text || null,
-                    data.body || null,
                     data.footer || null,
-                    data.buttons ? JSON.stringify(data.buttons) : null,
+                    data.components ? JSON.stringify(data.components) : null,
                     data.url_imagen || null,
                     data.meta_template_id || null,
                     data.id_formato || null,
@@ -128,8 +126,8 @@ class PlantillaWhatsappRepository {
             const [result] = await pool.execute(
                 `UPDATE plantilla_whatsapp
                 SET status = ?, category = ?, "language" = ?,
-                    header_type = ?, header_text = ?, body = ?, footer = ?,
-                    buttons = ?, meta_template_id = ?,
+                    header_type = ?, header_text = ?, footer = ?,
+                    components = ?, meta_template_id = ?,
                     usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP
                 WHERE name = ? AND id_empresa = ? AND estado_registro = 1`,
                 [
@@ -138,9 +136,8 @@ class PlantillaWhatsappRepository {
                     data.language || null,
                     data.header_type || null,
                     data.header_text || null,
-                    data.body || null,
                     data.footer || null,
-                    data.buttons ? JSON.stringify(data.buttons) : null,
+                    data.components ? JSON.stringify(data.components) : null,
                     data.meta_template_id || null,
                     data.usuario_actualizacion || null,
                     name,
