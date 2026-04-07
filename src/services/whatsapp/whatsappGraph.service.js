@@ -73,10 +73,16 @@ class WhatsappGraphService {
       url += `&status=${encodeURIComponent(options.status)}`;
     }
 
-    const response = await axios.get(url, {
-      headers: { Authorization: `Bearer ${credenciales.accessToken}` },
-      timeout: 30000
-    });
+    let response;
+    try {
+      response = await axios.get(url, {
+        headers: { Authorization: `Bearer ${credenciales.accessToken}` },
+        timeout: 30000
+      });
+    } catch (error) {
+      logger.error(`[WhatsappGraph] Error listarPlantillas: ${JSON.stringify(error.response?.data || error.message)}`);
+      throw error;
+    }
 
     const templates = (response.data?.data || []).map(template => ({
       id: template.id || null,
