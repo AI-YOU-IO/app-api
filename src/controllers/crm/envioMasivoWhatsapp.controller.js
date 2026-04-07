@@ -206,26 +206,32 @@ class EnvioMasivoWhatsappController {
                         const components = [];
 
                         if (camposPlantilla.length > 0 && numBodyParams > 0) {
-                            const bodyParameters = camposPlantilla.map((campo) => {
-                                const nombreCampo = campo.nombre_campo;
+                            // Construir parámetros en orden, asegurando que haya uno por cada {{N}}
+                            const bodyParameters = [];
+                            for (let p = 0; p < numBodyParams; p++) {
+                                const campo = camposPlantilla[p];
                                 let valor = '';
 
-                                if (DIRECT_COLUMNS.includes(nombreCampo)) {
-                                    valor = detalle[nombreCampo] || '';
-                                } else if (detalle.json_adicional) {
-                                    const jsonData = typeof detalle.json_adicional === 'string'
-                                        ? JSON.parse(detalle.json_adicional)
-                                        : detalle.json_adicional;
-                                    valor = jsonData?.[nombreCampo] || '';
+                                if (campo) {
+                                    const nombreCampo = campo.nombre_campo;
+                                    if (DIRECT_COLUMNS.includes(nombreCampo)) {
+                                        valor = detalle[nombreCampo] || '';
+                                    } else if (detalle.json_adicional) {
+                                        const jsonData = typeof detalle.json_adicional === 'string'
+                                            ? JSON.parse(detalle.json_adicional)
+                                            : detalle.json_adicional;
+                                        valor = jsonData?.[nombreCampo] || '';
+                                    }
                                 }
 
-                                return { type: 'text', text: String(valor) || '' };
-                            });
+                                // Meta rechaza parámetros vacíos, usar '-' como fallback
+                                bodyParameters.push({ type: 'text', text: String(valor) || '-' });
+                            }
                             components.push({ type: 'body', parameters: bodyParameters });
                         } else if (numBodyParams > 0) {
                             const bodyParameters = [];
                             for (let p = 0; p < numBodyParams; p++) {
-                                const valor = p === 0 ? (detalle.nombre || 'Cliente') : '';
+                                const valor = p === 0 ? (detalle.nombre || 'Cliente') : '-';
                                 bodyParameters.push({ type: 'text', text: valor });
                             }
                             components.push({ type: 'body', parameters: bodyParameters });
