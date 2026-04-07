@@ -310,16 +310,24 @@ class EnvioMasivoWhatsappController {
                         await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_MESSAGES));
                     }
                 } catch (baseError) {
+                    cantidadFallidos++;
                     await EnvioPersonaModel.updateEstado(eb.id, 'cancelado', baseError.message, userId);
                     logger.error(`[envioMasivoWhatsapp.controller.js] Error procesando detalle ${eb.id_base}: ${baseError.message}`);
                 }
             }
 
-            // Actualizar estado final
+            // Actualizar contadores y estado final según resultados
             await EnvioMasivoWhatsappModel.updateContadores(id, cantidadExitosos, cantidadFallidos);
-            await EnvioMasivoWhatsappModel.updateEstado(id, 'entregado', userId);
 
-            logger.info(`[envioMasivoWhatsapp.controller.js] Envío masivo ${id} completado: ${cantidadExitosos} exitosos, ${cantidadFallidos} fallidos`);
+            let estadoFinal = 'entregado';
+            if (cantidadExitosos === 0 && cantidadFallidos > 0) {
+                estadoFinal = 'cancelado';
+            } else if (cantidadFallidos > 0) {
+                estadoFinal = 'pendiente';
+            }
+            await EnvioMasivoWhatsappModel.updateEstado(id, estadoFinal, userId);
+
+            logger.info(`[envioMasivoWhatsapp.controller.js] Envío masivo ${id} completado: ${cantidadExitosos} exitosos, ${cantidadFallidos} fallidos, estado: ${estadoFinal}`);
 
         } catch (error) {
             logger.error(`[envioMasivoWhatsapp.controller.js] Error al ejecutar envío masivo: ${error.message}`);
