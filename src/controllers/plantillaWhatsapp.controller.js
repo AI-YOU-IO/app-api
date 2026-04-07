@@ -60,31 +60,73 @@ function tienenDiferencias(metaFields, local) {
 
 class PlantillaWhatsappController {
   /**
-   * Obtiene plantillas desde Meta Graph API y sincroniza la BD local.
-   * 1. Llama a Meta para obtener plantillas actualizadas
-   * 2. Compara con BD: si hay diferencias actualiza, si no existe inserta
-   * 3. Retorna plantillas enriquecidas con datos locales
+   * Lista plantillas desde BD (sin llamar a Meta)
    */
   async getPlantillas(req, res) {
     try {
       const idEmpresa = req.user?.idEmpresa || null;
-      const { status, limit } = req.query;
-
       if (!idEmpresa) {
         return res.status(400).json({ msg: "ID de empresa requerido" });
       }
 
-      // 1. Obtener plantillas desde Meta (fuente de verdad)
-      const result = await whatsappGraphService.listarPlantillas(idEmpresa, { status, limit });
+      const plantillas = await plantillaWhatsappRepository.findAll(idEmpresa);
 
-      // 2. Obtener plantillas locales indexadas por name
+      const templates = plantillas.map(local => ({
+        id: local.meta_template_id,
+        id_local: local.id,
+        meta_template_id: local.meta_template_id,
+        name: local.name,
+        status: local.status,
+        category: local.category,
+        language: local.language,
+        header_type: local.header_type,
+        header_text: local.header_text,
+        body: local.body,
+        footer: local.footer,
+        buttons: local.buttons,
+        components: local.components || [],
+        url_imagen: local.url_imagen,
+        id_formato: local.id_formato,
+        formato_nombre: local.formato_nombre,
+        stats_enviados: local.stats_enviados || 0,
+        stats_entregados: local.stats_entregados || 0,
+        stats_leidos: local.stats_leidos || 0,
+        fecha_registro: local.fecha_registro,
+      }));
+
+      return res.status(200).json({
+        success: true,
+        data: { templates, total: templates.length }
+      });
+    } catch (error) {
+      logger.error(`[plantillaWhatsapp.controller.js] Error al obtener plantillas: ${error.message}`);
+      return res.status(500).json({ msg: "Error al obtener plantillas" });
+    }
+  }
+
+  /**
+   * Sincroniza plantillas desde Meta Graph API hacia la BD.
+   * Compara por name: si no existe inserta, si hay diferencias actualiza.
+   * components de Meta es la fuente principal.
+   */
+  async syncPlantillas(req, res) {
+    try {
+      const idEmpresa = req.user?.idEmpresa || null;
+      if (!idEmpresa) {
+        return res.status(400).json({ msg: "ID de empresa requerido" });
+      }
+
+      const result = await whatsappGraphService.listarPlantillas(idEmpresa);
+
       const plantillasLocales = await plantillaWhatsappRepository.findAll(idEmpresa);
       const mapaLocal = {};
       for (const p of plantillasLocales) {
         mapaLocal[p.name] = p;
       }
 
-      // 3. Sincronizar BD con Meta
+      let insertados = 0;
+      let actualizados = 0;
+
       for (const metaTemplate of result.templates) {
         const campos = extraerCamposDeComponents(metaTemplate.components);
         const local = mapaLocal[metaTemplate.name];
@@ -98,39 +140,30 @@ class PlantillaWhatsappController {
           body: campos.body,
           footer: campos.footer,
           buttons: campos.buttons,
+          components: metaTemplate.components || [],
           meta_template_id: metaTemplate.id ? String(metaTemplate.id) : null
         };
 
         if (!local) {
-          // Plantilla no existe en BD → insertar
           try {
-            const inserted = await plantillaWhatsappRepository.create({
+            await plantillaWhatsappRepository.create({
               ...datosSync,
               name: metaTemplate.name,
               id_empresa: idEmpresa,
               usuario_registro: null
             });
-            mapaLocal[metaTemplate.name] = {
-              id: inserted.id,
-              name: metaTemplate.name,
-              ...datosSync
-            };
-            logger.info(`[plantillaWhatsapp.controller.js] Plantilla sincronizada (INSERT): ${metaTemplate.name}`);
+            insertados++;
           } catch (syncError) {
             logger.error(`[plantillaWhatsapp.controller.js] Error al insertar plantilla ${metaTemplate.name}: ${syncError.message}`);
           }
         } else {
-          // Plantilla existe → comparar y actualizar si hay diferencias
-          const metaFieldsParaComparar = { ...datosSync };
-          if (tienenDiferencias(metaFieldsParaComparar, local)) {
+          if (tienenDiferencias({ ...datosSync }, local)) {
             try {
               await plantillaWhatsappRepository.updateByName(metaTemplate.name, idEmpresa, {
                 ...datosSync,
                 usuario_actualizacion: null
               });
-              // Actualizar mapa local con los nuevos datos
-              Object.assign(mapaLocal[metaTemplate.name], datosSync);
-              logger.info(`[plantillaWhatsapp.controller.js] Plantilla sincronizada (UPDATE): ${metaTemplate.name}`);
+              actualizados++;
             } catch (syncError) {
               logger.error(`[plantillaWhatsapp.controller.js] Error al actualizar plantilla ${metaTemplate.name}: ${syncError.message}`);
             }
@@ -138,55 +171,17 @@ class PlantillaWhatsappController {
         }
       }
 
-      // 4. Re-leer BD ya sincronizada y construir response desde datos locales
-      const plantillasActualizadas = await plantillaWhatsappRepository.findAll(idEmpresa);
-
-      // Indexar datos de Meta para agregar campos que no se guardan en BD (quality_score, rejected_reason, components)
-      const mapaMeta = {};
-      for (const t of result.templates) {
-        mapaMeta[t.name] = t;
-      }
-
-      const templates = plantillasActualizadas.map(local => {
-        const meta = mapaMeta[local.name];
-        return {
-          id: local.meta_template_id,
-          id_local: local.id,
-          meta_template_id: local.meta_template_id,
-          name: local.name,
-          status: local.status,
-          category: local.category,
-          language: local.language,
-          header_type: local.header_type,
-          header_text: local.header_text,
-          body: local.body,
-          footer: local.footer,
-          buttons: local.buttons,
-          url_imagen: local.url_imagen,
-          id_formato: local.id_formato,
-          formato_nombre: local.formato_nombre,
-          stats_enviados: local.stats_enviados || 0,
-          stats_entregados: local.stats_entregados || 0,
-          stats_leidos: local.stats_leidos || 0,
-          fecha_registro: local.fecha_registro,
-          // Campos exclusivos de Meta (no se guardan en BD)
-          components: meta?.components || [],
-          quality_score: meta?.quality_score || null,
-          rejected_reason: meta?.rejected_reason || null
-        };
-      });
+      logger.info(`[plantillaWhatsapp.controller.js] Sync Meta completada: ${insertados} insertadas, ${actualizados} actualizadas`);
 
       return res.status(200).json({
         success: true,
-        data: {
-          templates,
-          total: templates.length,
-          waba_id: result.waba_id
-        }
+        msg: `Sincronización completada: ${insertados} nuevas, ${actualizados} actualizadas`,
+        data: { insertados, actualizados, total_meta: result.templates.length }
       });
     } catch (error) {
-      logger.error(`[plantillaWhatsapp.controller.js] Error al obtener plantillas: ${error.message}`);
-      return res.status(500).json({ msg: "Error al obtener plantillas" });
+      logger.error(`[plantillaWhatsapp.controller.js] Error al sincronizar plantillas: ${error.message}`);
+      const errorMsg = error.response?.data?.error?.message || error.message || "Error al sincronizar";
+      return res.status(500).json({ msg: errorMsg });
     }
   }
 
