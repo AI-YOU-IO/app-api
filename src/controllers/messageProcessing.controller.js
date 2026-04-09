@@ -7,6 +7,7 @@ const Mensaje = require("../models/mensaje.model.js");
 const ConfiguracionWhatsapp = require("../models/configuracionWhatsapp.model.js");
 const websocketNotifier = require("../services/websocketNotifier.service.js");
 const transcriptionService = require("../services/transcription/transcription.service.js");
+const { normalizarCelular } = require("../utils/phone.js");
 const logger = require("../config/logger/loggerClient");
 
 class MessageProcessingController {
@@ -23,9 +24,7 @@ class MessageProcessingController {
                 return res.serverError(400, "Campos requeridos: phone, phone_number_id");
             }
 
-            let phoneTrimmed = phone.trim().replace(/[\s\-\(\)\+]/g, '');
-            if (phoneTrimmed.startsWith('0')) phoneTrimmed = phoneTrimmed.substring(1);
-            if (phoneTrimmed.length <= 9) phoneTrimmed = '51' + phoneTrimmed;
+            const phoneTrimmed = normalizarCelular(phone);
             const questionTrimmed = (question || '').trim();
             const widTrimmed = wid ? wid.trim() : null;
             const tipoMensaje = messageType || "texto";

@@ -5,6 +5,7 @@ const Usuario = require("../models/usuario.model.js");
 const Persona = require("../models/persona.model.js");
 const Chat = require("../models/chat.model.js");
 const Mensaje = require("../models/mensaje.model.js");
+const { normalizarCelular } = require("../utils/phone.js");
 
 /**
  * Extrae campos planos (header, footer) desde el array de components de Meta
@@ -419,10 +420,8 @@ class PlantillaWhatsappController {
         return res.status(400).json({ msg: "El teléfono y nombre de plantilla son requeridos" });
       }
 
-      // Normalizar celular con prefijo 51
-      let celularNorm = phone.trim().replace(/[\s\-\(\)\+]/g, '');
-      if (celularNorm.startsWith('0')) celularNorm = celularNorm.substring(1);
-      if (celularNorm.length <= 9) celularNorm = '51' + celularNorm;
+      // Normalizar celular (sin prefijo de país)
+      const celularNorm = normalizarCelular(phone);
 
       // Obtener plantilla de BD para registrar el body real
       const plantillaBd = await plantillaWhatsappRepository.findByName(template_name, id_empresa);

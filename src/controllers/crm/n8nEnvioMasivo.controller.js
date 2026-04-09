@@ -13,6 +13,7 @@ const whatsappGraphService = require("../../services/whatsapp/whatsappGraph.serv
 const Persona = require("../../models/persona.model.js");
 const Chat = require("../../models/chat.model.js");
 const Mensaje = require("../../models/mensaje.model.js");
+const { normalizarCelular } = require("../../utils/phone.js");
 const logger = require('../../config/logger/loggerClient.js');
 
 /**
@@ -209,9 +210,7 @@ class N8nEnvioMasivoController {
               json_adicional: eb.detalle_json_adicional
             };
 
-            let celular = (detalle.telefono || '').trim().replace(/[\s\-\(\)\+]/g, '');
-            if (celular.startsWith('0')) celular = celular.substring(1);
-            if (celular.length <= 9 && celular.length > 0) celular = '51' + celular;
+            const celular = normalizarCelular(detalle.telefono);
             if (!celular) {
               resultados.fallidos++;
               resultados.detalles.push({
