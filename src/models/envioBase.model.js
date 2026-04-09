@@ -51,10 +51,19 @@ class EnvioBaseModel {
                 `SELECT eb.*, bnd.telefono as detalle_telefono, bnd.nombre as detalle_nombre,
                         bnd.correo as detalle_correo, bnd.tipo_documento as detalle_tipo_documento,
                         bnd.numero_documento as detalle_numero_documento, bnd.json_adicional as detalle_json_adicional,
-                        bnd.id_base_numero, bn.nombre as base_nombre, bn.descripcion as base_descripcion
+                        bnd.id_base_numero, bn.nombre as base_nombre, bn.descripcion as base_descripcion,
+                        tw.nombre as nombre_tipificacion,
+                        COALESCE(tw_abuelo.nombre, tw_padre.nombre, tw.nombre) as nombre_nivel_1,
+                        CASE WHEN tw_abuelo.id IS NOT NULL THEN tw_padre.nombre WHEN tw_padre.id IS NOT NULL THEN tw.nombre ELSE NULL END as nombre_nivel_2,
+                        CASE WHEN tw_abuelo.id IS NOT NULL THEN tw.nombre ELSE NULL END as nombre_nivel_3
                 FROM envio_base eb
                 LEFT JOIN base_numero_detalle bnd ON eb.id_base = bnd.id
                 LEFT JOIN base_numero bn ON bnd.id_base_numero = bn.id
+                LEFT JOIN persona p ON p.id_ref_base_num_detalle = bnd.id
+                LEFT JOIN chat c ON c.id_persona = p.id
+                LEFT JOIN tipificacion_whasap tw ON tw.id = c.id_tipificacion_bot
+                LEFT JOIN tipificacion_whasap tw_padre ON tw_padre.id = tw.id_padre
+                LEFT JOIN tipificacion_whasap tw_abuelo ON tw_abuelo.id = tw_padre.id_padre
                 WHERE eb.id_envio_masivo = ? AND eb.estado_registro = 1
                 ORDER BY eb.fecha_registro DESC`,
                 [id_envio_masivo]

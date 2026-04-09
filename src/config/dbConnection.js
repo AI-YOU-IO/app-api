@@ -24,6 +24,11 @@ const pool = new Pool({
     }
 });
 
+// Manejar errores de conexiones idle en el pool
+pool.on('error', (err) => {
+    logger.error(`[dbConnection.js] Error inesperado en conexión idle del pool: ${err.message}`);
+});
+
 // Función para verificar conexión
 const testConnection = async () => {
     try {
@@ -37,7 +42,7 @@ const testConnection = async () => {
 };
 
 // Wrapper para mantener compatibilidad con mysql2 (execute/query -> pg query)
-const executeQuery = async (sql, params = []) => {
+const executeQuery = async (sql, params = [], retries = 1) => {
     // Convertir placeholders de MySQL (?) a PostgreSQL ($1, $2, ...)
     let paramIndex = 0;
     let pgSql = sql.replace(/\?/g, () => `$${++paramIndex}`);
@@ -58,7 +63,17 @@ const executeQuery = async (sql, params = []) => {
         pgSql = pgSql.trim().replace(/;?\s*$/, ' RETURNING id');
     }
 
-    const result = await pool.query(pgSql, params);
+    let result;
+    try {
+        result = await pool.query(pgSql, params);
+    } catch (error) {
+        // Reintentar si la conexión se terminó inesperadamente
+        if (retries > 0 && (error.message.includes('Connection terminated unexpectedly') || error.message.includes('connection terminated'))) {
+            logger.warn(`[dbConnection.js] Conexión perdida, reintentando query...`);
+            return executeQuery(sql, params, retries - 1);
+        }
+        throw error;
+    }
 
     // Mapear propiedades de MySQL a PostgreSQL
     const mysqlCompatResult = {
