@@ -37,6 +37,7 @@ const n8nRecuperacionRoutes = require("./routes/crm/n8nRecuperacion.route.js");
 const analisisSentimientoRoutes = require("./routes/crm/analisisSentimiento.route.js");
 const kpiRoutes = require("./routes/kpi.route.js");
 const ticketRoutes = require("./routes/crm/ticket.route.js");
+const ticketExternoRoutes = require("./routes/crm/ticketExterno.route.js");
 
 const app = express();
 
@@ -89,6 +90,7 @@ app.use("/api/crm", authMiddleware, envioMasivoWhatsappRoutes, envioPersonaRoute
 app.use('/api/assistant', messageProcessingRoutes);
 app.use('/api/kpi', authMiddleware, kpiRoutes);
 app.use("/api/crm", authMiddleware, ticketRoutes);
+app.use("/api/tickets-ext", ticketExternoRoutes);
 
 
 // Ruta de health check

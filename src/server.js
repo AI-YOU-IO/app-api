@@ -39,7 +39,7 @@ const startServer = async () => {
   server.headersTimeout = 1805000;
 
   // Iniciar cron de análisis de sentimiento
-  iniciarCronSentimiento();
+  // iniciarCronSentimiento();
 
   // Iniciar worker de cola de jobs para llamadas masivas
   try {

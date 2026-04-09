@@ -9,13 +9,16 @@ class TicketComentarioModel {
 
     async create(data) {
         try {
-            const { id_ticket_soporte, contenido, es_interno = false, es_respuesta_agente = false, id_usuario, usuario_registro } = data;
+            const { id_ticket_soporte, contenido, es_interno = false, es_respuesta_agente = false, id_usuario,
+                usuario_registro, usuario_externo_id = null, usuario_externo_nombre = null } = data;
 
             const [result] = await this.connection.execute(
                 `INSERT INTO ticket_comentario
-                (id_ticket_soporte, contenido, es_interno, es_respuesta_agente, id_usuario, usuario_registro)
-                VALUES (?, ?, ?, ?, ?, ?)`,
-                [id_ticket_soporte, contenido, es_interno, es_respuesta_agente, id_usuario, usuario_registro || id_usuario]
+                (id_ticket_soporte, contenido, es_interno, es_respuesta_agente, id_usuario, usuario_registro,
+                 usuario_externo_id, usuario_externo_nombre)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [id_ticket_soporte, contenido, es_interno, es_respuesta_agente, id_usuario, usuario_registro || id_usuario,
+                 usuario_externo_id, usuario_externo_nombre]
             );
 
             return result.insertId;
@@ -25,7 +28,7 @@ class TicketComentarioModel {
         }
     }
 
-    async findByTicket(idTicket, rolId = null) {
+    async findByTicket(idTicket, isSuperAdmin = false) {
         try {
             let query = `SELECT tc.*,
                     u.username
@@ -34,8 +37,8 @@ class TicketComentarioModel {
                 WHERE tc.id_ticket_soporte = ? AND tc.estado_registro = 1`;
             const params = [idTicket];
 
-            // Los asesores no ven notas internas
-            if (rolId && rolId >= 3) {
+            // Solo superadmin ve notas internas
+            if (!isSuperAdmin) {
                 query += ' AND tc.es_interno = false';
             }
 
