@@ -392,26 +392,35 @@ class EnvioMasivoWhatsappController {
 
                         // Actualizar persona y registrar mensaje en BD
                         try {
+                            // Buscar o crear persona
                             let personaBd = await Persona.selectByCelular(celular, idEmpresa);
                             if (!personaBd) {
-                                personaBd = await Persona.createPersona({
-                                    id_estado: 1,
-                                    celular: celular,
-                                    nombre_completo: detalle.nombre || null,
-                                    id_empresa: idEmpresa,
-                                    usuario_registro: userId
-                                });
+                                try {
+                                    personaBd = await Persona.createPersona({
+                                        id_estado: 1,
+                                        celular: celular,
+                                        nombre_completo: detalle.nombre || null,
+                                        id_empresa: idEmpresa,
+                                        usuario_registro: userId
+                                    });
+                                } catch (createErr) {
+                                    logger.warn(`[envioMasivoWhatsapp.controller.js] Error creando persona ${celular}, reintentando busqueda: ${createErr.message}`);
+                                }
+                                // Siempre re-buscar si create falló o retornó vacío
                                 if (!personaBd || !personaBd.id) {
                                     personaBd = await Persona.selectByCelular(celular, idEmpresa);
                                 }
                             }
 
-                            if (personaBd && personaBd.id) {
+                            if (!personaBd || !personaBd.id) {
+                                logger.error(`[envioMasivoWhatsapp.controller.js] No se pudo obtener/crear persona para ${celular}`);
+                            } else {
                                 await Persona.updatePersona(personaBd.id, {
                                     id_ref_base_num_detalle: detalle.id,
                                     usuario_actualizacion: userId
                                 });
 
+                                // Buscar o crear chat
                                 let chat = await Chat.findByPersona(personaBd.id);
                                 if (!chat) {
                                     const chatId = await Chat.create({
@@ -419,29 +428,35 @@ class EnvioMasivoWhatsappController {
                                         id_persona: personaBd.id,
                                         usuario_registro: userId
                                     });
-                                    chat = { id: chatId };
+                                    if (chatId) {
+                                        chat = { id: chatId };
+                                    }
                                 }
 
-                                let contenidoMensaje = plantillaBody || `[Envío masivo] Plantilla: ${plantilla.name}`;
-                                const bodyComp = components.find(c => c.type === 'body');
-                                if (bodyComp && bodyComp.parameters) {
-                                    bodyComp.parameters.forEach((param, i) => {
-                                        contenidoMensaje = contenidoMensaje.replace(`{{${i + 1}}}`, param.text);
+                                if (!chat || !chat.id) {
+                                    logger.error(`[envioMasivoWhatsapp.controller.js] No se pudo obtener/crear chat para persona ${personaBd.id} (${celular})`);
+                                } else {
+                                    let contenidoMensaje = plantillaBody || `[Envío masivo] Plantilla: ${plantilla.name}`;
+                                    const bodyComp = components.find(c => c.type === 'body');
+                                    if (bodyComp && bodyComp.parameters) {
+                                        bodyComp.parameters.forEach((param, i) => {
+                                            contenidoMensaje = contenidoMensaje.replace(`{{${i + 1}}}`, param.text);
+                                        });
+                                    }
+
+                                    await Mensaje.create({
+                                        id_chat: chat.id,
+                                        contenido: contenidoMensaje,
+                                        direccion: "out",
+                                        wid_mensaje: null,
+                                        tipo_mensaje: "plantilla",
+                                        fecha_hora: new Date(),
+                                        usuario_registro: userId
                                     });
                                 }
-
-                                await Mensaje.create({
-                                    id_chat: chat.id,
-                                    contenido: contenidoMensaje,
-                                    direccion: "out",
-                                    wid_mensaje: null,
-                                    tipo_mensaje: "plantilla",
-                                    fecha_hora: new Date(),
-                                    usuario_registro: userId
-                                });
                             }
                         } catch (personaError) {
-                            logger.error(`[envioMasivoWhatsapp.controller.js] Error actualizando persona/mensaje para ${celular}: ${personaError.message}`);
+                            logger.error(`[envioMasivoWhatsapp.controller.js] Error persona/chat/mensaje para ${celular}: ${personaError.message}`);
                         }
                     } catch (sendError) {
                         const errorMsg = sendError.response?.data?.error?.message || sendError.message || 'Error desconocido';
