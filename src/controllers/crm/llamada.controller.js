@@ -542,15 +542,27 @@ class LlamadaController {
                 logger.info(`[llamada.controller.js] Llamada ${provider_call_id} iniciada (ANSWER): estado_llamada=2, fecha_inicio=NOW`);
 
                 // Preparar datos del contacto para reemplazo de variables
-                // Parsear json_adicional si viene como string
-                let jsonAdicional = config?.json_adicional || {};
-                if (typeof jsonAdicional === 'string') {
-                    try {
-                        jsonAdicional = JSON.parse(jsonAdicional);
-                    } catch (e) {
-                        jsonAdicional = {};
+                // Parsear json_adicional si viene como string o es objeto
+                let jsonAdicional = {};
+                const rawJsonAdicional = config?.json_adicional;
+
+                logger.info(`[llamada.controller.js] json_adicional RAW tipo: ${typeof rawJsonAdicional}, valor: ${JSON.stringify(rawJsonAdicional)}`);
+
+                if (rawJsonAdicional) {
+                    if (typeof rawJsonAdicional === 'string') {
+                        try {
+                            jsonAdicional = JSON.parse(rawJsonAdicional);
+                        } catch (e) {
+                            logger.error(`[llamada.controller.js] Error parseando json_adicional string: ${e.message}`);
+                            jsonAdicional = {};
+                        }
+                    } else if (typeof rawJsonAdicional === 'object') {
+                        // PostgreSQL jsonb ya viene como objeto
+                        jsonAdicional = rawJsonAdicional;
                     }
                 }
+
+                logger.info(`[llamada.controller.js] json_adicional PARSEADO: ${JSON.stringify(jsonAdicional)}`);
 
                 const contactData = {
                     nombre_completo: config?.contacto_nombre || null,
@@ -559,8 +571,13 @@ class LlamadaController {
                     ...jsonAdicional
                 };
 
+                logger.info(`[llamada.controller.js] contactData FINAL: ${JSON.stringify(contactData)}`);
+                logger.info(`[llamada.controller.js] prompt ORIGINAL: ${config?.prompt}`);
+
                 // Reemplazar variables en el prompt
                 const processedPrompt = replacePromptVariables(config?.prompt, contactData);
+
+                logger.info(`[llamada.controller.js] prompt PROCESADO: ${processedPrompt}`);
 
                 return res.status(200).json({
                     msg: "Llamada iniciada exitosamente",
