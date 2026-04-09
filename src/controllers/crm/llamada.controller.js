@@ -17,21 +17,26 @@ function replacePromptVariables(prompt, contactData) {
 
     let result = prompt;
 
-    // Crear un mapa de todas las variables disponibles
-    const variables = {
-        nombre: contactData.nombre_completo || contactData.nombre || '',
-        nombre_completo: contactData.nombre_completo || contactData.nombre || '',
-        celular: contactData.celular || contactData.telefono || '',
-        telefono: contactData.celular || contactData.telefono || '',
-        numero_documento: contactData.numero_documento || '',
-        documento: contactData.numero_documento || '',
-        ...contactData // Incluir cualquier dato adicional de json_adicional
-    };
+    // Crear un mapa de todas las variables disponibles (claves en minúsculas)
+    const variables = {};
+
+    // Agregar campos base
+    variables['nombre'] = contactData.nombre_completo || contactData.nombre || '';
+    variables['nombre_completo'] = contactData.nombre_completo || contactData.nombre || '';
+    variables['celular'] = contactData.celular || contactData.telefono || '';
+    variables['telefono'] = contactData.celular || contactData.telefono || '';
+    variables['numero_documento'] = contactData.numero_documento || '';
+    variables['documento'] = contactData.numero_documento || '';
+
+    // Agregar todos los campos de contactData con claves en minúsculas
+    for (const [key, value] of Object.entries(contactData)) {
+        variables[key.toLowerCase()] = value;
+    }
 
     // Reemplazar todas las variables {{variable}}
     result = result.replace(/\{\{(\w+)\}\}/g, (match, varName) => {
         const value = variables[varName.toLowerCase()];
-        return value !== undefined ? value : match;
+        return value !== undefined && value !== null ? String(value) : match;
     });
 
     return result;
