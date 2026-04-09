@@ -172,8 +172,8 @@ class TicketExternoController {
 
             return res.status(201).json({ msg: "Comentario creado exitosamente", data: { id: comentarioId, adjuntos } });
         } catch (error) {
-            logger.error(`[ticketExterno.controller.js] Error al crear comentario: ${error.message}`);
-            return res.status(500).json({ msg: "Error al crear comentario" });
+            logger.error(`[ticketExterno.controller.js] Error al crear comentario: ${error.message} | Stack: ${error.stack}`);
+            return res.status(500).json({ msg: "Error al crear comentario", detail: error.message });
         }
     }
 
