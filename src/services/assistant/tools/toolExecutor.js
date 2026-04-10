@@ -18,6 +18,8 @@ class ToolExecutor {
                 return this._obtenerLinkCambio(args);
             case "tipificarConversacion":
                 return this._tipificarConversacion(args);
+            case "agregarListaNegra":
+                return this._agregarListaNegra();
             default:
                 logger.warn(`[ToolExecutor] Tool desconocido: ${toolName}`);
                 return JSON.stringify({ error: `Tool desconocido: ${toolName}` });
@@ -56,6 +58,23 @@ class ToolExecutor {
         if (!enlace) return JSON.stringify({ error: "No se pudo generar el enlace de cambio de tarjeta" });
         this.lastEnlaceUrl = enlace;
         return JSON.stringify({ enlace });
+    }
+
+    async _agregarListaNegra() {
+        logger.info(`[ToolExecutor] agregarListaNegra: persona=${this.persona?.id}`);
+        if (!this.persona?.id) {
+            return JSON.stringify({ error: "No se pudo identificar la persona" });
+        }
+        try {
+            await pool.query(
+                `UPDATE persona SET lista_negra = true, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $1`,
+                [this.persona.id]
+            );
+            return JSON.stringify({ success: true, message: "Persona agregada a lista negra" });
+        } catch (error) {
+            logger.error(`[ToolExecutor] Error al agregar a lista negra: ${error.message}`);
+            return JSON.stringify({ error: "Error al agregar a lista negra" });
+        }
     }
 
     async _tipificarConversacion({id_tipificacion}) {

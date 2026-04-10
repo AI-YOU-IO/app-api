@@ -49,6 +49,18 @@ const toolDefinitions = [
                 required: ["id_tipificacion"]
             }
         }
+    },
+    {
+        type: "function",
+        function: {
+            name: "agregarListaNegra",
+            description: "ÚNICAMENTE cuando el cliente expresa de forma definitiva e irrevocable que no desea ser contactado. NO usar ante quejas simples, molestias pasajeras o comentarios negativos.",
+            parameters: {
+                type: "object",
+                properties: {},
+                required: []
+            }
+        }
     }
 ];
 
