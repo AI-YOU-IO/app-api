@@ -7,7 +7,7 @@ class TipificacionModel {
 
   async getAll(id_empresa = null) {
     try {
-      let query = `SELECT * FROM tipificacion WHERE estado_registro = 1`;
+      let query = `SELECT * FROM tipificacion_whasap WHERE estado_registro = 1`;
       const params = [];
 
       if (id_empresa) {
@@ -26,7 +26,7 @@ class TipificacionModel {
 
   async getAllForBot(id_empresa = null) {
     try {
-      let query = `SELECT * FROM tipificacion WHERE estado_registro = 1 AND flag_bot = 1`;
+      let query = `SELECT * FROM tipificacion_whasap WHERE estado_registro = 1 AND flag_bot = 1`;
       const params = [];
 
       if (id_empresa) {
@@ -45,7 +45,7 @@ class TipificacionModel {
 
   async getByIdPadre(id_padre, id_empresa = null) {
     try {
-      let query = `SELECT * FROM tipificacion WHERE estado_registro = 1 AND id_padre = ?`;
+      let query = `SELECT * FROM tipificacion_whasap WHERE estado_registro = 1 AND id_padre = ?`;
       const params = [id_padre];
 
       if (id_empresa) {
@@ -64,7 +64,7 @@ class TipificacionModel {
 
   async getPadres(id_empresa = null) {
     try {
-      let query = `SELECT * FROM tipificacion WHERE estado_registro = 1 AND id_padre IS NULL`;
+      let query = `SELECT * FROM tipificacion_whasap WHERE estado_registro = 1 AND id_padre IS NULL`;
       const params = [];
 
       if (id_empresa) {
@@ -85,7 +85,7 @@ class TipificacionModel {
     try {
       const [rows] = await this.connection.execute(
         `SELECT id, id_padre, nombre, definicion, orden, color, flag_asesor, flag_bot, fecha_registro, fecha_actualizacion
-         FROM tipificacion WHERE id = ? AND estado_registro = 1`,
+         FROM tipificacion_whasap WHERE id = ? AND estado_registro = 1`,
         [id]
       );
       return rows[0] || null;

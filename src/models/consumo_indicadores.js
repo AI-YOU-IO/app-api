@@ -57,140 +57,161 @@ async function getConsumoIndicadores({ empresa, fecha_inicio, fecha_fin }) {
 
     /**
      * ============================================================
-     * 2. CONSULTAR LA VISTA
+     * 2. EJECUTAR QUERIES EN PARALELO (SQL hace las agregaciones)
      * ============================================================
      */
 
-    const [rows] = await pool.execute(
-        `
-        SELECT
-            telefono,
-            fecha_registro,
-            id_empresa,
-            base_nombre,
-            campania_nombre,
-            tipificacion_nombre,
-            tipificacion_descripcion,
-            tipificacion_equivalencia,
-            duracion_seg
-        FROM CONSUMO_INDICADORES_COMPLETO
-        ${where}
-        `,
-        params
-    );
+    const [
+        [totalesRows],
+        [equivalenciasRows],
+        [tipificacionesRows],
+        [hourlyRows],
+        [weeklyRows],
+        [heatmapRows],
+        [minutesRows],
+        [campaniasRows]
+    ] = await Promise.all([
+        // ── Totales y duración global
+        pool.execute(`
+            SELECT
+                COUNT(*) AS total,
+                COALESCE(SUM(duracion_seg), 0) AS total_duracion,
+                CASE WHEN COUNT(*) > 0 THEN ROUND(AVG(duracion_seg)) ELSE 0 END AS promedio_duracion
+            FROM CONSUMO_INDICADORES_COMPLETO
+            ${where}
+        `, params),
 
-    const total = rows.length;
-    const BASE_TOTAL=rows.length;
+        // ── Equivalencias (embudo + KPIs)
+        pool.execute(`
+            SELECT
+                COALESCE(tipificacion_equivalencia, 'SIN_EQUIVALENCIA') AS equivalencia,
+                COUNT(*) AS cantidad
+            FROM CONSUMO_INDICADORES_COMPLETO
+            ${where}
+            GROUP BY tipificacion_equivalencia
+        `, params),
+
+        // ── Tipificaciones (donut)
+        pool.execute(`
+            SELECT
+                COALESCE(tipificacion_nombre, 'Sin tipificar') AS name,
+                COUNT(*) AS value
+            FROM CONSUMO_INDICADORES_COMPLETO
+            ${where}
+            GROUP BY tipificacion_nombre
+            ORDER BY value DESC
+        `, params),
+
+        // ── Volumen por hora
+        pool.execute(`
+            SELECT
+                EXTRACT(HOUR FROM fecha_registro)::integer AS hora,
+                COUNT(*) AS llamadas,
+                COALESCE(SUM(duracion_seg), 0) AS duracion
+            FROM CONSUMO_INDICADORES_COMPLETO
+            ${where}
+            AND fecha_registro IS NOT NULL
+            GROUP BY EXTRACT(HOUR FROM fecha_registro)
+            ORDER BY hora
+        `, params),
+
+        // ── Rendimiento semanal (0=dom, 1=lun ... 6=sab)
+        pool.execute(`
+            SELECT
+                EXTRACT(DOW FROM fecha_registro)::integer AS dow,
+                COUNT(*) AS llamadas,
+                COALESCE(SUM(duracion_seg), 0) AS duracion
+            FROM CONSUMO_INDICADORES_COMPLETO
+            ${where}
+            AND fecha_registro IS NOT NULL
+            GROUP BY EXTRACT(DOW FROM fecha_registro)
+            ORDER BY dow
+        `, params),
+
+        // ── Heatmap día x hora
+        pool.execute(`
+            SELECT
+                EXTRACT(DOW FROM fecha_registro)::integer AS dow,
+                EXTRACT(HOUR FROM fecha_registro)::integer AS hora,
+                COUNT(*) AS cantidad
+            FROM CONSUMO_INDICADORES_COMPLETO
+            ${where}
+            AND fecha_registro IS NOT NULL
+            GROUP BY EXTRACT(DOW FROM fecha_registro), EXTRACT(HOUR FROM fecha_registro)
+        `, params),
+
+        // ── Minutos por día
+        pool.execute(`
+            SELECT
+                DATE(fecha_registro)::text AS day,
+                ROUND(COALESCE(SUM(duracion_seg), 0) / 60) AS minutos,
+                COUNT(*) AS llamadas
+            FROM CONSUMO_INDICADORES_COMPLETO
+            ${where}
+            AND fecha_registro IS NOT NULL
+            GROUP BY DATE(fecha_registro)
+            ORDER BY day
+        `, params),
+
+        // ── Agrupación por campaña
+        pool.execute(`
+            SELECT
+                COALESCE(campania_nombre, 'Sin campaña') AS name,
+                COUNT(*) AS total,
+                COALESCE(SUM(duracion_seg), 0) AS duracion,
+                CASE WHEN COUNT(*) > 0 THEN ROUND(AVG(duracion_seg)) ELSE 0 END AS avg_duracion
+            FROM CONSUMO_INDICADORES_COMPLETO
+            ${where}
+            GROUP BY campania_nombre
+        `, params)
+    ]);
 
     /**
      * ============================================================
-     * 3. CALCULAR DURACIÓN GLOBAL
+     * 3. PROCESAR RESULTADOS
      * ============================================================
      */
 
-    const totalDuracion = rows.reduce(
-        (sum, r) => sum + (Number(r.duracion_seg) || 0),
-        0
-    );
+    const total = Number(totalesRows[0]?.total || 0);
+    const BASE_TOTAL = total;
+    const promedioDuracion = Number(totalesRows[0]?.promedio_duracion || 0);
 
-    const promedioDuracion =
-        total > 0
-            ? Math.round(totalDuracion / total)
-            : 0;
-
-    /**
-     * ============================================================
-     * 4. CONTAR EQUIVALENCIAS
-     * ============================================================
-     */
-
+    // ── Equivalencias
     const equivalencias = {
-        "ANSWER": 0,
-        "C.VALIDO": 0,
-        "NO_ANSWER": 0,
-        "C.N.VALIDO": 0,
-        "C.N.EFECTIVO": 0,
-        "C.EFECTIVO": 0
+        "ANSWER": 0, "C.VALIDO": 0, "NO_ANSWER": 0,
+        "C.N.VALIDO": 0, "C.N.EFECTIVO": 0, "C.EFECTIVO": 0
     };
-
-    rows.forEach(r => {
-        const eq = r.tipificacion_equivalencia;
-        if (equivalencias[eq] !== undefined) {
-            equivalencias[eq]++;
+    equivalenciasRows.forEach(r => {
+        if (equivalencias[r.equivalencia] !== undefined) {
+            equivalencias[r.equivalencia] = Number(r.cantidad);
         }
     });
 
-    /**
-     * ============================================================
-     * 5. CONSTRUIR EMBUDO
-     * ============================================================
-     */
-
-    const ANSWER_TOTAL =
-        equivalencias["ANSWER"] +
-        equivalencias["C.VALIDO"] +
-        equivalencias["C.N.VALIDO"] +
-        equivalencias["C.N.EFECTIVO"] +
-        equivalencias["C.EFECTIVO"];
-
+    // ── Embudo
+    const ANSWER_TOTAL = equivalencias["ANSWER"] + equivalencias["C.VALIDO"] +
+        equivalencias["C.N.VALIDO"] + equivalencias["C.N.EFECTIVO"] + equivalencias["C.EFECTIVO"];
     const NO_ANSWER = equivalencias["NO_ANSWER"];
-
     const BASE_RECORRIDA = ANSWER_TOTAL + NO_ANSWER;
-    const BASE_NO_RECORRIDA =  BASE_TOTAL-BASE_RECORRIDA  ;
-
-    const CONTACTO_VALIDO =
-        equivalencias["C.VALIDO"] +
-        equivalencias["C.N.EFECTIVO"] +
-        equivalencias["C.EFECTIVO"];
-
+    const BASE_NO_RECORRIDA = BASE_TOTAL - BASE_RECORRIDA;
+    const CONTACTO_VALIDO = equivalencias["C.VALIDO"] + equivalencias["C.N.EFECTIVO"] + equivalencias["C.EFECTIVO"];
     const CONTACTO_NO_VALIDO = equivalencias["C.N.VALIDO"];
-
     const CONTACTO_EFECTIVO = equivalencias["C.EFECTIVO"];
-
     const CONTACTO_NO_EFECTIVO = equivalencias["C.N.EFECTIVO"];
 
     const embudo = {
-        base_total: total,
-        base_no_recorrida: BASE_NO_RECORRIDA,
-        base_recorrida: BASE_RECORRIDA,
-        answer: ANSWER_TOTAL,
-        no_answer: NO_ANSWER,
-        contacto_valido: CONTACTO_VALIDO,
-        contacto_no_valido: CONTACTO_NO_VALIDO,
-        contacto_efectivo: CONTACTO_EFECTIVO,
-        contacto_no_efectivo: CONTACTO_NO_EFECTIVO
+        base_total: total, base_no_recorrida: BASE_NO_RECORRIDA,
+        base_recorrida: BASE_RECORRIDA, answer: ANSWER_TOTAL, no_answer: NO_ANSWER,
+        contacto_valido: CONTACTO_VALIDO, contacto_no_valido: CONTACTO_NO_VALIDO,
+        contacto_efectivo: CONTACTO_EFECTIVO, contacto_no_efectivo: CONTACTO_NO_EFECTIVO
     };
 
-    /**
-     * ============================================================
-     * 6. KPIs
-     * ============================================================
-     */
-
+    // ── KPIs
     const kpis = {
-        contactabilidad:
-            BASE_RECORRIDA > 0
-                ? ANSWER_TOTAL / BASE_RECORRIDA
-                : 0,
-
-        tasa_cierre:
-            CONTACTO_VALIDO > 0
-                ? CONTACTO_EFECTIVO / CONTACTO_VALIDO
-                : 0,
-
-        efectividad:
-            ANSWER_TOTAL > 0
-                ? CONTACTO_EFECTIVO / ANSWER_TOTAL
-                : 0,
-
-        conversion_total:
-            BASE_TOTAL > 0
-                ? CONTACTO_EFECTIVO / BASE_TOTAL
-                : 0,
-        conversion_recorrida: 
-            BASE_RECORRIDA > 0
-                ? CONTACTO_EFECTIVO / BASE_RECORRIDA
-                : 0
+        contactabilidad: BASE_RECORRIDA > 0 ? ANSWER_TOTAL / BASE_RECORRIDA : 0,
+        tasa_cierre: CONTACTO_VALIDO > 0 ? CONTACTO_EFECTIVO / CONTACTO_VALIDO : 0,
+        efectividad: ANSWER_TOTAL > 0 ? CONTACTO_EFECTIVO / ANSWER_TOTAL : 0,
+        conversion_total: BASE_TOTAL > 0 ? CONTACTO_EFECTIVO / BASE_TOTAL : 0,
+        conversion_recorrida: BASE_RECORRIDA > 0 ? CONTACTO_EFECTIVO / BASE_RECORRIDA : 0
     };
 
     const kpis_percent = {
@@ -200,214 +221,60 @@ async function getConsumoIndicadores({ empresa, fecha_inicio, fecha_fin }) {
         conversion_total: (kpis.conversion_total * 100).toFixed(1)
     };
 
-    /**
-     * ============================================================
-     * 7. TIPIFICACIONES (DONUT)
-     * ============================================================
-     */
+    // ── Tipificaciones (ya viene ordenado del SQL)
+    const tipificaciones = tipificacionesRows.map(r => ({
+        name: r.name, value: Number(r.value)
+    }));
 
-    const tipMap = {};
+    // ── Volumen por hora
+    const hourly = hourlyRows.map(r => ({
+        hour: `${String(r.hora).padStart(2, "0")}:00`,
+        llamadas: Number(r.llamadas),
+        duracion: Number(r.duracion)
+    }));
 
-    rows.forEach(r => {
-        const key = r.tipificacion_nombre || "Sin tipificar";
-
-        if (!tipMap[key]) {
-            tipMap[key] = {
-                name: key,
-                value: 0
-            };
-        }
-
-        tipMap[key].value++;
-    });
-
-    const tipificaciones = Object
-        .values(tipMap)
-        .sort((a, b) => b.value - a.value);
-
-    /**
-     * ============================================================
-     * 8. VOLUMEN POR HORA
-     * ============================================================
-     */
-
-    const hourlyMap = {};
-
-    rows.forEach(r => {
-        if (!r.fecha_registro) return;
-
-        const date = new Date(r.fecha_registro);
-        const h = date.getHours();
-
-        if (!hourlyMap[h]) {
-            hourlyMap[h] = {
-                hour: `${String(h).padStart(2, "0")}:00`,
-                llamadas: 0,
-                duracion: 0
-            };
-        }
-
-        hourlyMap[h].llamadas++;
-        hourlyMap[h].duracion += Number(r.duracion_seg) || 0;
-    });
-
-    const hourly = Object
-        .values(hourlyMap)
-        .sort((a, b) => a.hour.localeCompare(b.hour));
-
-    /**
-     * ============================================================
-     * 9. RENDIMIENTO SEMANAL
-     * ============================================================
-     */
-
+    // ── Rendimiento semanal
     const DAYS = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
-    const weeklyMap = {};
-
-    DAYS.forEach((d, i) => {
-        weeklyMap[i] = {
-            day: d,
-            llamadas: 0,
-            duracion: 0
-        };
+    const weeklyBase = DAYS.map(d => ({ day: d, llamadas: 0, duracion: 0 }));
+    weeklyRows.forEach(r => {
+        // PostgreSQL DOW: 0=dom, 1=lun ... 6=sab → convertir a 0=lun ... 6=dom
+        const idx = r.dow === 0 ? 6 : r.dow - 1;
+        weeklyBase[idx].llamadas = Number(r.llamadas);
+        weeklyBase[idx].duracion = Number(r.duracion);
     });
+    const weekly = weeklyBase;
 
-    rows.forEach(r => {
-        if (!r.fecha_registro) return;
-
-        const date = new Date(r.fecha_registro);
-        let dow = date.getDay();
-        dow = dow === 0 ? 6 : dow - 1;
-
-        weeklyMap[dow].llamadas++;
-        weeklyMap[dow].duracion += Number(r.duracion_seg) || 0;
-    });
-
-    const weekly = Object.values(weeklyMap);
-
-    /**
-     * ============================================================
-     * 10. HEATMAP DIA x HORA
-     * ============================================================
-     */
-
-    const HOURS = [
-        "06","07","08","09","10","11","12",
-        "13","14","15","16","17","18","19",
-        "20","21","22"
-    ];
-
-    const heatmap = Array.from({ length: 7 }, () =>
-        Array(HOURS.length).fill(0)
-    );
-
-    rows.forEach(r => {
-        if (!r.fecha_registro) return;
-
-        const date = new Date(r.fecha_registro);
-
-        let dow = date.getDay();
-        dow = dow === 0 ? 6 : dow - 1;
-
-        const hour = String(date.getHours()).padStart(2, "0");
-        const hi = HOURS.indexOf(hour);
-
+    // ── Heatmap
+    const HOURS = ["06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22"];
+    const heatmap = Array.from({ length: 7 }, () => Array(HOURS.length).fill(0));
+    heatmapRows.forEach(r => {
+        const dow = r.dow === 0 ? 6 : r.dow - 1;
+        const hi = HOURS.indexOf(String(r.hora).padStart(2, "0"));
         if (hi >= 0 && dow >= 0 && dow < 7) {
-            heatmap[dow][hi]++;
+            heatmap[dow][hi] = Number(r.cantidad);
         }
     });
 
-    /**
-     * ============================================================
-     * 11. MINUTOS POR DIA
-     * ============================================================
-     */
+    // ── Minutos por día
+    const minutes = minutesRows.map(r => ({
+        day: r.day, minutos: Number(r.minutos), llamadas: Number(r.llamadas)
+    }));
 
-    const minutesMap = {};
+    // ── Resumen minutos
+    const totalMinutosWeek = minutes.reduce((s, d) => s + d.minutos, 0);
+    const avgMinutosDay = minutes.length > 0 ? Math.round(totalMinutosWeek / minutes.length) : 0;
+    const peakDay = minutes.reduce((max, d) => d.minutos > (max?.minutos || 0) ? d : max, null);
 
-    rows.forEach(r => {
-        if (!r.fecha_registro) return;
-
-        const date = new Date(r.fecha_registro);
-        const day = date.toISOString().slice(0, 10);
-
-        if (!minutesMap[day]) {
-            minutesMap[day] = {
-                day,
-                minutos: 0,
-                llamadas: 0
-            };
-        }
-
-        minutesMap[day].minutos += Math.round((Number(r.duracion_seg) || 0) / 60);
-        minutesMap[day].llamadas++;
-    });
-
-    const minutes = Object
-        .values(minutesMap)
-        .sort((a, b) => a.day.localeCompare(b.day));
-
-    /**
-     * ============================================================
-     * 12. RESUMEN MINUTOS
-     * ============================================================
-     */
-
-    const totalMinutosWeek = minutes.reduce(
-        (s, d) => s + d.minutos,
-        0
-    );
-
-    const avgMinutosDay =
-        minutes.length > 0
-            ? Math.round(totalMinutosWeek / minutes.length)
-            : 0;
-
-    const peakDay = minutes.reduce(
-        (max, d) =>
-            d.minutos > (max?.minutos || 0)
-                ? d
-                : max,
-        null
-    );
-
-    /**
-     * ============================================================
-     * 13. AGRUPACIÓN POR CAMPAÑA
-     * ============================================================
-     */
-
-    const campMap = {};
-
-    rows.forEach(r => {
-        const key = r.campania_nombre || "Sin campaña";
-
-        if (!campMap[key]) {
-            campMap[key] = {
-                name: key,
-                total: 0,
-                duracion: 0
-            };
-        }
-
-        campMap[key].total++;
-        campMap[key].duracion += Number(r.duracion_seg) || 0;
-    });
-
-    const campanias = Object.values(campMap);
-
-    campanias.forEach(c => {
-        c.avg_duracion =
-            c.total > 0
-                ? Math.round(c.duracion / c.total)
-                : 0;
-    });
-
+    // ── Campañas
+    const campanias = campaniasRows.map(r => ({
+        name: r.name, total: Number(r.total),
+        duracion: Number(r.duracion), avg_duracion: Number(r.avg_duracion)
+    }));
     const totalCampanias = campanias.length;
 
     /**
      * ============================================================
-     * 14. RESPUESTA FINAL
+     * 4. RESPUESTA FINAL
      * ============================================================
      */
 

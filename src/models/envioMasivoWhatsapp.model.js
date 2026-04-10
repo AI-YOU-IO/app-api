@@ -8,10 +8,14 @@ class EnvioMasivoWhatsappModel {
     async getAll(id_empresa = null) {
         try {
             let query = `
-                SELECT emw.*, pw.name as plantilla_nombre, e.nombre_comercial as empresa_nombre
+                SELECT emw.*, pw.name as plantilla_nombre, e.nombre_comercial as empresa_nombre,
+                    COUNT(eb.id)::integer AS cantidad,
+                    SUM(CASE WHEN eb.estado = 'entregado' THEN 1 ELSE 0 END)::integer AS cantidad_exitosos,
+                    SUM(CASE WHEN eb.estado = 'cancelado' THEN 1 ELSE 0 END)::integer AS cantidad_fallidos
                 FROM envio_masivo_whatsapp emw
                 LEFT JOIN plantilla_whatsapp pw ON emw.id_plantilla = pw.id
                 LEFT JOIN empresa e ON emw.id_empresa = e.id
+                LEFT JOIN envio_base eb ON eb.id_envio_masivo = emw.id AND eb.estado_registro = 1
                 WHERE emw.estado_registro = 1
             `;
             const params = [];
@@ -21,7 +25,7 @@ class EnvioMasivoWhatsappModel {
                 params.push(id_empresa);
             }
 
-            query += ` ORDER BY emw.fecha_registro DESC`;
+            query += ` GROUP BY emw.id, pw.name, e.nombre_comercial ORDER BY emw.fecha_registro DESC`;
 
             const [rows] = await this.connection.execute(query, params);
             return rows;

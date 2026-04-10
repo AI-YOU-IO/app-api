@@ -5,6 +5,43 @@ const llamadaService = require('../../services/llamada/llamada.service.js');
 const s3Service = require('../../services/s3.service.js');
 const sentimientoService = require('../../services/analisis/sentimiento.service.js');
 
+/**
+ * Reemplaza variables en el prompt con los datos del contacto
+ * Soporta formato {{variable}} y {{variable_name}}
+ * @param {string} prompt - El prompt con variables
+ * @param {object} contactData - Datos del contacto para reemplazar
+ * @returns {string} - Prompt con variables reemplazadas
+ */
+function replacePromptVariables(prompt, contactData) {
+    if (!prompt || !contactData) return prompt;
+
+    let result = prompt;
+
+    // Crear un mapa de todas las variables disponibles (claves en minúsculas)
+    const variables = {};
+
+    // Agregar campos base
+    variables['nombre'] = contactData.nombre_completo || contactData.nombre || '';
+    variables['nombre_completo'] = contactData.nombre_completo || contactData.nombre || '';
+    variables['celular'] = contactData.celular || contactData.telefono || '';
+    variables['telefono'] = contactData.celular || contactData.telefono || '';
+    variables['numero_documento'] = contactData.numero_documento || '';
+    variables['documento'] = contactData.numero_documento || '';
+
+    // Agregar todos los campos de contactData con claves en minúsculas
+    for (const [key, value] of Object.entries(contactData)) {
+        variables[key.toLowerCase()] = value;
+    }
+
+    // Reemplazar todas las variables {{variable}}
+    result = result.replace(/\{\{(\w+)\}\}/g, (match, varName) => {
+        const value = variables[varName.toLowerCase()];
+        return value !== undefined && value !== null ? String(value) : match;
+    });
+
+    return result;
+}
+
 class LlamadaController {
     async getAll(req, res) {
         try {
@@ -504,6 +541,44 @@ class LlamadaController {
 
                 logger.info(`[llamada.controller.js] Llamada ${provider_call_id} iniciada (ANSWER): estado_llamada=2, fecha_inicio=NOW`);
 
+                // Preparar datos del contacto para reemplazo de variables
+                // Parsear json_adicional si viene como string o es objeto
+                let jsonAdicional = {};
+                const rawJsonAdicional = config?.json_adicional;
+
+                logger.info(`[llamada.controller.js] json_adicional RAW tipo: ${typeof rawJsonAdicional}, valor: ${JSON.stringify(rawJsonAdicional)}`);
+
+                if (rawJsonAdicional) {
+                    if (typeof rawJsonAdicional === 'string') {
+                        try {
+                            jsonAdicional = JSON.parse(rawJsonAdicional);
+                        } catch (e) {
+                            logger.error(`[llamada.controller.js] Error parseando json_adicional string: ${e.message}`);
+                            jsonAdicional = {};
+                        }
+                    } else if (typeof rawJsonAdicional === 'object') {
+                        // PostgreSQL jsonb ya viene como objeto
+                        jsonAdicional = rawJsonAdicional;
+                    }
+                }
+
+                logger.info(`[llamada.controller.js] json_adicional PARSEADO: ${JSON.stringify(jsonAdicional)}`);
+
+                const contactData = {
+                    nombre_completo: config?.contacto_nombre || null,
+                    celular: config?.telefono || null,
+                    numero_documento: config?.numero_documento || null,
+                    ...jsonAdicional
+                };
+
+                logger.info(`[llamada.controller.js] contactData FINAL: ${JSON.stringify(contactData)}`);
+                logger.info(`[llamada.controller.js] prompt ORIGINAL: ${config?.prompt}`);
+
+                // Reemplazar variables en el prompt
+                const processedPrompt = replacePromptVariables(config?.prompt, contactData);
+
+                logger.info(`[llamada.controller.js] prompt PROCESADO: ${processedPrompt}`);
+
                 return res.status(200).json({
                     msg: "Llamada iniciada exitosamente",
                     data: {
@@ -511,16 +586,11 @@ class LlamadaController {
                         id_llamada: llamada.id,
                         status: 'ANSWER',
                         id_estado_llamada: 2,
-                        contacto: {
-                            nombre_completo: config?.contacto_nombre || null,
-                            celular: config?.telefono || null,
-                            numero_documento: config?.numero_documento || null,
-                            ...(config?.json_adicional || {})
-                        },
+                        contacto: contactData,
                         extras: {
                             voice: config?.voice_code || null,
                             tipificaciones,
-                            prompt: config?.prompt || null,
+                            prompt: processedPrompt,
                             tool_ruta: toolRuta,
                             canal: config?.canal || null,
                             empresa: {

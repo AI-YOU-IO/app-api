@@ -203,11 +203,19 @@ class LlamadaService {
                 calls.push({
                     destination: telefono,
                     data: {
-                        nombre_completo: num.nombre,
+                        // Primero json_adicional para que no sobrescriba campos explícitos
+                        ...(num.json_adicional || {}),
+                        // Campos de base_numero_detalle (siempre se envían)
+                        nombre: num.nombre || null,
+                        nombre_completo: num.nombre || null,
+                        telefono: telefono,
                         celular: telefono,
+                        correo: num.correo || null,
+                        tipo_documento: num.tipo_documento || null,
+                        numero_documento: num.numero_documento || null,
+                        // Campos del sistema
                         id_empresa: num.id_empresa,
-                        id_llamada: idLlamada,
-                        ...(num.json_adicional || {})
+                        id_llamada: idLlamada
                     }
                 });
                 enviadas++;

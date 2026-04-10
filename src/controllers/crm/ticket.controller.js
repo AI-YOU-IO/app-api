@@ -21,8 +21,16 @@ class TicketController {
 
     async getCatalogos(req, res) {
         try {
+            const { rolId, idEmpresa } = req.user;
             const ticketModel = new TicketSoporteModel();
             const catalogos = await ticketModel.getCatalogos();
+
+            // Solo superadmin recibe empresas y plataformas
+            if (rolId === 1 && (idEmpresa === 0 || idEmpresa === '0')) {
+                catalogos.empresas = await ticketModel.getEmpresas();
+                catalogos.plataformas = await ticketModel.getPlataformas();
+            }
+
             return res.status(200).json({ data: catalogos });
         } catch (error) {
             logger.error(`[ticket.controller.js] Error al obtener catalogos: ${error.message}`);
@@ -45,12 +53,12 @@ class TicketController {
     async getAll(req, res) {
         try {
             const { userId, rolId, idEmpresa } = req.user;
-            const { estado, prioridad, categoria, search, page = 1, limit = 20 } = req.query;
+            const { estado, prioridad, categoria, search, empresa, plataforma, page = 1, limit = 20 } = req.query;
 
             const ticketModel = new TicketSoporteModel();
             const result = await ticketModel.findAll({
                 idEmpresa, userId, rolId,
-                estado, prioridad, categoria, search,
+                estado, prioridad, categoria, search, empresa, plataforma,
                 page: parseInt(page), limit: parseInt(limit)
             });
 
@@ -167,8 +175,8 @@ class TicketController {
                 return res.status(403).json({ msg: "No tiene permisos para cambiar el estado" });
             }
 
-            // Asesores no pueden cambiar estado
-            if (rolId >= 3) {
+            // Solo superadmin puede cambiar estado
+            if (!(rolId === 1 && (idEmpresa === 0 || idEmpresa === '0'))) {
                 return res.status(403).json({ msg: "No tiene permisos para cambiar el estado" });
             }
 
@@ -192,11 +200,11 @@ class TicketController {
     async assignUser(req, res) {
         try {
             const { id } = req.params;
-            const { userId, rolId } = req.user;
+            const { userId, rolId, idEmpresa } = req.user;
             const { id_usuario_asignado } = req.body;
 
-            // Solo admin y coordinador pueden asignar
-            if (rolId >= 3) {
+            // Solo superadmin puede asignar
+            if (!(rolId === 1 && (idEmpresa === 0 || idEmpresa === '0'))) {
                 return res.status(403).json({ msg: "No tiene permisos para asignar tickets" });
             }
 
@@ -238,7 +246,7 @@ class TicketController {
     async getComentarios(req, res) {
         try {
             const { id } = req.params;
-            const { rolId } = req.user;
+            const { rolId, idEmpresa } = req.user;
 
             const ticketModel = new TicketSoporteModel();
             const ticket = await ticketModel.findById(id);
@@ -254,7 +262,8 @@ class TicketController {
             const comentarioModel = new TicketComentarioModel();
             const adjuntoModel = new TicketAdjuntoModel();
 
-            const comentarios = await comentarioModel.findByTicket(id, rolId);
+            const isSuperAdmin = rolId === 1 && (idEmpresa === 0 || idEmpresa === '0');
+            const comentarios = await comentarioModel.findByTicket(id, isSuperAdmin);
 
             // Agregar adjuntos a cada comentario
             for (const comentario of comentarios) {
@@ -289,9 +298,10 @@ class TicketController {
                 return res.status(403).json({ msg: "No tiene permisos" });
             }
 
-            // Solo admin/coordinador pueden crear notas internas
-            const esInterno = (rolId <= 2 && es_interno === 'true') ? true : false;
-            const esRespuestaAgente = rolId <= 2;
+            // Solo superadmin puede crear notas internas
+            const isSuperAdmin = rolId === 1 && (idEmpresa === 0 || idEmpresa === '0');
+            const esInterno = (isSuperAdmin && es_interno === 'true') ? true : false;
+            const esRespuestaAgente = isSuperAdmin;
 
             const comentarioModel = new TicketComentarioModel();
             const adjuntoModel = new TicketAdjuntoModel();

@@ -29,7 +29,8 @@ class TicketSoporteModel {
         try {
             const {
                 asunto, descripcion, id_categoria_soporte, id_prioridad_ticket,
-                id_empresa, id_plataforma, id_usuario_reporta, usuario_registro
+                id_empresa, id_plataforma, id_usuario_reporta, usuario_registro,
+                usuario_externo_id = null, usuario_externo_nombre = null
             } = data;
 
             const numero_ticket = await this.generateNumeroTicket();
@@ -37,10 +38,12 @@ class TicketSoporteModel {
             const [result] = await this.connection.execute(
                 `INSERT INTO ticket_soporte
                 (numero_ticket, asunto, descripcion, id_categoria_soporte, id_prioridad_ticket,
-                 id_estado_ticket, id_empresa, id_plataforma, id_usuario_reporta, usuario_registro)
-                VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+                 id_estado_ticket, id_empresa, id_plataforma, id_usuario_reporta, usuario_registro,
+                 usuario_externo_id, usuario_externo_nombre)
+                VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)`,
                 [numero_ticket, asunto, descripcion, id_categoria_soporte, id_prioridad_ticket,
-                 id_empresa, id_plataforma || null, id_usuario_reporta, usuario_registro]
+                 id_empresa, id_plataforma || null, id_usuario_reporta, usuario_registro,
+                 usuario_externo_id, usuario_externo_nombre]
             );
 
             return { id: result.insertId, numero_ticket };
@@ -77,7 +80,7 @@ class TicketSoporteModel {
         }
     }
 
-    async findAll({ idEmpresa, userId, rolId, estado, prioridad, categoria, search, page = 1, limit = 20 }) {
+    async findAll({ idEmpresa, userId, rolId, estado, prioridad, categoria, search, empresa, plataforma, page = 1, limit = 20 }) {
         try {
             let query = `SELECT ts.*,
                     et.nombre as estado_nombre, et.color as estado_color,
@@ -126,6 +129,14 @@ class TicketSoporteModel {
                 query += ' AND ts.id_categoria_soporte = ?';
                 params.push(categoria);
             }
+            if (empresa) {
+                query += ' AND ts.id_empresa = ?';
+                params.push(empresa);
+            }
+            if (plataforma) {
+                query += ' AND ts.id_plataforma = ?';
+                params.push(plataforma);
+            }
             if (search) {
                 query += ' AND (ts.numero_ticket ILIKE ? OR ts.asunto ILIKE ? OR ts.descripcion ILIKE ?)';
                 const searchParam = `%${search}%`;
@@ -148,6 +159,57 @@ class TicketSoporteModel {
         } catch (error) {
             logger.error(`[ticketSoporte.model.js] Error al listar tickets: ${error.message}`);
             throw new Error(`Error al listar tickets: ${error.message}`);
+        }
+    }
+
+    async findAllExterno({ idPlataforma, idEmpresa, usuarioExternoId, estado, prioridad, categoria, search, page = 1, limit = 20 }) {
+        try {
+            let query = `SELECT ts.*,
+                    et.nombre as estado_nombre, et.color as estado_color,
+                    pt.nombre as prioridad_nombre, pt.color as prioridad_color,
+                    cs.nombre as categoria_nombre, cs.color as categoria_color,
+                    ur.username as reporta_username,
+                    ua.username as asignado_username,
+                    e.razon_social as empresa_nombre
+                FROM ticket_soporte ts
+                LEFT JOIN estado_ticket et ON et.id = ts.id_estado_ticket
+                LEFT JOIN prioridad_ticket pt ON pt.id = ts.id_prioridad_ticket
+                LEFT JOIN categoria_soporte cs ON cs.id = ts.id_categoria_soporte
+                LEFT JOIN usuario ur ON ur.id = ts.id_usuario_reporta
+                LEFT JOIN usuario ua ON ua.id = ts.id_usuario_asignado
+                LEFT JOIN empresa e ON e.id = ts.id_empresa
+                WHERE ts.estado_registro = 1 AND ts.id_plataforma = ?`;
+            const params = [idPlataforma];
+
+            if (idEmpresa) {
+                query += ' AND ts.id_empresa = ?';
+                params.push(idEmpresa);
+            }
+            if (usuarioExternoId) {
+                query += ' AND ts.usuario_externo_id = ?';
+                params.push(usuarioExternoId);
+            }
+            if (estado) { query += ' AND ts.id_estado_ticket = ?'; params.push(estado); }
+            if (prioridad) { query += ' AND ts.id_prioridad_ticket = ?'; params.push(prioridad); }
+            if (categoria) { query += ' AND ts.id_categoria_soporte = ?'; params.push(categoria); }
+            if (search) {
+                query += ' AND (ts.numero_ticket ILIKE ? OR ts.asunto ILIKE ? OR ts.descripcion ILIKE ?)';
+                const s = `%${search}%`; params.push(s, s, s);
+            }
+
+            const countQuery = query.replace(/SELECT ts\.\*[\s\S]*?FROM/, 'SELECT COUNT(*) as total FROM');
+            const [countRows] = await this.connection.execute(countQuery, params);
+            const total = parseInt(countRows[0].total);
+
+            const offset = (page - 1) * limit;
+            query += ' ORDER BY ts.fecha_registro DESC LIMIT ? OFFSET ?';
+            params.push(limit, offset);
+
+            const [rows] = await this.connection.execute(query, params);
+            return { data: rows, total, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(total / limit) };
+        } catch (error) {
+            logger.error(`[ticketSoporte.model.js] Error al listar tickets externo: ${error.message}`);
+            throw new Error(`Error al listar tickets externo: ${error.message}`);
         }
     }
 
@@ -275,16 +337,35 @@ class TicketSoporteModel {
         }
     }
 
+    async getEmpresas() {
+        try {
+            const [rows] = await this.connection.execute(
+                'SELECT id, razon_social FROM empresa WHERE estado_registro = 1 ORDER BY razon_social'
+            );
+            return rows;
+        } catch (error) {
+            logger.error(`[ticketSoporte.model.js] Error al obtener empresas: ${error.message}`);
+            throw new Error(`Error al obtener empresas: ${error.message}`);
+        }
+    }
+
+    async getPlataformas() {
+        try {
+            const [rows] = await this.connection.execute(
+                'SELECT id, nombre FROM plataforma WHERE estado_registro = 1 ORDER BY nombre'
+            );
+            return rows;
+        } catch (error) {
+            logger.error(`[ticketSoporte.model.js] Error al obtener plataformas: ${error.message}`);
+            throw new Error(`Error al obtener plataformas: ${error.message}`);
+        }
+    }
+
     async getUsuariosByEmpresa(idEmpresa) {
         try {
-            let query = 'SELECT id, username FROM usuario WHERE estado_registro = 1';
-            const params = [];
-            if (idEmpresa && idEmpresa !== 0 && idEmpresa !== '0') {
-                query += ' AND id_empresa = ?';
-                params.push(idEmpresa);
-            }
-            query += ' ORDER BY username';
-            const [rows] = await this.connection.execute(query, params);
+            // Solo superadmins (rol=1, empresa=0) pueden ser asignados
+            const query = 'SELECT id, username FROM usuario WHERE estado_registro = 1 AND id_rol = 1 AND (id_empresa = 0 OR id_empresa IS NULL) ORDER BY username';
+            const [rows] = await this.connection.execute(query, []);
             return rows;
         } catch (error) {
             logger.error(`[ticketSoporte.model.js] Error al obtener usuarios: ${error.message}`);
