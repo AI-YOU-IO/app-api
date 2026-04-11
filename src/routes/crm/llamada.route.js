@@ -49,6 +49,7 @@ router.get("/llamadas/:id", LlamadaController.getById);
 router.post("/llamadas", LlamadaController.create);
 router.put("/llamadas/nuevaTipificacion", LlamadaController.actualizarTipificacion);
 router.put("/llamadas/nuevoEstado", LlamadaController.actualizarEstado);
+router.post("/llamadas/buscarSucursal", LlamadaController.buscarSucursal);
 
 // Ruta de upload de audio (autenticada con token Asterisk)
 router.post("/llamadas/upload-audio", authAsteriskToken, uploadAudio.single('audio'), LlamadaController.uploadAudio);

@@ -23,6 +23,7 @@ const ConfiguracionCampaniaLlamadaModel = require("../../models/configuracionCam
 const TipoPersonaModel = require("../../models/tipoPersona.model.js");
 const VozModel = require("../../models/voz.model.js");
 const CampoSistemaModel = require("../../models/campoSistema.model.js");
+const UbicacionModel = require("../../models/ubicacion.model.js");
 const { pool } = require("../../config/dbConnection.js");
 const logger = require('../../config/logger/loggerClient.js');
 const xlsx = require('xlsx');
@@ -448,7 +449,7 @@ class ConfiguracionController {
   async createSucursal(req, res) {
     try {
       const { idEmpresa } = req.user || {};
-      const { nombre, direccion, telefono, email } = req.body;
+      const { nombre, direccion, telefono, email, estado, provincia, ciudad } = req.body;
 
       if (!nombre) {
         return res.status(400).json({ msg: "El nombre es requerido" });
@@ -456,7 +457,7 @@ class ConfiguracionController {
 
       const { userId } = req.user || {};
       const sucursalModel = new SucursalModel();
-      const id = await sucursalModel.create({ nombre, direccion, telefono, email, id_empresa: idEmpresa, usuario_registro: userId });
+      const id = await sucursalModel.create({ nombre, direccion, telefono, email, estado, provincia, ciudad, id_empresa: idEmpresa, usuario_registro: userId });
 
       return res.status(201).json({ msg: "Sucursal creada exitosamente", data: { id } });
     } catch (error) {
@@ -469,7 +470,7 @@ class ConfiguracionController {
     try {
       const { idEmpresa } = req.user || {};
       const { id } = req.params;
-      const { nombre, direccion, telefono, email } = req.body;
+      const { nombre, direccion, telefono, email, estado, provincia, ciudad } = req.body;
 
       if (!nombre) {
         return res.status(400).json({ msg: "El nombre es requerido" });
@@ -477,7 +478,7 @@ class ConfiguracionController {
 
       const { userId } = req.user || {};
       const sucursalModel = new SucursalModel();
-      await sucursalModel.update(id, { nombre, direccion, telefono, email, id_empresa: idEmpresa, usuario_actualizacion: userId });
+      await sucursalModel.update(id, { nombre, direccion, telefono, email, estado, provincia, ciudad, id_empresa: idEmpresa, usuario_actualizacion: userId });
 
       return res.status(200).json({ msg: "Sucursal actualizada exitosamente" });
     } catch (error) {
@@ -3359,6 +3360,57 @@ class ConfiguracionController {
     } catch (error) {
       logger.error(`[configuracion.controller.js] Error al eliminar campo de plantilla: ${error.message}`);
       return res.status(500).json({ msg: "Error al eliminar campo de plantilla" });
+    }
+  }
+
+  // ==================== UBICACIONES (Estado/Provincia/Ciudad) ====================
+  async getUbicacionEstados(req, res) {
+    try {
+      const ubicacionModel = new UbicacionModel();
+      const estados = await ubicacionModel.getEstados();
+      return res.status(200).json({ data: estados });
+    } catch (error) {
+      logger.error(`[configuracion.controller.js] Error al obtener estados: ${error.message}`);
+      return res.status(500).json({ msg: "Error al obtener estados" });
+    }
+  }
+
+  async getUbicacionProvinciasByEstado(req, res) {
+    try {
+      const { idEstado } = req.params;
+      const ubicacionModel = new UbicacionModel();
+      const provincias = await ubicacionModel.getProvinciasByEstado(idEstado);
+      return res.status(200).json({ data: provincias });
+    } catch (error) {
+      logger.error(`[configuracion.controller.js] Error al obtener provincias: ${error.message}`);
+      return res.status(500).json({ msg: "Error al obtener provincias" });
+    }
+  }
+
+  async getUbicacionCiudadesByProvincia(req, res) {
+    try {
+      const { idProvincia } = req.params;
+      const ubicacionModel = new UbicacionModel();
+      const ciudades = await ubicacionModel.getCiudadesByProvincia(idProvincia);
+      return res.status(200).json({ data: ciudades });
+    } catch (error) {
+      logger.error(`[configuracion.controller.js] Error al obtener ciudades: ${error.message}`);
+      return res.status(500).json({ msg: "Error al obtener ciudades" });
+    }
+  }
+
+  async getUbicacionJerarquia(req, res) {
+    try {
+      const { idCiudad } = req.params;
+      const ubicacionModel = new UbicacionModel();
+      const jerarquia = await ubicacionModel.getJerarquiaCompleta(idCiudad);
+      if (!jerarquia) {
+        return res.status(404).json({ msg: "Ciudad no encontrada" });
+      }
+      return res.status(200).json({ data: jerarquia });
+    } catch (error) {
+      logger.error(`[configuracion.controller.js] Error al obtener jerarquía: ${error.message}`);
+      return res.status(500).json({ msg: "Error al obtener jerarquía de ubicación" });
     }
   }
 }

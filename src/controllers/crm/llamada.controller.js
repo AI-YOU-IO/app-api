@@ -1,5 +1,6 @@
 const LlamadaModel = require("../../models/llamada.model.js");
 const EstadoLlamadaAsteriskModel = require("../../models/estadoLlamadaAsterisk.model.js");
+const SucursalModel = require("../../models/sucursal.model.js");
 const logger = require('../../config/logger/loggerClient.js');
 const llamadaService = require('../../services/llamada/llamada.service.js');
 const s3Service = require('../../services/s3.service.js');
@@ -171,6 +172,24 @@ class LlamadaController {
         } catch (error) {
             logger.error(`[llamada.controller.js] Error al actualizar estado: ${error.message}`);
             return res.status(500).json({ msg: "Error al actualizar estado" });
+        }
+    }
+
+    async buscarSucursal(req, res) {
+        try {
+            const { termino, id_empresa } = req.body;
+
+            if (!termino || !id_empresa) {
+                return res.status(400).json({ msg: "Los campos termino e id_empresa son requeridos" });
+            }
+
+            const sucursalModel = new SucursalModel();
+            const sucursales = await sucursalModel.buscar(termino, id_empresa);
+
+            return res.status(200).json({ data: sucursales });
+        } catch (error) {
+            logger.error(`[llamada.controller.js] Error al buscar sucursal: ${error.message}`);
+            return res.status(500).json({ msg: "Error al buscar sucursal" });
         }
     }
 

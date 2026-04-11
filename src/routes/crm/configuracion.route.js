@@ -52,6 +52,12 @@ router.post("/sucursales", ConfiguracionController.createSucursal);
 router.put("/sucursales/:id", ConfiguracionController.updateSucursal);
 router.delete("/sucursales/:id", ConfiguracionController.deleteSucursal);
 
+// Rutas de Ubicaciones (cascada Estado/Provincia/Ciudad)
+router.get("/ubicaciones/estados", ConfiguracionController.getUbicacionEstados);
+router.get("/ubicaciones/estados/:idEstado/provincias", ConfiguracionController.getUbicacionProvinciasByEstado);
+router.get("/ubicaciones/provincias/:idProvincia/ciudades", ConfiguracionController.getUbicacionCiudadesByProvincia);
+router.get("/ubicaciones/ciudades/:idCiudad/jerarquia", ConfiguracionController.getUbicacionJerarquia);
+
 
 // Rutas de Catálogo
 router.get("/catalogo", ConfiguracionController.getCatalogo);

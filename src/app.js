@@ -38,6 +38,7 @@ const analisisSentimientoRoutes = require("./routes/crm/analisisSentimiento.rout
 const kpiRoutes = require("./routes/kpi.route.js");
 const ticketRoutes = require("./routes/crm/ticket.route.js");
 const ticketExternoRoutes = require("./routes/crm/ticketExterno.route.js");
+const systemRoutes = require("./routes/system.route.js");
 
 const app = express();
 
@@ -91,6 +92,7 @@ app.use('/api/assistant', messageProcessingRoutes);
 app.use('/api/kpi', authMiddleware, kpiRoutes);
 app.use("/api/crm", authMiddleware, ticketRoutes);
 app.use("/api/tickets-ext", ticketExternoRoutes);
+app.use("/api/system", authMiddleware, systemRoutes);
 
 
 // Ruta de health check
