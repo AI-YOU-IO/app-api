@@ -62,21 +62,46 @@ class TicketSoporteModel {
                     cs.nombre as categoria_nombre, cs.color as categoria_color,
                     ur.username as reporta_username,
                     ua.username as asignado_username,
-                    e.razon_social as empresa_nombre
+                    pl.nombre as plataforma_nombre
                 FROM ticket_soporte ts
                 LEFT JOIN estado_ticket et ON et.id = ts.id_estado_ticket
                 LEFT JOIN prioridad_ticket pt ON pt.id = ts.id_prioridad_ticket
                 LEFT JOIN categoria_soporte cs ON cs.id = ts.id_categoria_soporte
                 LEFT JOIN usuario ur ON ur.id = ts.id_usuario_reporta
                 LEFT JOIN usuario ua ON ua.id = ts.id_usuario_asignado
-                LEFT JOIN empresa e ON e.id = ts.id_empresa
+                LEFT JOIN plataforma pl ON pl.id = ts.id_plataforma
                 WHERE ts.id = ? AND ts.estado_registro = 1`,
                 [id]
             );
-            return rows[0] || null;
+
+            if (!rows[0]) return null;
+
+            // Obtener nombre de empresa según plataforma
+            const ticket = rows[0];
+            ticket.empresa_nombre = await this.getEmpresaNombre(ticket.id_plataforma, ticket.id_empresa);
+
+            return ticket;
         } catch (error) {
             logger.error(`[ticketSoporte.model.js] Error al buscar ticket por id: ${error.message}`);
             throw new Error(`Error al buscar ticket: ${error.message}`);
+        }
+    }
+
+    async getEmpresaNombre(idPlataforma, idEmpresa) {
+        if (!idEmpresa) return null;
+        try {
+            let schema = 'public';
+            if (idPlataforma === 2) schema = 'fdw_inmobiliaria';
+            else if (idPlataforma === 3) schema = 'fdw_automotriz';
+
+            const [rows] = await this.connection.execute(
+                `SELECT razon_social FROM ${schema}.empresa WHERE id = ?`,
+                [idEmpresa]
+            );
+            return rows[0]?.razon_social || null;
+        } catch (error) {
+            logger.error(`[ticketSoporte.model.js] Error al obtener empresa (plataforma ${idPlataforma}): ${error.message}`);
+            return null;
         }
     }
 
@@ -88,20 +113,20 @@ class TicketSoporteModel {
                     cs.nombre as categoria_nombre, cs.color as categoria_color,
                     ur.username as reporta_username,
                     ua.username as asignado_username,
-                    e.razon_social as empresa_nombre
+                    pl.nombre as plataforma_nombre
                 FROM ticket_soporte ts
                 LEFT JOIN estado_ticket et ON et.id = ts.id_estado_ticket
                 LEFT JOIN prioridad_ticket pt ON pt.id = ts.id_prioridad_ticket
                 LEFT JOIN categoria_soporte cs ON cs.id = ts.id_categoria_soporte
                 LEFT JOIN usuario ur ON ur.id = ts.id_usuario_reporta
                 LEFT JOIN usuario ua ON ua.id = ts.id_usuario_asignado
-                LEFT JOIN empresa e ON e.id = ts.id_empresa
+                LEFT JOIN plataforma pl ON pl.id = ts.id_plataforma
                 WHERE ts.estado_registro = 1`;
             const params = [];
 
             // Control de acceso por rol
-            if (rolId === 1 && (idEmpresa === 0 || idEmpresa === '0')) {
-                // SuperAdmin: ve todos
+            if ((rolId === 1 || rolId === 2) && (idEmpresa === 0 || idEmpresa === '0')) {
+                // Admin Central (rol 1 o 2 con empresa 0): ve todos los tickets
             } else if (rolId === 1) {
                 // Admin: ve todos de su empresa
                 query += ' AND ts.id_empresa = ?';
@@ -155,6 +180,11 @@ class TicketSoporteModel {
 
             const [rows] = await this.connection.execute(query, params);
 
+            // Obtener nombres de empresa para cada ticket
+            for (const ticket of rows) {
+                ticket.empresa_nombre = await this.getEmpresaNombre(ticket.id_plataforma, ticket.id_empresa);
+            }
+
             return { data: rows, total, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(total / limit) };
         } catch (error) {
             logger.error(`[ticketSoporte.model.js] Error al listar tickets: ${error.message}`);
@@ -169,15 +199,13 @@ class TicketSoporteModel {
                     pt.nombre as prioridad_nombre, pt.color as prioridad_color,
                     cs.nombre as categoria_nombre, cs.color as categoria_color,
                     ur.username as reporta_username,
-                    ua.username as asignado_username,
-                    e.razon_social as empresa_nombre
+                    ua.username as asignado_username
                 FROM ticket_soporte ts
                 LEFT JOIN estado_ticket et ON et.id = ts.id_estado_ticket
                 LEFT JOIN prioridad_ticket pt ON pt.id = ts.id_prioridad_ticket
                 LEFT JOIN categoria_soporte cs ON cs.id = ts.id_categoria_soporte
                 LEFT JOIN usuario ur ON ur.id = ts.id_usuario_reporta
                 LEFT JOIN usuario ua ON ua.id = ts.id_usuario_asignado
-                LEFT JOIN empresa e ON e.id = ts.id_empresa
                 WHERE ts.estado_registro = 1 AND ts.id_plataforma = ?`;
             const params = [idPlataforma];
 
@@ -206,6 +234,12 @@ class TicketSoporteModel {
             params.push(limit, offset);
 
             const [rows] = await this.connection.execute(query, params);
+
+            // Obtener nombres de empresa para cada ticket
+            for (const ticket of rows) {
+                ticket.empresa_nombre = await this.getEmpresaNombre(ticket.id_plataforma, ticket.id_empresa);
+            }
+
             return { data: rows, total, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(total / limit) };
         } catch (error) {
             logger.error(`[ticketSoporte.model.js] Error al listar tickets externo: ${error.message}`);
@@ -302,8 +336,8 @@ class TicketSoporteModel {
                 LEFT JOIN ticket_soporte ts ON ts.id_estado_ticket = et.id AND ts.estado_registro = 1`;
             const params = [];
 
-            if (rolId === 1 && (idEmpresa === 0 || idEmpresa === '0')) {
-                // SuperAdmin
+            if ((rolId === 1 || rolId === 2) && (idEmpresa === 0 || idEmpresa === '0')) {
+                // Admin Central (rol 1 o 2 con empresa 0): ve todos
             } else if (rolId === 1) {
                 query += ' AND ts.id_empresa = ?';
                 params.push(idEmpresa);

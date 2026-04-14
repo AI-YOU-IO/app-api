@@ -10,7 +10,8 @@ const logger = require('../../config/logger/loggerClient.js');
 // Verificar si el usuario puede acceder a un ticket especifico
 function canAccessTicket(ticket, user) {
     const { userId, rolId, idEmpresa } = user;
-    if (rolId === 1 && (idEmpresa === 0 || idEmpresa === '0')) return true; // SuperAdmin
+    // Admin Central (rol 1 o 2 con empresa 0) puede ver todos los tickets
+    if ((rolId === 1 || rolId === 2) && (idEmpresa === 0 || idEmpresa === '0')) return true;
     if (rolId === 1 && ticket.id_empresa == idEmpresa) return true; // Admin misma empresa
     if (rolId === 2 && (ticket.id_usuario_reporta == userId || ticket.id_usuario_asignado == userId)) return true; // Coordinador
     if (ticket.id_usuario_reporta == userId) return true; // Creador del ticket
@@ -25,8 +26,8 @@ class TicketController {
             const ticketModel = new TicketSoporteModel();
             const catalogos = await ticketModel.getCatalogos();
 
-            // Solo superadmin recibe empresas y plataformas
-            if (rolId === 1 && (idEmpresa === 0 || idEmpresa === '0')) {
+            // Admin Central (rol 1 o 2 con empresa 0) recibe empresas y plataformas
+            if ((rolId === 1 || rolId === 2) && (idEmpresa === 0 || idEmpresa === '0')) {
                 catalogos.empresas = await ticketModel.getEmpresas();
                 catalogos.plataformas = await ticketModel.getPlataformas();
             }
@@ -156,7 +157,7 @@ class TicketController {
     async updateEstado(req, res) {
         try {
             const { id } = req.params;
-            const { userId, rolId } = req.user;
+            const { userId, rolId, idEmpresa } = req.user;
             const { id_estado_ticket, comentario } = req.body;
 
             if (!id_estado_ticket) {

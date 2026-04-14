@@ -168,7 +168,7 @@ class UsuarioModel {
       const [result] = await this.connection.execute(
         `INSERT INTO usuario (id_rol, username, password, id_sucursal, id_padre, id_empresa, estado_registro, fecha_registro, usuario_registro, fecha_actualizacion, usuario_actualizacion)
          VALUES (?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, ?, CURRENT_TIMESTAMP, ?)`,
-        [id_rol, username, hashedPassword, id_sucursal || null, id_padre || null, id_empresa || null, usuario_registro, usuario_registro]
+        [id_rol, username, hashedPassword, id_sucursal || null, id_padre || null, id_empresa ?? 0, usuario_registro, usuario_registro]
       );
       return result.insertId;
     } catch (error) {
@@ -179,7 +179,7 @@ class UsuarioModel {
   async update(id, { id_rol, username, password, id_sucursal, id_padre, id_empresa, usuario_actualizacion = null }) {
     try {
       let query = `UPDATE usuario SET id_rol = ?, username = ?, id_sucursal = ?, id_padre = ?, id_empresa = ?, usuario_actualizacion = ?, fecha_actualizacion = CURRENT_TIMESTAMP`;
-      let params = [id_rol, username, id_sucursal || null, id_padre || null, id_empresa || null, usuario_actualizacion];
+      let params = [id_rol, username, id_sucursal || null, id_padre || null, id_empresa ?? 0, usuario_actualizacion];
 
       if (password) {
         const hashedPassword = await bcrypt.hash(password, this.SALT_ROUNDS);
