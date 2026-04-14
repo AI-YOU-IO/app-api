@@ -397,8 +397,8 @@ class TicketSoporteModel {
 
     async getUsuariosByEmpresa(idEmpresa) {
         try {
-            // Solo superadmins (rol=1, empresa=0) pueden ser asignados
-            const query = 'SELECT id, username FROM usuario WHERE estado_registro = 1 AND id_rol = 1 AND (id_empresa = 0 OR id_empresa IS NULL) ORDER BY username';
+            // Admin Central (rol 1 o 2 con empresa 0) pueden ser asignados a tickets
+            const query = 'SELECT id, username FROM usuario WHERE estado_registro = 1 AND id_rol IN (1, 2) AND (id_empresa = 0 OR id_empresa IS NULL) ORDER BY username';
             const [rows] = await this.connection.execute(query, []);
             return rows;
         } catch (error) {
