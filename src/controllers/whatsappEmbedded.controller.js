@@ -1,18 +1,8 @@
-/**
- * Controller para WhatsApp Embedded (Maravia)
- *
- * NOTA: Para Viva, id_empresa siempre es 1 e id_plataforma siempre es 2
- * Esto permite que Viva use las credenciales de WhatsApp de Maravia
- * diferenciándose por plataforma (2 = Viva)
- */
-
 const whatsappEmbeddedService = require('../services/whatsapp/whatsappEmbedded.service.js');
 const configuracionWhatsappRepository = require('../repositories/configuracionWhatsapp.repository.js');
 const logger = require('../config/logger/loggerClient.js');
 
-// Configuración fija para Viva en Maravia
-const VIVA_ID_EMPRESA = 1;      // id_empresa fijo para Viva en Maravia
-const VIVA_ID_PLATAFORMA = 4;   // id_plataforma para identificar a Viva
+const VIVA_ID_PLATAFORMA = 4;
 
 class WhatsappEmbeddedController {
   /**
@@ -23,22 +13,25 @@ class WhatsappEmbeddedController {
     try {
       const userId = req.user?.userId || null;
       const idEmpresa = req.user?.idEmpresa || null;
-      const { access_token, event_type, id_plataforma } = req.body;
+      const { access_token, event_type } = req.body;
 
       if (!access_token) {
         return res.status(400).json({ success: false, msg: 'access_token es requerido' });
+      }
+      if (!idEmpresa) {
+        return res.status(400).json({ success: false, msg: 'No se pudo determinar la empresa del usuario' });
       }
 
       const result = await whatsappEmbeddedService.procesarToken(
         access_token,
         event_type || 'FINISH',
-        id_plataforma || VIVA_ID_PLATAFORMA,
-        VIVA_ID_EMPRESA,
+        VIVA_ID_PLATAFORMA,
+        idEmpresa,
         userId
       );
 
       // Si Maravia responde exitosamente, guardar credenciales en BD local
-      if (result.success && result.data && idEmpresa) {
+      if (result.success && result.data) {
         try {
           await configuracionWhatsappRepository.upsertByEmpresaId(idEmpresa, {
             app_id: result.data.app_id || null,
@@ -70,12 +63,12 @@ class WhatsappEmbeddedController {
    */
   async obtenerConfiguracion(req, res) {
     try {
-      const { id_plataforma } = req.query;
+      const idEmpresa = req.user?.idEmpresa || null;
+      if (!idEmpresa) {
+        return res.status(400).json({ success: false, msg: 'No se pudo determinar la empresa del usuario' });
+      }
 
-      const result = await whatsappEmbeddedService.obtenerConfiguracion(
-        id_plataforma || VIVA_ID_PLATAFORMA,
-        VIVA_ID_EMPRESA
-      );
+      const result = await whatsappEmbeddedService.obtenerConfiguracion(VIVA_ID_PLATAFORMA, idEmpresa);
 
       return res.status(200).json(result);
     } catch (error) {
@@ -91,13 +84,12 @@ class WhatsappEmbeddedController {
   async desconectar(req, res) {
     try {
       const userId = req.user?.userId || null;
-      const { id_plataforma } = req.body;
+      const idEmpresa = req.user?.idEmpresa || null;
+      if (!idEmpresa) {
+        return res.status(400).json({ success: false, msg: 'No se pudo determinar la empresa del usuario' });
+      }
 
-      const result = await whatsappEmbeddedService.desconectar(
-        id_plataforma || VIVA_ID_PLATAFORMA,
-        VIVA_ID_EMPRESA,
-        userId
-      );
+      const result = await whatsappEmbeddedService.desconectar(VIVA_ID_PLATAFORMA, idEmpresa, userId);
 
       return res.status(200).json(result);
     } catch (error) {
@@ -112,12 +104,12 @@ class WhatsappEmbeddedController {
    */
   async verificarEstado(req, res) {
     try {
-      const { id_plataforma } = req.query;
+      const idEmpresa = req.user?.idEmpresa || null;
+      if (!idEmpresa) {
+        return res.status(400).json({ success: false, msg: 'No se pudo determinar la empresa del usuario' });
+      }
 
-      const result = await whatsappEmbeddedService.verificarEstado(
-        id_plataforma || VIVA_ID_PLATAFORMA,
-        VIVA_ID_EMPRESA
-      );
+      const result = await whatsappEmbeddedService.verificarEstado(VIVA_ID_PLATAFORMA, idEmpresa);
 
       return res.status(200).json(result);
     } catch (error) {
@@ -132,12 +124,12 @@ class WhatsappEmbeddedController {
    */
   async suscribirWebhook(req, res) {
     try {
-      const { id_plataforma } = req.body;
+      const idEmpresa = req.user?.idEmpresa || null;
+      if (!idEmpresa) {
+        return res.status(400).json({ success: false, msg: 'No se pudo determinar la empresa del usuario' });
+      }
 
-      const result = await whatsappEmbeddedService.suscribirWebhook(
-        id_plataforma || VIVA_ID_PLATAFORMA,
-        VIVA_ID_EMPRESA
-      );
+      const result = await whatsappEmbeddedService.suscribirWebhook(VIVA_ID_PLATAFORMA, idEmpresa);
 
       return res.status(200).json(result);
     } catch (error) {
@@ -152,12 +144,12 @@ class WhatsappEmbeddedController {
    */
   async suscribirWebhooksCoexistence(req, res) {
     try {
-      const { id_plataforma } = req.body;
+      const idEmpresa = req.user?.idEmpresa || null;
+      if (!idEmpresa) {
+        return res.status(400).json({ success: false, msg: 'No se pudo determinar la empresa del usuario' });
+      }
 
-      const result = await whatsappEmbeddedService.suscribirWebhooksCoexistence(
-        id_plataforma || VIVA_ID_PLATAFORMA,
-        VIVA_ID_EMPRESA
-      );
+      const result = await whatsappEmbeddedService.suscribirWebhooksCoexistence(VIVA_ID_PLATAFORMA, idEmpresa);
 
       return res.status(200).json(result);
     } catch (error) {
@@ -172,11 +164,15 @@ class WhatsappEmbeddedController {
    */
   async sincronizarSMBData(req, res) {
     try {
-      const { id_plataforma, sync_type } = req.body;
+      const idEmpresa = req.user?.idEmpresa || null;
+      const { sync_type } = req.body;
+      if (!idEmpresa) {
+        return res.status(400).json({ success: false, msg: 'No se pudo determinar la empresa del usuario' });
+      }
 
       const result = await whatsappEmbeddedService.sincronizarSMBData(
-        id_plataforma || VIVA_ID_PLATAFORMA,
-        VIVA_ID_EMPRESA,
+        VIVA_ID_PLATAFORMA,
+        idEmpresa,
         sync_type || 'all'
       );
 
