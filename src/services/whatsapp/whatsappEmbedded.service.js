@@ -18,7 +18,7 @@ class WhatsappEmbeddedService {
       access_token: accessToken,
       event: eventType,
       id_plataforma: idPlataforma,
-      id_empresa: idEmpresa,
+      id_empresa_externo: idEmpresa,
       usuario_id: usuarioId
     });
   }
@@ -32,7 +32,7 @@ class WhatsappEmbeddedService {
     return maraviaApi.request('ws_whatsapp_embedded.php', {
       codOpe: 'OBTENER_CONFIGURACION_EMBEDDED',
       id_plataforma: idPlataforma,
-      id_empresa: idEmpresa
+      id_empresa_externo: idEmpresa
     });
   }
 
@@ -45,7 +45,7 @@ class WhatsappEmbeddedService {
     return maraviaApi.request('ws_whatsapp_embedded.php', {
       codOpe: 'DESCONECTAR_EMBEDDED',
       id_plataforma: idPlataforma,
-      id_empresa: idEmpresa,
+      id_empresa_externo: idEmpresa,
       usuario_id: usuarioId
     });
   }
@@ -59,7 +59,7 @@ class WhatsappEmbeddedService {
     return maraviaApi.request('ws_whatsapp_embedded.php', {
       codOpe: 'VERIFICAR_ESTADO_EMBEDDED',
       id_plataforma: idPlataforma,
-      id_empresa: idEmpresa
+      id_empresa_externo: idEmpresa
     });
   }
 
@@ -72,7 +72,7 @@ class WhatsappEmbeddedService {
     return maraviaApi.request('ws_whatsapp_embedded.php', {
       codOpe: 'SUSCRIBIR_WEBHOOK',
       id_plataforma: idPlataforma,
-      id_empresa: idEmpresa
+      id_empresa_externo: idEmpresa
     });
   }
 
@@ -85,7 +85,7 @@ class WhatsappEmbeddedService {
     return maraviaApi.request('ws_whatsapp_embedded.php', {
       codOpe: 'SUSCRIBIR_WEBHOOKS_COEXISTENCE',
       id_plataforma: idPlataforma,
-      id_empresa: idEmpresa
+      id_empresa_externo: idEmpresa
     });
   }
 
@@ -98,7 +98,7 @@ class WhatsappEmbeddedService {
     return maraviaApi.request('ws_whatsapp_embedded.php', {
       codOpe: 'SINCRONIZAR_SMB_DATA',
       id_plataforma: idPlataforma,
-      id_empresa: idEmpresa,
+      id_empresa_externo: idEmpresa,
       sync_type: syncType
     });
   }

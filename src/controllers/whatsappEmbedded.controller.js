@@ -41,6 +41,7 @@ class WhatsappEmbeddedController {
             waba_id: result.data.waba_id || null,
             phone_number: result.data.phone_number || null,
             token_expiration: result.data.token_expiration || null,
+            id_empresa_externo: idEmpresa,
             usuario_registro: userId,
             usuario_actualizacion: userId
           });
