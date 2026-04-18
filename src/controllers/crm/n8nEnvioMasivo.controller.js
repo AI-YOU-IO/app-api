@@ -44,86 +44,63 @@ class N8nEnvioMasivoController {
    */
   async getPendientesAgrupados(req, res) {
     try {
-      const { limite_por_empresa = 5 } = req.query;
-
-      // Obtener envíos pendientes con fecha <= ahora
+      const limite_por_empresa = Math.max(1, parseInt(req.query.limite_por_empresa) || 5);
       const { pool } = require("../../config/dbConnection.js");
-      const [envios] = await pool.execute(
-        `SELECT emw.*, pw.name as plantilla_nombre, pw.language as plantilla_language,
-                e.nombre_comercial as empresa_nombre
+
+      // Una sola query: envíos pendientes con configuración WA y conteo de pendientes
+      const [rows] = await pool.execute(
+        `SELECT
+           emw.id          AS envio_id,
+           emw.id_empresa,
+           emw.cantidad,
+           pw.name         AS plantilla,
+           pw.language     AS language,
+           e.nombre_comercial AS empresa_nombre,
+           COUNT(eb.id)    AS cantidad_pendientes
          FROM envio_masivo_whatsapp emw
-         LEFT JOIN plantilla_whatsapp pw ON emw.id_plantilla = pw.id
-         LEFT JOIN empresa e ON emw.id_empresa = e.id
+         INNER JOIN configuracion_whatsapp cw ON cw.id_empresa = emw.id_empresa
+         LEFT JOIN plantilla_whatsapp pw      ON pw.id = emw.id_plantilla
+         LEFT JOIN empresa e                  ON e.id  = emw.id_empresa
+         LEFT JOIN envio_base eb              ON eb.id_envio_masivo = emw.id
+                                             AND eb.estado = 'pendiente'
+                                             AND eb.estado_registro = 1
          WHERE emw.estado_envio = 'pendiente'
            AND emw.fecha_envio <= CURRENT_TIMESTAMP
-           AND (emw.estado_registro = 1 OR emw.estado_registro IS NULL)
+           AND emw.estado_registro = 1
+         GROUP BY emw.id, emw.id_empresa, emw.cantidad,
+                  pw.name, pw.language, e.nombre_comercial
          ORDER BY emw.id_empresa ASC, emw.fecha_envio ASC`
       );
 
-      // Obtener configuraciones de WhatsApp
-      const [configuraciones] = await pool.execute(
-        `SELECT * FROM configuracion_whatsapp WHERE 1=1`
-      );
-
-      const configMap = {};
-      configuraciones.forEach(config => {
-        configMap[config.id_empresa] = {
-          numero_telefono_id: config.numero_telefono_id,
-          token_whatsapp: config.token_whatsapp
-        };
-      });
-
-      // Agrupar por empresa
+      // Agrupar por empresa respetando el límite de envíos por empresa
       const empresasMap = {};
-
-      for (const envio of envios) {
-        const idEmpresa = envio.id_empresa;
-        const config = configMap[idEmpresa];
-
-        if (!config) continue;
-
+      for (const row of rows) {
+        const idEmpresa = row.id_empresa;
         if (!empresasMap[idEmpresa]) {
           empresasMap[idEmpresa] = {
             id_empresa: idEmpresa,
-            empresa_nombre: envio.empresa_nombre || 'Sin nombre',
+            empresa_nombre: row.empresa_nombre || 'Sin nombre',
             envios: []
           };
         }
-
-        if (empresasMap[idEmpresa].envios.length < parseInt(limite_por_empresa)) {
-          // Obtener registros asociados al envío (cada uno ya apunta a base_numero_detalle)
-          const envioBaseRecords = await EnvioPersonaModel.getByEnvioMasivo(envio.id);
-          const registrosPendientes = envioBaseRecords.filter(eb => eb.estado === 'pendiente');
-
-          // Cada registro ya tiene los datos del detalle via JOIN (id_base -> base_numero_detalle.id)
-          if (registrosPendientes.length > 0) {
-            logger.info(`[n8nEnvioMasivo] Envio ${envio.id}: primer registro id_base=${registrosPendientes[0].id_base}, detalle_telefono=${registrosPendientes[0].detalle_telefono}, detalle_nombre=${registrosPendientes[0].detalle_nombre}`);
-          }
-
-          const personas = registrosPendientes
-            .filter(eb => eb.detalle_telefono)
-            .map(eb => ({
-              envio_base_id: eb.id,
-              id_base: eb.id_base,
-              telefono: eb.detalle_telefono,
-              nombre: eb.detalle_nombre || 'Sin nombre',
-              detalle_id: eb.id_base
-            }));
-
+        if (empresasMap[idEmpresa].envios.length < limite_por_empresa) {
           empresasMap[idEmpresa].envios.push({
-            envio_id: envio.id,
-            plantilla: envio.plantilla_nombre || '',
-            language: envio.plantilla_language || 'es',
-            cantidad: envio.cantidad,
-            personas: personas
+            envio_id: row.envio_id,
+            plantilla: row.plantilla || '',
+            language: row.language || 'es',
+            cantidad: row.cantidad,
+            cantidad_pendientes: parseInt(row.cantidad_pendientes || 0)
           });
         }
       }
 
+      const empresas = Object.values(empresasMap);
+      logger.info(`[n8nEnvioMasivo] getPendientesAgrupados: ${empresas.length} empresas, ${rows.length} envíos totales`);
+
       return res.json({
         success: true,
-        empresas: Object.values(empresasMap),
-        total_empresas: Object.keys(empresasMap).length
+        empresas,
+        total_empresas: empresas.length
       });
 
     } catch (error) {
