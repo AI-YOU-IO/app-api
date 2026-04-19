@@ -4,7 +4,7 @@ const PersonaController = require("../../controllers/crm/persona.controller.js")
 const router = Router();
 
 router.get("/persona", PersonaController.listAll);
-router.get("/persona/lista-negra", PersonaController.listaNegra);
+router.post("/persona/lista-negra", PersonaController.addToListaNegra);
 router.get("/persona/celular/:celular", PersonaController.searchByCelular);
 router.post("/persona/bulk-assign", PersonaController.bulkAssign);
 router.get("/persona/:id", PersonaController.getById);

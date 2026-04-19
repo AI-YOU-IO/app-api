@@ -213,23 +213,40 @@ class PersonaModel {
         }
     }
 
-    async getListaNegra(idEmpresa = null) {
+    async addToListaNegra({ nombre_completo, celular, id_empresa, usuario_registro }) {
         try {
-            const query = `
-                SELECT p.id, p.nombre_completo, p.dni, p.celular, p.direccion,
-                       p.lista_negra, p.fecha_registro, p.fecha_actualizacion,
-                       e.nombre as estado_nombre, e.color as estado_color,
-                       u.username as asesor_nombre
-                FROM persona p
-                LEFT JOIN estado e ON e.id = p.id_estado
-                LEFT JOIN usuario u ON u.id = p.id_usuario
-                WHERE p.lista_negra = true AND p.estado_registro = 1
-                ORDER BY p.fecha_actualizacion DESC`;
+            const [existing] = await this.connection.execute(
+                `SELECT id, lista_negra FROM persona WHERE celular = ? AND estado_registro = 1`,
+                [celular]
+            );
 
-            const [rows] = await this.connection.execute(query, []);
-            return rows;
+            if (existing.length > 0) {
+                const persona = existing[0];
+                if (persona.lista_negra) {
+                    return { status: 'already_blacklisted', persona };
+                }
+                await this.connection.execute(
+                    `UPDATE persona SET lista_negra = true, usuario_actualizacion = ? WHERE id = ?`,
+                    [usuario_registro || null, persona.id]
+                );
+                return { status: 'updated', persona: { ...persona, lista_negra: true } };
+            }
+
+            const [result] = await this.connection.execute(
+                `INSERT INTO persona (id_estado, celular, id_empresa, id_tipo_persona, usuario_registro, usuario_actualizacion, nombre_completo, lista_negra)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, true)`,
+                [1, celular, id_empresa, 1, usuario_registro || null, usuario_registro || null, nombre_completo]
+            );
+
+            const [rows] = await this.connection.execute(
+                `SELECT * FROM persona WHERE id = ?`,
+                [result.insertId]
+            );
+
+            return { status: 'created', persona: rows[0] };
         } catch (error) {
-            throw new Error(`Error al obtener lista negra: ${error.message}`);
+            logger.error(`[persona.model.js] Error al agregar a lista negra: ${error.message}`);
+            throw new Error(`Error al agregar a lista negra: ${error.message}`);
         }
     }
 
