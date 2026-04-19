@@ -94,13 +94,32 @@ class PersonaController {
     }
   }
 
-  async listaNegra(req, res) {
+  async addToListaNegra(req, res) {
     try {
-      const personas = await PersonaModel.getListaNegra();
-      return res.status(200).json({ data: personas });
+      const { userId, idEmpresa } = req.user || {};
+      const { nombre_completo, celular } = req.body || {};
+
+      if (!nombre_completo || !celular) {
+        return res.status(400).json({ msg: "Nombre completo y celular son requeridos" });
+      }
+
+      const result = await PersonaModel.addToListaNegra({
+        nombre_completo: String(nombre_completo).trim(),
+        celular: String(celular).trim(),
+        id_empresa: idEmpresa,
+        usuario_registro: userId,
+      });
+
+      if (result.status === 'already_blacklisted') {
+        return res.status(409).json({ msg: "Este celular ya está en la lista negra" });
+      }
+
+      const statusCode = result.status === 'created' ? 201 : 200;
+      const msg = result.status === 'created' ? "Agregado a lista negra correctamente" : "Persona marcada en lista negra";
+      return res.status(statusCode).json({ msg, data: result.persona });
     } catch (error) {
-      logger.error(`[persona.controller.js] Error al listar lista negra: ${error.message}`);
-      return res.status(500).json({ msg: "Error al listar lista negra" });
+      logger.error(`[persona.controller.js] Error al agregar a lista negra: ${error.message}`);
+      return res.status(500).json({ msg: "Error al agregar a lista negra" });
     }
   }
 
