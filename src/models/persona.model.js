@@ -213,6 +213,26 @@ class PersonaModel {
         }
     }
 
+    async getListaNegra(idEmpresa = null) {
+        try {
+            const query = `
+                SELECT p.id, p.nombre_completo, p.dni, p.celular, p.direccion,
+                       p.lista_negra, p.fecha_registro, p.fecha_actualizacion,
+                       e.nombre as estado_nombre, e.color as estado_color,
+                       u.username as asesor_nombre
+                FROM persona p
+                LEFT JOIN estado e ON e.id = p.id_estado
+                LEFT JOIN usuario u ON u.id = p.id_usuario
+                WHERE p.lista_negra = true AND p.estado_registro = 1
+                ORDER BY p.fecha_actualizacion DESC`;
+
+            const [rows] = await this.connection.execute(query, []);
+            return rows;
+        } catch (error) {
+            throw new Error(`Error al obtener lista negra: ${error.message}`);
+        }
+    }
+
     async getAsignacionesAsesor() {
         try {
             const [rows] = await this.connection.execute(

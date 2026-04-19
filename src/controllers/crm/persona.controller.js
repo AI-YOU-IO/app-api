@@ -94,6 +94,16 @@ class PersonaController {
     }
   }
 
+  async listaNegra(req, res) {
+    try {
+      const personas = await PersonaModel.getListaNegra();
+      return res.status(200).json({ data: personas });
+    } catch (error) {
+      logger.error(`[persona.controller.js] Error al listar lista negra: ${error.message}`);
+      return res.status(500).json({ msg: "Error al listar lista negra" });
+    }
+  }
+
   async bulkAssign(req, res) {
     try {
       const { persona_ids, id_asesor } = req.body;
