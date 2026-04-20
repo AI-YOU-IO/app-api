@@ -360,53 +360,28 @@ class N8nEnvioMasivoController {
   }
 
   /**
-   * GET /n8n/envios-masivos/:id/personas-pendientes?page=1&limit=50
-   * Devuelve personas pendientes paginadas para un envío específico.
-   * Usar en n8n con un loop hasta que total_pages se agote.
+   * GET /n8n/envios-masivos/:id/personas-pendientes
+   * Devuelve TODAS las personas pendientes de un envío (sin json_adicional).
+   * El payload es ligero (~60 bytes/persona). enviar-persona busca el detalle completo por id_base.
    */
   async getPersonasPendientes(req, res) {
     try {
       const { id } = req.params;
-      const page  = Math.max(1, parseInt(req.query.page)  || 1);
-      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
-      const offset = (page - 1) * limit;
       const { pool } = require("../../config/dbConnection.js");
 
-      const [[countRow], [rows]] = await Promise.all([
-        pool.execute(
-          `SELECT COUNT(*) AS total
-           FROM envio_base
-           WHERE id_envio_masivo = ? AND estado = 'pendiente' AND estado_registro = 1`,
-          [id]
-        ),
-        pool.execute(
-          `SELECT eb.id          AS envio_base_id,
-                  eb.id_base,
-                  bnd.telefono,
-                  bnd.nombre,
-                  bnd.correo,
-                  bnd.tipo_documento,
-                  bnd.numero_documento,
-                  bnd.json_adicional
-           FROM envio_base eb
-           LEFT JOIN base_numero_detalle bnd ON bnd.id = eb.id_base
-           WHERE eb.id_envio_masivo = ? AND eb.estado = 'pendiente' AND eb.estado_registro = 1
-           ORDER BY eb.id ASC
-           LIMIT ? OFFSET ?`,
-          [id, limit, offset]
-        )
-      ]);
+      const [rows] = await pool.execute(
+        `SELECT eb.id   AS envio_base_id,
+                eb.id_base,
+                bnd.telefono,
+                bnd.nombre
+         FROM envio_base eb
+         LEFT JOIN base_numero_detalle bnd ON bnd.id = eb.id_base
+         WHERE eb.id_envio_masivo = ? AND eb.estado = 'pendiente' AND eb.estado_registro = 1
+         ORDER BY eb.id ASC`,
+        [id]
+      );
 
-      const total = parseInt(countRow[0]?.total || 0);
-
-      return res.json({
-        success: true,
-        page,
-        limit,
-        total,
-        total_pages: Math.ceil(total / limit),
-        personas: rows
-      });
+      return res.json({ success: true, total: rows.length, personas: rows });
 
     } catch (error) {
       logger.error(`[n8nEnvioMasivo] Error getPersonasPendientes: ${error.message}`);
@@ -423,13 +398,10 @@ class N8nEnvioMasivoController {
   async enviarPersona(req, res) {
     try {
       const { id } = req.params;
-      const {
-        id_empresa, envio_base_id, telefono, nombre,
-        id_base, correo, tipo_documento, numero_documento, json_adicional
-      } = req.body;
+      const { id_empresa, envio_base_id, id_base, telefono, nombre } = req.body;
 
-      if (!id_empresa || !envio_base_id || !telefono) {
-        return res.status(400).json({ error: 'Faltan parámetros: id_empresa, envio_base_id, telefono' });
+      if (!id_empresa || !envio_base_id || !id_base) {
+        return res.status(400).json({ error: 'Faltan parámetros: id_empresa, envio_base_id, id_base' });
       }
 
       const celular = normalizarCelular(telefono);
@@ -438,14 +410,25 @@ class N8nEnvioMasivoController {
         return res.json({ success: false, status: 'cancelado', telefono: '', error: 'Sin número válido' });
       }
 
-      // Cargar config del envío (consultas pequeñas e indexadas)
-      const envio = await EnvioMasivoWhatsappModel.getById(id);
+      // Cargar config del envío y detalle completo en paralelo
+      const { pool } = require("../../config/dbConnection.js");
+      const [envio, [detalleRows]] = await Promise.all([
+        EnvioMasivoWhatsappModel.getById(id),
+        pool.execute(
+          `SELECT telefono, nombre, correo, tipo_documento, numero_documento, json_adicional
+           FROM base_numero_detalle WHERE id = ?`,
+          [id_base]
+        )
+      ]);
+
       if (!envio) return res.status(404).json({ error: 'Envío masivo no encontrado' });
 
-      const plantilla = await PlantillaWhatsappModel.getById(envio.id_plantilla);
-      if (!plantilla) return res.status(400).json({ error: 'Plantilla no encontrada' });
+      const [plantilla, configWhatsapp] = await Promise.all([
+        PlantillaWhatsappModel.getById(envio.id_plantilla),
+        configuracionWhatsappRepository.findByEmpresaId(id_empresa)
+      ]);
 
-      const configWhatsapp = await configuracionWhatsappRepository.findByEmpresaId(id_empresa);
+      if (!plantilla) return res.status(400).json({ error: 'Plantilla no encontrada' });
       if (!configWhatsapp?.numero_telefono_id) {
         return res.status(400).json({ error: 'No se encontró configuración de WhatsApp para esta empresa' });
       }
@@ -455,14 +438,15 @@ class N8nEnvioMasivoController {
       const formatoCampoPlantillaModel = new FormatoCampoPlantillaModel();
       const camposPlantilla = await formatoCampoPlantillaModel.getAllByPlantilla(plantilla.id);
 
+      const raw = detalleRows[0] || {};
       const detalle = {
         id: id_base,
         telefono: celular,
-        nombre: nombre || 'Sin nombre',
-        correo: correo || null,
-        tipo_documento: tipo_documento || null,
-        numero_documento: numero_documento || null,
-        json_adicional: json_adicional || null
+        nombre: raw.nombre || nombre || 'Sin nombre',
+        correo: raw.correo || null,
+        tipo_documento: raw.tipo_documento || null,
+        numero_documento: raw.numero_documento || null,
+        json_adicional: raw.json_adicional || null
       };
 
       // Construir components resolviendo variables mapeadas
