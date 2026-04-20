@@ -2198,7 +2198,7 @@ class ConfiguracionController {
 
   async ejecutarCampania(req, res) {
     try {
-      const { id_campania } = req.body;
+      const { id_campania, ids_base_numero } = req.body;
       const id_empresa = req.user?.idEmpresa;
       const usuario_registro = req.user?.userId || null;
 
@@ -2206,12 +2206,23 @@ class ConfiguracionController {
         return res.status(400).json({ msg: "La campania es requerida" });
       }
 
-      // Obtener bases activas de la campaña
-      const [basesActivas] = await pool.execute(
-        `SELECT id_base_numero FROM campania_base_numero
-         WHERE id_campania = ? AND estado_registro = 1 AND activo = 1`,
-        [id_campania]
-      );
+      // Si vienen ids_base_numero específicos, filtrar por ellos; sino, obtener todas las bases activas
+      let basesActivas;
+      if (ids_base_numero && ids_base_numero.length > 0) {
+        const placeholders = ids_base_numero.map((_, i) => `$${i + 2}`).join(',');
+        [basesActivas] = await pool.query(
+          `SELECT id_base_numero FROM campania_base_numero
+           WHERE id_campania = $1 AND estado_registro = 1 AND activo = 1
+           AND id_base_numero IN (${placeholders})`,
+          [id_campania, ...ids_base_numero]
+        );
+      } else {
+        [basesActivas] = await pool.execute(
+          `SELECT id_base_numero FROM campania_base_numero
+           WHERE id_campania = ? AND estado_registro = 1 AND activo = 1`,
+          [id_campania]
+        );
+      }
 
       if (!basesActivas.length) {
         return res.status(400).json({ msg: "No hay bases activas en esta campaña" });
