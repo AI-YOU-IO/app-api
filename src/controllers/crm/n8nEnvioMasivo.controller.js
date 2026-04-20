@@ -360,6 +360,61 @@ class N8nEnvioMasivoController {
   }
 
   /**
+   * GET /n8n/envios-masivos/:id/personas-pendientes?page=1&limit=50
+   * Devuelve personas pendientes paginadas para un envío específico.
+   * Usar en n8n con un loop hasta que total_pages se agote.
+   */
+  async getPersonasPendientes(req, res) {
+    try {
+      const { id } = req.params;
+      const page  = Math.max(1, parseInt(req.query.page)  || 1);
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
+      const offset = (page - 1) * limit;
+      const { pool } = require("../../config/dbConnection.js");
+
+      const [[countRow], [rows]] = await Promise.all([
+        pool.execute(
+          `SELECT COUNT(*) AS total
+           FROM envio_base
+           WHERE id_envio_masivo = ? AND estado = 'pendiente' AND estado_registro = 1`,
+          [id]
+        ),
+        pool.execute(
+          `SELECT eb.id          AS envio_base_id,
+                  eb.id_base,
+                  bnd.telefono,
+                  bnd.nombre,
+                  bnd.correo,
+                  bnd.tipo_documento,
+                  bnd.numero_documento,
+                  bnd.json_adicional
+           FROM envio_base eb
+           LEFT JOIN base_numero_detalle bnd ON bnd.id = eb.id_base
+           WHERE eb.id_envio_masivo = ? AND eb.estado = 'pendiente' AND eb.estado_registro = 1
+           ORDER BY eb.id ASC
+           LIMIT ? OFFSET ?`,
+          [id, limit, offset]
+        )
+      ]);
+
+      const total = parseInt(countRow[0]?.total || 0);
+
+      return res.json({
+        success: true,
+        page,
+        limit,
+        total,
+        total_pages: Math.ceil(total / limit),
+        personas: rows
+      });
+
+    } catch (error) {
+      logger.error(`[n8nEnvioMasivo] Error getPersonasPendientes: ${error.message}`);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
    * POST /n8n/envios-masivos/:id/enviar-persona
    * Envía la plantilla a UNA persona. Llamar en batches paralelos desde n8n.
    * Body: { id_empresa, envio_base_id, telefono, nombre, id_base,
