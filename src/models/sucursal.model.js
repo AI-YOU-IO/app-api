@@ -1,5 +1,23 @@
 const { pool } = require("../config/dbConnection.js");
 
+function normalizar(texto) {
+  return String(texto || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreCoincidencia(valorNorm, terminoNorm) {
+  if (!valorNorm || !terminoNorm) return 0;
+  if (valorNorm === terminoNorm) return 100;
+  if (valorNorm.includes(terminoNorm)) return 80;
+  if (terminoNorm.includes(valorNorm) && valorNorm.length >= 3) return 60;
+  return 0;
+}
+
 class SucursalModel {
   constructor(dbConnection = null) {
     this.connection = dbConnection || pool;
@@ -92,18 +110,100 @@ class SucursalModel {
 
   async buscar(termino, id_empresa) {
     try {
-      const query = `SELECT id, empresa_id, nombre, direccion, telefono, email,
-                          estado, provincia, ciudad
-         FROM sucursal
-         WHERE estado_registro = 1
-           AND empresa_id = ?
-           AND (nombre LIKE ? OR direccion LIKE ? OR estado LIKE ? OR provincia LIKE ? OR ciudad LIKE ?)
-         ORDER BY nombre LIMIT 10`;
-      const searchTerm = `%${termino}%`;
-      const params = [id_empresa, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm];
+      const terminoRaw = String(termino || '').trim();
+      if (!terminoRaw) return { sucursales: [], match_nivel: 'ninguno', buscado: null };
 
-      const [rows] = await this.connection.execute(query, params);
-      return rows;
+      const estructurado = terminoRaw.includes('-');
+      const partesNorm = estructurado
+        ? terminoRaw.split('-').map(p => normalizar(p))
+        : [];
+      const [deptoNorm = '', provNorm = '', distNorm = ''] = partesNorm;
+
+      const terminoNorm = normalizar(terminoRaw.replace(/-/g, ' '));
+      const tokens = terminoNorm.split(/\s+/).filter(t => t.length >= 2);
+
+      const query = `SELECT id, empresa_id, nombre, direccion, telefono, email,
+                            estado, provincia, ciudad
+         FROM sucursal
+         WHERE estado_registro = 1 AND empresa_id = ?`;
+      const [rows] = await this.connection.execute(query, [id_empresa]);
+
+      const buscado = estructurado
+        ? { departamento: deptoNorm || null, provincia: provNorm || null, distrito: distNorm || null }
+        : { texto: terminoNorm };
+
+      if (estructurado && distNorm) {
+        const matchDistrito = rows.filter(r => {
+          const c = normalizar(r.ciudad);
+          return c && (c === distNorm || c.includes(distNorm) || distNorm.includes(c));
+        });
+        if (matchDistrito.length > 0) {
+          return {
+            sucursales: matchDistrito.slice(0, 3),
+            match_nivel: 'distrito',
+            buscado,
+          };
+        }
+      }
+
+      if (estructurado && provNorm) {
+        const matchProv = rows.filter(r => {
+          const p = normalizar(r.provincia);
+          return p && (p === provNorm || p.includes(provNorm) || provNorm.includes(p));
+        });
+        if (matchProv.length > 0) {
+          return {
+            sucursales: matchProv.slice(0, 3),
+            match_nivel: 'provincia',
+            buscado,
+          };
+        }
+      }
+
+      if (estructurado && deptoNorm) {
+        const matchDepto = rows.filter(r => {
+          const e = normalizar(r.estado);
+          return e && (e === deptoNorm || e.includes(deptoNorm) || deptoNorm.includes(e));
+        });
+        if (matchDepto.length > 0) {
+          return {
+            sucursales: matchDepto.slice(0, 3),
+            match_nivel: 'departamento',
+            buscado,
+          };
+        }
+      }
+
+      if (tokens.length === 0) {
+        return { sucursales: [], match_nivel: 'ninguno', buscado };
+      }
+
+      const scored = rows.map(r => {
+        const camposNorm = {
+          estado: normalizar(r.estado),
+          provincia: normalizar(r.provincia),
+          ciudad: normalizar(r.ciudad),
+        };
+        let score = 0;
+        for (const t of tokens) {
+          if (camposNorm.ciudad && camposNorm.ciudad.includes(t)) score += 30;
+          if (camposNorm.provincia && camposNorm.provincia.includes(t)) score += 20;
+          if (camposNorm.estado && camposNorm.estado.includes(t)) score += 10;
+        }
+        return { row: r, score };
+      });
+
+      const filtrados = scored
+        .filter(s => s.score > 0)
+        .sort((a, b) => b.score - a.score || a.row.nombre.localeCompare(b.row.nombre))
+        .slice(0, 3)
+        .map(s => s.row);
+
+      return {
+        sucursales: filtrados,
+        match_nivel: filtrados.length > 0 ? 'aproximado' : 'ninguno',
+        buscado,
+      };
     } catch (error) {
       throw new Error(`Error al buscar sucursales: ${error.message}`);
     }
