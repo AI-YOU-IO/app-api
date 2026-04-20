@@ -15,8 +15,14 @@ router.use(validateN8nApiKey);
 // GET /n8n/envios-masivos/pendientes - Obtener envíos pendientes agrupados por empresa
 router.get("/envios-masivos/pendientes", N8nEnvioMasivoController.getPendientesAgrupados);
 
-// POST /n8n/envios-masivos/:id/enviar - Enviar mensajes de un envío masivo
+// POST /n8n/envios-masivos/:id/enviar - Enviar todos los mensajes de un envío (batch interno)
 router.post("/envios-masivos/:id/enviar", N8nEnvioMasivoController.enviarMasivo);
+
+// GET /n8n/envios-masivos/:id/personas-pendientes - Personas paginadas para un envío
+router.get("/envios-masivos/:id/personas-pendientes", N8nEnvioMasivoController.getPersonasPendientes);
+
+// POST /n8n/envios-masivos/:id/enviar-persona - Enviar a UNA persona (loops paralelos en n8n)
+router.post("/envios-masivos/:id/enviar-persona", N8nEnvioMasivoController.enviarPersona);
 
 // PUT /n8n/envios-masivos/:id/completar - Marcar envío como completado
 router.put("/envios-masivos/:id/completar", N8nEnvioMasivoController.marcarCompletado);

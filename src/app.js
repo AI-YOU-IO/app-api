@@ -11,6 +11,7 @@ const usuarioRoutes = require("./routes/crm/usuario.route.js");
 // const auditoriaRoutes = require("./routes/crm/auditoria.route.js"); // TODO: Archivo no existe
 const configuracionRoutes = require("./routes/crm/configuracion.route.js");
 const llamadaRoutes = require("./routes/crm/llamada.route.js");
+const utilidadesRoutes = require("./routes/crm/utilidades.route.js");
 const personaRoutes = require("./routes/crm/persona.route.js");
 const reportesCrmRoutes = require("./routes/crm/reportes.route.js");
 const transcripcionRoutes = require("./routes/crm/transcripcion.route.js");
@@ -70,7 +71,7 @@ app.use(responseHandler);
 
 // Rutas publicas (sin auth)
 app.use("/api/crm", usuarioRoutes);
-app.use("/api/crm/tools", pagoRoutes, llamadaRoutes, whatsappRoutes);
+app.use("/api/crm/tools", pagoRoutes, llamadaRoutes, whatsappRoutes, utilidadesRoutes);
 app.use("/api/sandbox", sandboxRoutes);
 app.use("/api/asterisk", asteriskRoutes);
 app.use("/api/n8n", n8nEnvioMasivoRoutes);

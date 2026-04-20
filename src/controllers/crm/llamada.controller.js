@@ -184,9 +184,24 @@ class LlamadaController {
             }
 
             const sucursalModel = new SucursalModel();
-            const sucursales = await sucursalModel.buscar(termino, id_empresa);
+            const { sucursales, match_nivel, buscado } = await sucursalModel.buscar(termino, id_empresa);
 
-            return res.status(200).json({ data: sucursales });
+            const mensajes = {
+                distrito: "Sucursales encontradas en el distrito solicitado.",
+                provincia: `No hay sucursales en el distrito '${buscado?.distrito || ''}'. Mostrando opciones en la provincia '${buscado?.provincia || ''}'.`,
+                departamento: `No hay sucursales en el distrito ni provincia solicitados. Mostrando opciones en el departamento '${buscado?.departamento || ''}'.`,
+                aproximado: "Sin match exacto. Mostrando coincidencias aproximadas.",
+                ninguno: "No se encontraron sucursales que coincidan con el criterio."
+            };
+
+            return res.status(200).json({
+                data: sucursales,
+                meta: {
+                    match_nivel,
+                    buscado,
+                    mensaje: mensajes[match_nivel]
+                }
+            });
         } catch (error) {
             logger.error(`[llamada.controller.js] Error al buscar sucursal: ${error.message}`);
             return res.status(500).json({ msg: "Error al buscar sucursal" });
