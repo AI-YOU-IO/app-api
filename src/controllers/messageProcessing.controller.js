@@ -9,6 +9,7 @@ const websocketNotifier = require("../services/websocketNotifier.service.js");
 const transcriptionService = require("../services/transcription/transcription.service.js");
 const { normalizarCelular } = require("../utils/phone.js");
 const logger = require("../config/logger/loggerClient");
+const { setContextField } = require("../config/logger/traceContext");
 
 class MessageProcessingController {
 
@@ -30,6 +31,8 @@ class MessageProcessingController {
             const tipoMensaje = messageType || "texto";
             const archivos = Array.isArray(files) ? files : [];
 
+            logger.info('[messageProcessing] Incoming', { messageType: tipoMensaje, hasFiles: archivos.length > 0 });
+
             // Resolver id_empresa a partir del phone_number_id en configuracion_whatsapp
             const configWhatsapp = await ConfiguracionWhatsapp.getByPhoneNumberId(phone_number_id);
             if (!configWhatsapp) {
@@ -37,6 +40,7 @@ class MessageProcessingController {
                 return res.serverError(400, "No se encontró configuración WhatsApp para el phone_number_id proporcionado");
             }
             const empresaId = configWhatsapp.id_empresa;
+            setContextField('empresaId', empresaId);
 
             let persona = await Persona.selectByCelular(phoneTrimmed, empresaId);
 
@@ -66,6 +70,8 @@ class MessageProcessingController {
                     usuario_registro: null
                 });
             }
+            setContextField('phone', phoneTrimmed);
+            setContextField('personaId', persona.id);
             // logger.info(`[messageProcessing.controller.js] Datos persona ${JSON.stringify(persona)}`);
             if (question === "No contactar") {
                 await Persona.updatePersona(persona.id, { lista_negra: true });
@@ -117,6 +123,7 @@ class MessageProcessingController {
 
             // Notificar al WebSocket sobre mensaje entrante (usa chat.id como id_contacto)
             const chatId = chat.id || chat;
+            setContextField('chatId', chatId);
             websocketNotifier.notificarMensajeEntrante(chatId, {
                 id_contacto: chatId,
                 contenido: contenidoMensaje,
@@ -192,7 +199,7 @@ class MessageProcessingController {
             });
 
         } catch (error) {
-            logger.error(`[messageProcessing.controller.js] Error: ${error.message}`);
+            logger.error('[messageProcessing] Error', { stack: error.stack });
             return res.serverError(500, "Error Interno en el servidor");
         }
     }

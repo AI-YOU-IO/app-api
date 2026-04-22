@@ -28,7 +28,7 @@ class MemoryService {
                 return JSON.parse(cached);
             }
         } catch (error) {
-            logger.error(`[MemoryService] Error leyendo cache Redis: ${error.message}`);
+            logger.error('[MemoryService] Error leyendo cache Redis', { stack: error.stack });
         }
 
         logger.info(`[MemoryService] Cache miss para chat ${chatId}, consultando DB`);
@@ -42,7 +42,7 @@ class MemoryService {
         try {
             await redisClient.set(key, JSON.stringify(messages), { EX: CACHE_TTL });
         } catch (error) {
-            logger.error(`[MemoryService] Error guardando cache Redis: ${error.message}`);
+            logger.error('[MemoryService] Error guardando cache Redis', { stack: error.stack });
         }
 
         return messages;
@@ -64,7 +64,7 @@ class MemoryService {
 
             await redisClient.set(key, JSON.stringify(messages), { EX: CACHE_TTL });
         } catch (error) {
-            logger.error(`[MemoryService] Error actualizando cache Redis: ${error.message}`);
+            logger.error('[MemoryService] Error actualizando cache Redis', { stack: error.stack });
         }
     }
 }

@@ -7,6 +7,7 @@ const setupSwagger = require('./config/swagger');
 const messageProcessingRoutes = require('./routes/messageProcessing.route.js');
 const { responseHandler } = require('./middlewares/response.middleware.js');
 const authMiddleware = require('./middlewares/auth.middleware.js');
+const traceMiddleware = require('./middlewares/trace.middleware.js');
 const usuarioRoutes = require("./routes/crm/usuario.route.js");
 // const auditoriaRoutes = require("./routes/crm/auditoria.route.js"); // TODO: Archivo no existe
 const configuracionRoutes = require("./routes/crm/configuracion.route.js");
@@ -59,6 +60,9 @@ app.use(helmet({
 
 // Middleware para parsing
 app.use(express.json());
+
+// Middleware de trazabilidad — genera traceId por request, propaga via AsyncLocalStorage
+app.use(traceMiddleware);
 
 // Servir archivos estáticos desde la carpeta 'public'
 app.use(express.static(path.join(__dirname, '..', 'public')));

@@ -1,10 +1,14 @@
 const { loggerInit } = require('./loggerInit');
 const path = require('path');
+const fs = require('fs');
 
-const outputPath = path.join(process.env.PATH_LOG_DIR, 'app.log');
+const logDir = process.env.PATH_LOG_DIR || path.join(__dirname, '../../../logs');
+fs.mkdirSync(logDir, { recursive: true });
+
+const outputPath = path.join(logDir, 'app-%DATE%.log');
 
 const logger = loggerInit({
-    outputPath: outputPath, 
+    outputPath: outputPath,
     show_logs_console: true
 });
 

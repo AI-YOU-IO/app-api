@@ -55,6 +55,7 @@ class ToolExecutor {
             if (!enlace) errorDetalle = "El servicio no devolvió un enlace";
         } catch (err) {
             errorDetalle = err.message || "Error desconocido al generar el enlace de pago";
+            logger.error('[ToolExecutor] Error en obtenerLinkPago', { stack: err.stack });
         }
 
         if (!enlace) return JSON.stringify({ error: errorDetalle });
@@ -85,7 +86,7 @@ class ToolExecutor {
         try {
             enlace = await PagoService.generarLinkCambio(grupo_familiar, this.persona.celular, this.chatId, this.persona?.id);
         } catch (err) {
-            logger.error(`[ToolExecutor] Error en obtenerLinkCambio: ${err.message}`);
+            logger.error('[ToolExecutor] Error en obtenerLinkCambio', { stack: err.stack });
         }
 
         if (!enlace) return JSON.stringify({ error: "No se pudo generar el enlace de cambio de tarjeta" });
@@ -105,7 +106,7 @@ class ToolExecutor {
             );
             return JSON.stringify({ success: true, message: "Persona agregada a lista negra" });
         } catch (error) {
-            logger.error(`[ToolExecutor] Error al agregar a lista negra: ${error.message}`);
+            logger.error('[ToolExecutor] Error al agregar a lista negra', { stack: error.stack });
             return JSON.stringify({ error: "Error al agregar a lista negra" });
         }
     }
@@ -136,7 +137,7 @@ class ToolExecutor {
             });
             return JSON.stringify({ success: true, message: "Derivación enviada al asesor" });
         } catch (error) {
-            logger.error(`[ToolExecutor] Error al derivar asesor: ${error.message}`);
+            logger.error('[ToolExecutor] Error al derivar asesor', { stack: error.stack });
             return JSON.stringify({ error: "Error al enviar la derivación" });
         }
     }
@@ -153,7 +154,7 @@ class ToolExecutor {
             );
             return JSON.stringify({ success: true, message: "Tipificacion actualizada correctamente" });
         } catch (error) {
-            logger.error(`[ToolExecutor] Error al tipificar: ${error.message}`);
+            logger.error('[ToolExecutor] Error al tipificar', { stack: error.stack });
             return JSON.stringify({ error: "Error al actualizar tipificacion" });
         }
     }
