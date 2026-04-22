@@ -33,7 +33,14 @@ const loggerInit = ({outputPath, show_logs_console = true} = {}) => {
   ];
 
   if(show_logs_console){
-    const consoleFormat = winston.format.printf(({ level, message, timestamp, traceId, phone, splat, service, ...meta }) => {
+    const filterTrace = winston.format((info) => {
+      if (info.message?.startsWith('[trace]')) return false;
+      return info;
+    })();
+
+    const consoleFormat = winston.format.combine(
+      filterTrace,
+      winston.format.printf(({ level, message, timestamp, traceId, phone, splat, service, ...meta }) => {
       const time = timestamp ? timestamp.split(' / ')[1] : '';
       const pad  = ' '.repeat(`${time} ${level.toUpperCase()}  `.length);
 
@@ -49,7 +56,7 @@ const loggerInit = ({outputPath, show_logs_console = true} = {}) => {
         });
 
       return [`${time} ${level.toUpperCase()}  ${message}`, ...lines].join('\n');
-    });
+    }));
     transports.push(new winston.transports.Console({ format: consoleFormat }));
   }
 
