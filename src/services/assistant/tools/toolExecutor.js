@@ -29,8 +29,23 @@ class ToolExecutor {
         }
     }
 
-    async _obtenerLinkPago({grupo_familiar}) {
+    async _obtenerLinkPago() {
         logger.info("[ToolExecutor] obtenerLinkPago");
+
+        let grupo_familiar = "";
+        const raw = this.persona?.json_adicional;
+        if (raw) {
+            try {
+                const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+                grupo_familiar = data?.grupo_familiar || "";
+            } catch (e) {
+                logger.warn(`[ToolExecutor] json_adicional inválido: ${e.message}`);
+            }
+        }
+
+        if (!grupo_familiar) {
+            return JSON.stringify({ error: "No se encontró grupo_familiar en el contexto de la persona" });
+        }
 
         let enlace = null;
         let errorDetalle = null;
@@ -39,15 +54,8 @@ class ToolExecutor {
             enlace = await PagoService.generarLinkPago(grupo_familiar, this.persona.celular, this.chatId, this.persona?.id);
             if (!enlace) errorDetalle = "El servicio no devolvió un enlace";
         } catch (err) {
-            errorDetalle = err.message || "Error desconocido al generar el grupo_familiarenlace de pago";
+            errorDetalle = err.message || "Error desconocido al generar el enlace de pago";
         }
-
-        // if (this.chatId) {
-        //     await pool.execute(
-        //         `INSERT INTO envio_link_pago (id_chat, enviado_link, error_detalle) VALUES (?, ?, ?)`,
-        //         [this.chatId, enlace !== null, errorDetalle]
-        //     );
-        // }
 
         if (!enlace) return JSON.stringify({ error: errorDetalle });
 
@@ -55,9 +63,31 @@ class ToolExecutor {
         return JSON.stringify({ enlace });
     }
 
-    async _obtenerLinkCambio({grupo_familiar}) {
+    async _obtenerLinkCambio() {
         logger.info("[ToolExecutor] obtenerLinkCambio");
-        const enlace = await PagoService.generarLinkCambio(grupo_familiar, this.persona.celular, this.chatId, this.persona?.id);
+
+        let grupo_familiar = "";
+        const raw = this.persona?.json_adicional;
+        if (raw) {
+            try {
+                const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+                grupo_familiar = data?.grupo_familiar || "";
+            } catch (e) {
+                logger.warn(`[ToolExecutor] json_adicional inválido: ${e.message}`);
+            }
+        }
+
+        if (!grupo_familiar) {
+            return JSON.stringify({ error: "No se encontró grupo_familiar en el contexto de la persona" });
+        }
+
+        let enlace = null;
+        try {
+            enlace = await PagoService.generarLinkCambio(grupo_familiar, this.persona.celular, this.chatId, this.persona?.id);
+        } catch (err) {
+            logger.error(`[ToolExecutor] Error en obtenerLinkCambio: ${err.message}`);
+        }
+
         if (!enlace) return JSON.stringify({ error: "No se pudo generar el enlace de cambio de tarjeta" });
         this.lastEnlaceUrl = enlace;
         return JSON.stringify({ enlace });

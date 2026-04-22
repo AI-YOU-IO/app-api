@@ -19,10 +19,12 @@ async function getPromptByEmpresa(id_empresa) {
 
 async function buildSystemPrompt({ persona, timestamp, id_empresa }) {
     const template = await getPromptByEmpresa(id_empresa);
+    const grupoFamiliar = persona?.json_adicional?.grupo_familiar || "";
 
     return template
         .replace("{{datos_cliente}}", JSON.stringify(persona))
-        .replace("{{fecha_hora_actual}}", timestamp);
+        .replace("{{fecha_hora_actual}}", timestamp)
+        .split("{{grupo_familiar}}").join(grupoFamiliar);
 }
 
 function clearCache(id_empresa) {
