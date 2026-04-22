@@ -141,6 +141,10 @@ class PagoService {
   async generarLinkPago(grupo_familiar, telefono,  chatId = null, idPersona = null) {
     const token = await this.obtenerToken("PagoCuota/CrearEnlace");
 
+    logger.info('[Request] generarLinkPago', {
+      body: { grupo_familiar, telefono, ope_origen: 36, ope_call: "93" }
+    });
+
     const response = await this._fetchWithRetry(url_pago, {
       method: "POST",
       headers: {
@@ -163,6 +167,7 @@ class PagoService {
     try {
       const result = JSON.parse(textPago);
       const enlace = result.enlace;
+      logger.info('[Response] generarLinkPago', { enlace });
 
       if (enlace && chatId) {
         try {
@@ -184,6 +189,10 @@ class PagoService {
 
   async generarLinkCambio(grupo_familiar, telefono, chatId = null, idPersona = null) {
     const token = await this.obtenerToken("CambioTarjeta/CrearEnlace");
+
+    logger.info('[Request] generarLinkCambio', {
+      body: { grupo_familiar, telefono, ope_origen: 36, ope_call: "93" }
+    });
 
     const response = await this._fetchWithRetry(url_cambio, {
       method: "POST",
@@ -207,6 +216,7 @@ class PagoService {
     try {
       const result = JSON.parse(textCambio);
       const enlace = result.enlace;
+      logger.info('[Response] generarLinkCambio', { enlace });
 
       if (enlace && chatId) {
         try {

@@ -33,7 +33,24 @@ const loggerInit = ({outputPath, show_logs_console = true} = {}) => {
   ];
 
   if(show_logs_console){
-    transports.push(new winston.transports.Console({format: winston.format.simple()}));
+    const consoleFormat = winston.format.printf(({ level, message, timestamp, traceId, phone, splat, service, ...meta }) => {
+      const time = timestamp ? timestamp.split(' / ')[1] : '';
+      const pad  = ' '.repeat(`${time} ${level.toUpperCase()}  `.length);
+
+      const fields = { ...meta };
+      if (phone)   fields.phone   = phone;
+      if (traceId) fields.traceId = traceId;
+
+      const lines = Object.entries(fields)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => {
+          const val = typeof v === 'object' ? JSON.stringify(v) : v;
+          return `${pad}${k.padEnd(10)}: ${val}`;
+        });
+
+      return [`${time} ${level.toUpperCase()}  ${message}`, ...lines].join('\n');
+    });
+    transports.push(new winston.transports.Console({ format: consoleFormat }));
   }
 
   const level = 'info';

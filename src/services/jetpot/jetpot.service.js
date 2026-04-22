@@ -20,7 +20,9 @@ class JetPotService {
     }
 
     async enviarEscalacion({ nombre_cliente, telefono_cliente, motivo, grupo_familiar }) {
-        logger.info(`[JetPotService] Enviando escalacion: ${telefono_cliente}`);
+        logger.info('[Request] enviarEscalacion', {
+            body: { nombre_cliente, telefono_cliente, motivo, grupo_familiar }
+        });
         try {
             const response = await this.client.post("/transaccional", {
                 tipo_evento: "escalacion_asesor",
@@ -32,7 +34,7 @@ class JetPotService {
                     grupo_familiar
                 }
             });
-            logger.info(`[JetPotService] Escalacion enviada OK: ${response.status}`);
+            logger.info('[Response] enviarEscalacion', { status: response.status, data: response.data });
             return response.data;
         } catch (error) {
             const status = error.response?.status || "sin respuesta";

@@ -12,6 +12,7 @@ class ToolExecutor {
     }
 
     async execute(toolName, args) {
+        logger.info(`[Tool] ${toolName}`, { args: args ?? {} });
         switch (toolName) {
             case "obtenerLinkPago":
                 return this._obtenerLinkPago(args);
@@ -30,8 +31,6 @@ class ToolExecutor {
     }
 
     async _obtenerLinkPago() {
-        logger.info("[ToolExecutor] obtenerLinkPago");
-
         let grupo_familiar = "";
         const raw = this.persona?.json_adicional;
         if (raw) {
@@ -65,8 +64,6 @@ class ToolExecutor {
     }
 
     async _obtenerLinkCambio() {
-        logger.info("[ToolExecutor] obtenerLinkCambio");
-
         let grupo_familiar = "";
         const raw = this.persona?.json_adicional;
         if (raw) {
@@ -95,15 +92,19 @@ class ToolExecutor {
     }
 
     async _agregarListaNegra() {
-        logger.info(`[ToolExecutor] agregarListaNegra: persona=${this.persona?.id}`);
         if (!this.persona?.id) {
             return JSON.stringify({ error: "No se pudo identificar la persona" });
         }
         try {
+            logger.info('[Query] agregarListaNegra', {
+                query: 'UPDATE persona SET lista_negra = true WHERE id = $1',
+                params: [this.persona.id]
+            });
             await pool.query(
                 `UPDATE persona SET lista_negra = true, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $1`,
                 [this.persona.id]
             );
+            logger.info('[Response] agregarListaNegra', { personaId: this.persona.id });
             return JSON.stringify({ success: true, message: "Persona agregada a lista negra" });
         } catch (error) {
             logger.error('[ToolExecutor] Error al agregar a lista negra', { stack: error.stack });
@@ -112,7 +113,6 @@ class ToolExecutor {
     }
 
     async _derivarAsesor({ motivo }) {
-        logger.info(`[ToolExecutor] derivarAsesor: persona=${this.persona?.id}, motivo=${motivo}`);
         if (!this.persona?.id) {
             return JSON.stringify({ error: "No se pudo identificar la persona" });
         }
@@ -143,15 +143,19 @@ class ToolExecutor {
     }
 
     async _tipificarConversacion({id_tipificacion}) {
-        logger.info(`[ToolExecutor] tipificarConversacion: tipificacion=${id_tipificacion}, persona=${this.persona?.id}`);
         if (!this.persona?.id) {
             return JSON.stringify({ error: "No se pudo identificar la persona para tipificar" });
         }
         try {
+            logger.info('[Query] tipificarConversacion', {
+                query: 'UPDATE persona SET id_tipificacion = $1 WHERE id = $2',
+                params: [id_tipificacion, this.persona.id]
+            });
             await pool.query(
                 `UPDATE persona SET id_tipificacion = $1, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $2`,
                 [id_tipificacion, this.persona.id]
             );
+            logger.info('[Response] tipificarConversacion', { personaId: this.persona.id, id_tipificacion });
             return JSON.stringify({ success: true, message: "Tipificacion actualizada correctamente" });
         } catch (error) {
             logger.error('[ToolExecutor] Error al tipificar', { stack: error.stack });

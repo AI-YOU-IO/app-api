@@ -31,7 +31,6 @@ class MessageProcessingController {
             const tipoMensaje = messageType || "texto";
             const archivos = Array.isArray(files) ? files : [];
 
-            logger.info('[messageProcessing] Incoming', { messageType: tipoMensaje, hasFiles: archivos.length > 0 });
 
             // Resolver id_empresa a partir del phone_number_id en configuracion_whatsapp
             const configWhatsapp = await ConfiguracionWhatsapp.getByPhoneNumberId(phone_number_id);
@@ -72,6 +71,7 @@ class MessageProcessingController {
             }
             setContextField('phone', phoneTrimmed);
             setContextField('personaId', persona.id);
+            setContextField('nombre', persona.nombre_completo || persona.nombre || 'Sin nombre');
             // logger.info(`[messageProcessing.controller.js] Datos persona ${JSON.stringify(persona)}`);
             if (question === "No contactar") {
                 await Persona.updatePersona(persona.id, { lista_negra: true });
@@ -107,6 +107,7 @@ class MessageProcessingController {
 
             // El contenido del mensaje es: texto transcrito > texto enviado > placeholder
             const contenidoMensaje = textoTranscrito || questionTrimmed || (contenidoArchivo ? `[${tipoMensaje}]` : null);
+            logger.info('[Mensaje] entrante', { texto: contenidoMensaje, tipo: tipoMensaje });
 
             // Guardar mensaje entrante con el texto transcrito
             const fechaEntrante = new Date();
@@ -160,6 +161,7 @@ class MessageProcessingController {
             });
 
             const respuestaTexto = resultado.content;
+            logger.info('[Mensaje] saliente', { texto: respuestaTexto });
 
             // Enviar respuesta por WhatsApp
             let widRespuesta = null;

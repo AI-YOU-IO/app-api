@@ -45,15 +45,11 @@ class AssistantService {
      */
     async runProcess({ chatId, message, persona, id_empresa }) {
         try {
-            logger.info('[AssistantService] runProcess start', { messagePreview: message.substring(0, 100), model: this.model });
-
             const systemPrompt = await buildSystemPrompt({
                 persona,
                 timestamp: getLocalDateWithDay(),
                 id_empresa
             });
-
-            logger.info('[AssistantService] systemPrompt', { preview: systemPrompt.substring(0, 200) });
 
             const toolDefinitions = await this.getToolDefinitions(id_empresa);
 
@@ -81,13 +77,6 @@ class AssistantService {
                     tools: toolDefinitions
                 });
 
-                logger.info('[AssistantService] LLM response', {
-                    iteration: iterations,
-                    hasToolCalls: !!(response.tool_calls?.length),
-                    toolCount: response.tool_calls?.length || 0,
-                    contentPreview: response.content ? response.content.substring(0, 200) : null
-                });
-
                 if (!response.tool_calls || response.tool_calls.length === 0) {
                     newMessages.push({ role: "assistant", content: response.content });
                     await MemoryService.addMessagesToCache(chatId, newMessages);
@@ -105,12 +94,6 @@ class AssistantService {
                 for (const toolCall of response.tool_calls) {
                     const args = JSON.parse(toolCall.function.arguments);
                     const result = await toolExecutor.execute(toolCall.function.name, args);
-
-                    logger.info('[AssistantService] Tool', {
-                        name: toolCall.function.name,
-                        args: toolCall.function.arguments.substring(0, 200),
-                        result: typeof result === 'string' ? result.substring(0, 200) : JSON.stringify(result).substring(0, 200)
-                    });
 
                     const toolMsg = {
                         role: "tool",
