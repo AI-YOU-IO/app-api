@@ -206,6 +206,33 @@ class MessageProcessingController {
         }
     }
 
+    /**
+     * Actualiza el estado_entrega de un mensaje según su wid_mensaje.
+     * Llamado por el webhook PHP de Maravia.
+     * Body: { wid_mensaje, estado_entrega }
+     */
+    async updateMessageStatus(req, res) {
+        try {
+            const { wid_mensaje, estado_entrega } = req.body;
+
+            if (!wid_mensaje || estado_entrega === undefined) {
+                return res.clientError(400, "Campos requeridos: wid_mensaje, estado_entrega");
+            }
+
+            const affected = await Mensaje.updateEstadoEntrega(wid_mensaje, estado_entrega);
+
+            if (affected === 0) {
+                return res.clientError(404, "Mensaje no encontrado");
+            }
+
+            return res.success(200, "Estado de entrega actualizado", { wid_mensaje, estado_entrega });
+
+        } catch (error) {
+            logger.error('[messageProcessing] Error en updateMessageStatus', { stack: error.stack });
+            return res.serverError(500, "Error interno en el servidor");
+        }
+    }
+
 }
 
 module.exports = new MessageProcessingController();

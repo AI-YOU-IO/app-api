@@ -32,6 +32,19 @@ class MensajeModel {
             throw new Error(`Error al buscar mensajes por chat: ${error.message}`);
         }
     }
+
+    async updateEstadoEntrega(wid_mensaje, estado_entrega) {
+        try {
+            const [result] = await this.connection.execute(
+                `UPDATE mensaje SET estado_entrega = ? WHERE wid_mensaje = ? AND estado_registro = 1`,
+                [estado_entrega, wid_mensaje]
+            );
+
+            return result.affectedRows;
+        } catch (error) {
+            throw new Error(`Error al actualizar estado_entrega: ${error.message}`);
+        }
+    }
 }
 
 module.exports = new MensajeModel();
