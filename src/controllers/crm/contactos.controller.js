@@ -9,13 +9,32 @@ class ContactosController {
     try {
       const { userId, rolId, idEmpresa } = req.user || {};
       const offset = parseInt(req.params.offset) || 0;
-      const { id_estado, id_tipificacion, id_tipificacion_asesor } = req.query;
+      const {
+        id_estado,
+        id_tipificacion,
+        id_tipificacion_asesor,
+        link_enviado,
+        derivado,
+        lista_negra,
+        respondieron
+      } = req.query;
 
       let query = `
         SELECT c.id, c.id_persona, c.fecha_registro, c.estado_registro, c.bot_activo,
+               c.id_tipificacion_bot, c.id_tipificacion_asesor,
                p.celular, p.nombre_completo, p.id_estado, p.id_tipificacion, p.id_usuario, p.id_empresa,
+               p.lista_negra,
                e.nombre as estado_nombre, e.color as estado_color,
-               t.nombre as tipificacion_nombre,
+               tb.nombre as tipificacion_bot_nombre,
+               ta.nombre as tipificacion_asesor_nombre,
+               EXISTS(
+                 SELECT 1 FROM link_pago lp
+                 WHERE lp.id_persona = p.id AND lp.id_empresa = p.id_empresa
+               ) as se_envio_link,
+               EXISTS(
+                 SELECT 1 FROM mensaje m
+                 WHERE m.id_chat = c.id AND m.direccion = 'in' AND m.estado_registro = 1
+               ) as cliente_respondio,
                (SELECT contenido FROM mensaje WHERE id_chat = c.id AND estado_registro = 1 ORDER BY id DESC LIMIT 1) as ultimo_mensaje,
                (SELECT fecha_hora FROM mensaje WHERE id_chat = c.id AND estado_registro = 1 ORDER BY id DESC LIMIT 1) as fecha_ultimo_mensaje,
                (SELECT COUNT(*) FROM mensaje WHERE id_chat = c.id AND estado_registro = 1) as total_mensajes,
@@ -23,7 +42,8 @@ class ContactosController {
         FROM chat c
         LEFT JOIN persona p ON p.id = c.id_persona
         LEFT JOIN estado e ON e.id = p.id_estado
-        LEFT JOIN tipificacion t ON t.id = p.id_tipificacion
+        LEFT JOIN tipificacion_whasap tb ON tb.id = c.id_tipificacion_bot
+        LEFT JOIN tipificacion_whasap ta ON ta.id = c.id_tipificacion_asesor
         WHERE c.estado_registro = 1`;
 
       const params = [];
@@ -43,14 +63,55 @@ class ContactosController {
         params.push(id_estado);
       }
 
+      // Tipificación Bot → filtra por c.id_tipificacion_bot (incluye descendientes)
       if (id_tipificacion) {
-        query += ' AND p.id_tipificacion = ?';
+        query += ` AND c.id_tipificacion_bot IN (
+          WITH RECURSIVE arbol AS (
+            SELECT id FROM tipificacion_whasap WHERE id = ?
+            UNION ALL
+            SELECT t.id FROM tipificacion_whasap t
+            INNER JOIN arbol a ON t.id_padre = a.id
+          ) SELECT id FROM arbol
+        )`;
         params.push(id_tipificacion);
       }
 
+      // Tipificación Asesor → filtra por c.id_tipificacion_asesor (incluye descendientes)
       if (id_tipificacion_asesor) {
-        query += ' AND p.id_usuario = ?';
+        query += ` AND c.id_tipificacion_asesor IN (
+          WITH RECURSIVE arbol AS (
+            SELECT id FROM tipificacion_whasap WHERE id = ?
+            UNION ALL
+            SELECT t.id FROM tipificacion_whasap t
+            INNER JOIN arbol a ON t.id_padre = a.id
+          ) SELECT id FROM arbol
+        )`;
         params.push(id_tipificacion_asesor);
+      }
+
+      // Nuevos filtros (todos son boolean: "1"/"true" para activar)
+      const isTrue = (v) => v === '1' || v === 'true' || v === true;
+
+      if (isTrue(link_enviado)) {
+        query += ` AND EXISTS(
+          SELECT 1 FROM link_pago lp
+          WHERE lp.id_persona = p.id AND lp.id_empresa = p.id_empresa
+        )`;
+      }
+
+      if (isTrue(derivado)) {
+        query += ' AND c.bot_activo = 0';
+      }
+
+      if (isTrue(lista_negra)) {
+        query += ' AND p.lista_negra = true';
+      }
+
+      if (isTrue(respondieron)) {
+        query += ` AND EXISTS(
+          SELECT 1 FROM mensaje m
+          WHERE m.id_chat = c.id AND m.direccion = 'in' AND m.estado_registro = 1
+        )`;
       }
 
       // Count total
@@ -75,22 +136,42 @@ class ContactosController {
       const { userId, rolId, idEmpresa } = req.user || {};
       const { query: searchQuery } = req.params;
       const offset = parseInt(req.query.offset) || 0;
-      const { id_estado, id_tipificacion, id_tipificacion_asesor } = req.query;
+      const {
+        id_estado,
+        id_tipificacion,
+        id_tipificacion_asesor,
+        link_enviado,
+        derivado,
+        lista_negra,
+        respondieron
+      } = req.query;
 
       const searchTerm = `%${searchQuery}%`;
 
       let query = `
         SELECT c.id, c.id_persona, c.fecha_registro, c.estado_registro, c.bot_activo,
+               c.id_tipificacion_bot, c.id_tipificacion_asesor,
                p.celular, p.nombre_completo, p.id_estado, p.id_tipificacion, p.id_usuario, p.id_empresa,
+               p.lista_negra,
                e.nombre as estado_nombre, e.color as estado_color,
-               t.nombre as tipificacion_nombre,
+               tb.nombre as tipificacion_bot_nombre,
+               ta.nombre as tipificacion_asesor_nombre,
+               EXISTS(
+                 SELECT 1 FROM link_pago lp
+                 WHERE lp.id_persona = p.id AND lp.id_empresa = p.id_empresa
+               ) as se_envio_link,
+               EXISTS(
+                 SELECT 1 FROM mensaje m
+                 WHERE m.id_chat = c.id AND m.direccion = 'in' AND m.estado_registro = 1
+               ) as cliente_respondio,
                (SELECT contenido FROM mensaje WHERE id_chat = c.id AND estado_registro = 1 ORDER BY id DESC LIMIT 1) as ultimo_mensaje,
                (SELECT fecha_hora FROM mensaje WHERE id_chat = c.id AND estado_registro = 1 ORDER BY id DESC LIMIT 1) as fecha_ultimo_mensaje,
                (SELECT COUNT(*) FROM mensaje WHERE id_chat = c.id AND estado_registro = 1 AND leido = false) as mensajes_no_leidos
         FROM chat c
         LEFT JOIN persona p ON p.id = c.id_persona
         LEFT JOIN estado e ON e.id = p.id_estado
-        LEFT JOIN tipificacion t ON t.id = p.id_tipificacion
+        LEFT JOIN tipificacion_whasap tb ON tb.id = c.id_tipificacion_bot
+        LEFT JOIN tipificacion_whasap ta ON ta.id = c.id_tipificacion_asesor
         WHERE c.estado_registro = 1
         AND (p.celular LIKE ? OR p.nombre_completo LIKE ?)`;
 
@@ -112,13 +193,51 @@ class ContactosController {
       }
 
       if (id_tipificacion) {
-        query += ' AND p.id_tipificacion = ?';
+        query += ` AND c.id_tipificacion_bot IN (
+          WITH RECURSIVE arbol AS (
+            SELECT id FROM tipificacion_whasap WHERE id = ?
+            UNION ALL
+            SELECT t.id FROM tipificacion_whasap t
+            INNER JOIN arbol a ON t.id_padre = a.id
+          ) SELECT id FROM arbol
+        )`;
         params.push(id_tipificacion);
       }
 
       if (id_tipificacion_asesor) {
-        query += ' AND p.id_usuario = ?';
+        query += ` AND c.id_tipificacion_asesor IN (
+          WITH RECURSIVE arbol AS (
+            SELECT id FROM tipificacion_whasap WHERE id = ?
+            UNION ALL
+            SELECT t.id FROM tipificacion_whasap t
+            INNER JOIN arbol a ON t.id_padre = a.id
+          ) SELECT id FROM arbol
+        )`;
         params.push(id_tipificacion_asesor);
+      }
+
+      const isTrue = (v) => v === '1' || v === 'true' || v === true;
+
+      if (isTrue(link_enviado)) {
+        query += ` AND EXISTS(
+          SELECT 1 FROM link_pago lp
+          WHERE lp.id_persona = p.id AND lp.id_empresa = p.id_empresa
+        )`;
+      }
+
+      if (isTrue(derivado)) {
+        query += ' AND c.bot_activo = 0';
+      }
+
+      if (isTrue(lista_negra)) {
+        query += ' AND p.lista_negra = true';
+      }
+
+      if (isTrue(respondieron)) {
+        query += ` AND EXISTS(
+          SELECT 1 FROM mensaje m
+          WHERE m.id_chat = c.id AND m.direccion = 'in' AND m.estado_registro = 1
+        )`;
       }
 
       const countQuery = query.replace(/SELECT[\s\S]*?FROM chat c/, 'SELECT COUNT(*) as total FROM chat c');

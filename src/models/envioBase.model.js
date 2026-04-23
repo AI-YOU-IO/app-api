@@ -55,7 +55,13 @@ class EnvioBaseModel {
                         tw.nombre as nombre_tipificacion,
                         COALESCE(tw_abuelo.nombre, tw_padre.nombre, tw.nombre) as nombre_nivel_1,
                         CASE WHEN tw_abuelo.id IS NOT NULL THEN tw_padre.nombre WHEN tw_padre.id IS NOT NULL THEN tw.nombre ELSE NULL END as nombre_nivel_2,
-                        CASE WHEN tw_abuelo.id IS NOT NULL THEN tw.nombre ELSE NULL END as nombre_nivel_3
+                        CASE WHEN tw_abuelo.id IS NOT NULL THEN tw.nombre ELSE NULL END as nombre_nivel_3,
+                        COALESCE(p.lista_negra, false) AS lista_negra,
+                        (bnd.json_adicional->>'grupo_familiar') AS grupo_familiar,
+                        EXISTS(
+                          SELECT 1 FROM link_pago lp
+                          WHERE lp.id_persona = p.id AND lp.id_empresa = p.id_empresa
+                        ) AS se_envio_link
                 FROM envio_base eb
                 LEFT JOIN base_numero_detalle bnd ON eb.id_base = bnd.id
                 LEFT JOIN base_numero bn ON bnd.id_base_numero = bn.id

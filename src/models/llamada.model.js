@@ -13,13 +13,20 @@ class LlamadaModel {
                         ca.nombre as campania_nombre,
                         bnd.telefono, bnd.nombre as contacto_nombre, bnd.numero_documento,
                         ce.id as id_campania_ejecucion_rel,
-                        el.nombre as estado_llamada_nombre, el.color as estado_llamada_color
+                        el.nombre as estado_llamada_nombre, el.color as estado_llamada_color,
+                        COALESCE(p.lista_negra, false) AS lista_negra,
+                        (bnd.json_adicional->>'grupo_familiar') AS grupo_familiar,
+                        EXISTS(
+                          SELECT 1 FROM link_pago lp
+                          WHERE lp.id_persona = p.id AND lp.id_empresa = l.id_empresa
+                        ) AS se_envio_link
                 FROM llamada l
                 LEFT JOIN tipificacion_llamada tl ON tl.id = l.id_tipificacion_llamada
                 LEFT JOIN campania ca ON ca.id = l.id_campania
                 LEFT JOIN base_numero_detalle bnd ON bnd.id = l.id_base_numero_detalle
                 LEFT JOIN campania_ejecucion ce ON ce.id = l.id_campania_ejecucion
                 LEFT JOIN estado_llamada el ON el.id = l.id_estado_llamada
+                LEFT JOIN persona p ON p.id_ref_base_num_detalle = bnd.id AND p.id_empresa = l.id_empresa
                 WHERE l.id_empresa = ? AND l.estado_registro = 1
                 ORDER BY l.fecha_registro DESC`,
                 [id_empresa]
@@ -173,16 +180,16 @@ class LlamadaModel {
     async getByCampaniaEjecucion(id_campania_ejecucion) {
         try {
             const [rows] = await this.connection.execute(
-                `SELECT 
+                `SELECT
                     l.*,
                     tl.nombre AS tipificacion_llamada_nombre,
                     tl.color AS tipificacion_llamada_color,
-            
+
                     vt.nombre_nivel_1,
                     vt.nombre_nivel_2,
                     vt.nombre_nivel_3,
                     vt.nombre_tipificacion,
-            
+
                     ca.nombre AS campania_nombre,
                     bnd.telefono,
                     bnd.nombre AS contacto_nombre,
@@ -195,7 +202,13 @@ class LlamadaModel {
                         FROM transcripcion t
                         WHERE t.id_llamada = l.id
                           AND t.estado_registro = 1
-                    ) AS tiene_transcripcion
+                    ) AS tiene_transcripcion,
+                    COALESCE(p.lista_negra, false) AS lista_negra,
+                    (bnd.json_adicional->>'grupo_familiar') AS grupo_familiar,
+                    EXISTS(
+                      SELECT 1 FROM link_pago lp
+                      WHERE lp.id_persona = p.id AND lp.id_empresa = l.id_empresa
+                    ) AS se_envio_link
                 FROM llamada l
                 LEFT JOIN tipificacion_llamada tl
                     ON tl.id = l.id_tipificacion_llamada
@@ -210,6 +223,9 @@ class LlamadaModel {
                     ON ce.id = l.id_campania_ejecucion
                 LEFT JOIN estado_llamada el
                     ON el.id = l.id_estado_llamada
+                LEFT JOIN persona p
+                    ON p.id_ref_base_num_detalle = bnd.id
+                   AND p.id_empresa = l.id_empresa
                 WHERE l.id_campania_ejecucion = ?
                   AND l.estado_registro = 1
                 ORDER BY l.fecha_registro DESC`,
