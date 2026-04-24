@@ -76,7 +76,7 @@ class N8nEnvioMasivoController {
                                              AND eb.estado = 'pendiente'
                                              AND eb.estado_registro = 1
          WHERE emw.estado_envio = 'pendiente'
-           AND emw.es_programado = 1
+           AND emw.es_programado = true
            AND emw.fecha_envio <= CURRENT_TIMESTAMP
            AND emw.estado_registro = 1
          GROUP BY emw.id, emw.id_empresa, emw.titulo, emw.cantidad,
