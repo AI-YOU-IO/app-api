@@ -57,14 +57,15 @@ class EnvioMasivoWhatsappModel {
         descripcion,
         cantidad,
         fecha_envio,
+        es_programado,
         estado_envio,
         usuario_registro
     }) {
         try {
             const [result] = await this.connection.execute(
                 `INSERT INTO envio_masivo_whatsapp
-                (id_empresa, id_plantilla, titulo, descripcion, cantidad, fecha_envio, estado_envio, estado_registro, usuario_registro)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+                (id_empresa, id_plantilla, titulo, descripcion, cantidad, fecha_envio, es_programado, estado_envio, estado_registro, usuario_registro)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
                 [
                     id_empresa,
                     id_plantilla,
@@ -72,6 +73,7 @@ class EnvioMasivoWhatsappModel {
                     descripcion || null,
                     cantidad || null,
                     fecha_envio || null,
+                    es_programado,
                     estado_envio || 'pendiente',
                     usuario_registro || null
                 ]

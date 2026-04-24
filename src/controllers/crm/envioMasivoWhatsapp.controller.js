@@ -87,6 +87,7 @@ class EnvioMasivoWhatsappController {
                 descripcion,
                 cantidad,
                 fecha_envio,
+                es_programado: !!fecha_envio,
                 estado_envio: 'pendiente',
                 usuario_registro: userId
             });

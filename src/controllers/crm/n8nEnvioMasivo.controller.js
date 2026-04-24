@@ -44,20 +44,31 @@ class N8nEnvioMasivoController {
    */
   async getPendientesAgrupados(req, res) {
     try {
-      const limite_por_empresa = Math.max(1, parseInt(req.query.limite_por_empresa) || 5);
       const { pool } = require("../../config/dbConnection.js");
 
-      // Una sola query: envíos pendientes con configuración WA y conteo de pendientes
+      // Subconsulta para obtener el envío programado más antiguo por empresa
       const [rows] = await pool.execute(
         `SELECT
-           emw.id          AS envio_id,
+           emw.id              AS envio_id,
            emw.id_empresa,
+           emw.titulo,
            emw.cantidad,
-           pw.name         AS plantilla,
-           pw.language     AS language,
-           e.nombre_comercial AS empresa_nombre,
-           COUNT(eb.id)    AS cantidad_pendientes
+           emw.fecha_envio,
+           pw.name             AS plantilla,
+           pw.language         AS language,
+           e.nombre_comercial  AS empresa_nombre,
+           COUNT(eb.id)        AS cantidad_pendientes
          FROM envio_masivo_whatsapp emw
+         INNER JOIN (
+           SELECT id_empresa, MIN(fecha_envio) AS primera_fecha
+           FROM envio_masivo_whatsapp
+           WHERE estado_envio = 'pendiente'
+             AND es_programado = true
+             AND fecha_envio <= CURRENT_TIMESTAMP
+             AND estado_registro = 1
+           GROUP BY id_empresa
+         ) primero ON primero.id_empresa = emw.id_empresa
+                  AND primero.primera_fecha = emw.fecha_envio
          INNER JOIN configuracion_whatsapp cw ON cw.id_empresa = emw.id_empresa
          LEFT JOIN plantilla_whatsapp pw      ON pw.id = emw.id_plantilla
          LEFT JOIN empresa e                  ON e.id  = emw.id_empresa
@@ -65,37 +76,29 @@ class N8nEnvioMasivoController {
                                              AND eb.estado = 'pendiente'
                                              AND eb.estado_registro = 1
          WHERE emw.estado_envio = 'pendiente'
+           AND emw.es_programado = 1
            AND emw.fecha_envio <= CURRENT_TIMESTAMP
            AND emw.estado_registro = 1
-         GROUP BY emw.id, emw.id_empresa, emw.cantidad,
-                  pw.name, pw.language, e.nombre_comercial
-         ORDER BY emw.id_empresa ASC, emw.fecha_envio ASC`
+         GROUP BY emw.id, emw.id_empresa, emw.titulo, emw.cantidad,
+                  emw.fecha_envio, pw.name, pw.language, e.nombre_comercial
+         ORDER BY emw.id_empresa ASC`
       );
 
-      // Agrupar por empresa respetando el límite de envíos por empresa
-      const empresasMap = {};
-      for (const row of rows) {
-        const idEmpresa = row.id_empresa;
-        if (!empresasMap[idEmpresa]) {
-          empresasMap[idEmpresa] = {
-            id_empresa: idEmpresa,
-            empresa_nombre: row.empresa_nombre || 'Sin nombre',
-            envios: []
-          };
+      const empresas = rows.map(row => ({
+        id_empresa: row.id_empresa,
+        empresa_nombre: row.empresa_nombre || 'Sin nombre',
+        envio: {
+          envio_id: row.envio_id,
+          titulo: row.titulo || '',
+          plantilla: row.plantilla || '',
+          language: row.language || 'es',
+          cantidad: row.cantidad,
+          cantidad_pendientes: parseInt(row.cantidad_pendientes || 0),
+          fecha_envio: row.fecha_envio
         }
-        if (empresasMap[idEmpresa].envios.length < limite_por_empresa) {
-          empresasMap[idEmpresa].envios.push({
-            envio_id: row.envio_id,
-            plantilla: row.plantilla || '',
-            language: row.language || 'es',
-            cantidad: row.cantidad,
-            cantidad_pendientes: parseInt(row.cantidad_pendientes || 0)
-          });
-        }
-      }
+      }));
 
-      const empresas = Object.values(empresasMap);
-      logger.info(`[n8nEnvioMasivo] getPendientesAgrupados: ${empresas.length} empresas, ${rows.length} envíos totales`);
+      logger.info(`[n8nEnvioMasivo] getPendientesAgrupados: ${empresas.length} empresas con envío programado listo`);
 
       return res.json({
         success: true,
