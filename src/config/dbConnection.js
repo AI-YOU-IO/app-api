@@ -1,5 +1,9 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 const logger = require('./logger/loggerClient');
+
+// TIMESTAMP WITHOUT TIMEZONE (OID 1114): retorna string ISO sin Z para que el
+// frontend lo trate como hora Lima local, sin conversión UTC automática
+types.setTypeParser(1114, str => str ? str.replace(' ', 'T') : null);
 
 // Validar variables de entorno requeridas
 const requiredEnvVars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
@@ -27,6 +31,12 @@ const pool = new Pool({
 // Manejar errores de conexiones idle en el pool
 pool.on('error', (err) => {
     logger.error(`[dbConnection.js] Error inesperado en conexión idle del pool: ${err.message}`);
+});
+
+// Fijar timezone Lima en cada conexión para que CURRENT_TIMESTAMP y los
+// timestamps devueltos por el driver usen la misma hora que el usuario ve
+pool.on('connect', (client) => {
+    client.query("SET timezone = 'America/Lima'");
 });
 
 // Función para verificar conexión
