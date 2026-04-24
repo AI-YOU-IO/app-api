@@ -74,7 +74,7 @@ class EnvioMasivoWhatsappController {
     async create(req, res) {
         try {
             const { userId, idEmpresa } = req.user || {};
-            const { id_plantilla, titulo, descripcion, cantidad, fecha_envio, estado_envio } = req.body;
+            const { id_plantilla, titulo, descripcion, cantidad, fecha_envio } = req.body;
 
             if (!id_plantilla) {
                 return res.status(400).json({ msg: "La plantilla es requerida" });
@@ -87,7 +87,7 @@ class EnvioMasivoWhatsappController {
                 descripcion,
                 cantidad,
                 fecha_envio,
-                estado_envio,
+                estado_envio: 'pendiente',
                 usuario_registro: userId
             });
 
