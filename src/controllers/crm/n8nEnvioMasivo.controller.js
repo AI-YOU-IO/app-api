@@ -538,7 +538,6 @@ class N8nEnvioMasivoController {
       }
 
       // Actualizar contadores y estado del envío masivo si ya no quedan pendientes
-      const { pool } = require("../../config/dbConnection.js");
       const [countRows] = await pool.execute(
         `SELECT
            SUM(CASE WHEN estado = 'pendiente' THEN 1 ELSE 0 END) AS pendientes,
