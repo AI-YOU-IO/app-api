@@ -159,8 +159,8 @@ class N8nEnvioMasivoController {
         return res.status(400).json({ error: 'No hay registros asociados a este envío' });
       }
 
-      // Actualizar estado a enviado (en proceso)
-      await EnvioMasivoWhatsappModel.updateEstado(id, 'entregado');
+      // Marcar como en proceso antes de empezar
+      await EnvioMasivoWhatsappModel.updateEstado(id, 'en_proceso');
 
       const resultados = {
         envio_id: parseInt(id),
@@ -339,10 +339,14 @@ class N8nEnvioMasivoController {
         }
       }
 
-      // Determinar nuevo estado
-      let nuevoEstado = 'entregado';
-      if (resultados.fallidos > 0 && resultados.enviados === 0) {
+      // Determinar estado final
+      let nuevoEstado;
+      if (resultados.enviados === 0 && resultados.fallidos > 0) {
         nuevoEstado = 'cancelado';
+      } else if (resultados.fallidos > 0) {
+        nuevoEstado = 'pendiente';
+      } else {
+        nuevoEstado = 'entregado';
       }
 
       // Actualizar contadores y estado final
@@ -542,20 +546,41 @@ class N8nEnvioMasivoController {
   async marcarCompletado(req, res) {
     try {
       const { id } = req.params;
-      const {
-        estado = 'entregado',
-        enviados = 0,
-        fallidos = 0
-      } = req.body;
+      const { pool } = require("../../config/dbConnection.js");
+
+      // Leer contadores reales desde envio_base para no depender de lo que envíe n8n
+      const [countRows] = await pool.execute(
+        `SELECT
+           SUM(CASE WHEN estado = 'entregado' THEN 1 ELSE 0 END)::integer AS enviados,
+           SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END)::integer AS fallidos
+         FROM envio_base
+         WHERE id_envio_masivo = ? AND estado_registro = 1`,
+        [id]
+      );
+
+      const enviados = parseInt(countRows[0]?.enviados || 0);
+      const fallidos = parseInt(countRows[0]?.fallidos || 0);
+
+      let estado;
+      if (enviados === 0 && fallidos > 0) {
+        estado = 'cancelado';
+      } else if (fallidos > 0) {
+        estado = 'pendiente';
+      } else {
+        estado = 'entregado';
+      }
 
       await EnvioMasivoWhatsappModel.updateContadores(id, enviados, fallidos);
       await EnvioMasivoWhatsappModel.updateEstado(id, estado);
+
+      logger.info(`[n8nEnvioMasivo] Envío ${id} completado: ${enviados} enviados, ${fallidos} fallidos → ${estado}`);
 
       return res.json({
         success: true,
         message: `Envío ${id} marcado como ${estado}`,
         enviados,
-        fallidos
+        fallidos,
+        estado
       });
 
     } catch (error) {
